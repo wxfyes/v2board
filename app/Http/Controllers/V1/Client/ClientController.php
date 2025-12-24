@@ -25,6 +25,13 @@ class ClientController extends Controller
         if ($userService->isAvailable($user)) {
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
+
+            // Special handling for MOMclash (TianQueApp)
+            // It uses a dedicated Protocol class allowing specialized config templates (momclash.yaml)
+            if (stripos($request->header('User-Agent'), 'TianQueApp') !== false) {
+                $class = new \App\Protocols\MOMclash($user, $servers);
+                return $class->handle();
+            }            
             if($flag) {
                 if (!strpos($flag, 'sing')) {
                     $this->setSubscribeInfoToServers($servers, $user);

@@ -1,0 +1,567 @@
+@charset "UTF-8";
+/**
+ * 全局样式变量
+ */
+[data-v-15ee30ec]:root {
+  --background-color: #f5f7fa;
+  --card-background: #ffffff;
+  --card-background-rgb: 255, 255, 255;
+  --text-color: #333333;
+  --text-color-rgb: 51, 51, 51;
+  --secondary-text-color: #666666;
+  --border-color: #e8e8e8;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --success-color: #00B42A;
+  --success-background: #E8FFEA;
+  --success-color-rgb: 0, 180, 42;
+  --warning-color: #FF7D00;
+  --warning-background: #FFF7E8;
+  --warning-color-rgb: 255, 125, 0;
+  --error-color: #F53F3F;
+  --error-background: #FFECE8;
+  --error-color-rgb: 245, 63, 63;
+  --info-color: #165DFF;
+  --info-background: #E8F3FF;
+  --info-color-rgb: 22, 93, 255;
+}
+body.dark-theme[data-v-15ee30ec] {
+  --background-color: #171A1D;
+  --card-background: rgba(30, 30, 30, 0.8);
+  --card-background-rgb: 30, 30, 30;
+  --text-color: rgba(255, 255, 255, 0.9);
+  --text-color-rgb: 255, 255, 255;
+  --secondary-text-color: rgba(255, 255, 255, 0.6);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --shadow-color: rgba(0, 0, 0, 0.3);
+}
+.deposit-container[data-v-15ee30ec] {
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  padding-bottom: 80px;
+}
+.deposit-container .deposit-inner[data-v-15ee30ec] {
+  width: 100%;
+  max-width: 1200px;
+}
+.deposit-container .dashboard-card[data-v-15ee30ec] {
+  background-color: var(--card-bg-color);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+.deposit-container .dashboard-card[data-v-15ee30ec]:hover {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border-color: rgba(var(--theme-color-rgb), 0.3);
+}
+.deposit-container .dashboard-card.glassmorphism[data-v-15ee30ec] {
+  background-color: rgba(var(--card-background-rgb, 255, 255, 255), 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  will-change: backdrop-filter, background-color;
+}
+.deposit-container .dashboard-card .card-header[data-v-15ee30ec] {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+.deposit-container .dashboard-card .card-header .card-title[data-v-15ee30ec] {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+.deposit-container .welcome-card[data-v-15ee30ec] {
+  margin-bottom: 24px;
+}
+.deposit-container .welcome-card .card-body p[data-v-15ee30ec] {
+  color: var(--secondary-text-color);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+.deposit-container .balance-card .card-body[data-v-15ee30ec] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 25px;
+}
+.deposit-container .balance-card .balance-display[data-v-15ee30ec] {
+  text-align: center;
+}
+.deposit-container .balance-card .balance-display .balance-value[data-v-15ee30ec] {
+  font-size: 3.5rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin-bottom: 12px;
+  text-shadow: 0 2px 4px rgba(var(--theme-color-rgb), 0.1);
+}
+.deposit-container .balance-card .balance-display .balance-label[data-v-15ee30ec] {
+  font-size: 1.1rem;
+  color: var(--secondary-text-color);
+}
+.deposit-container .balance-card .balance-skeleton[data-v-15ee30ec] {
+  width: 100%;
+  text-align: center;
+}
+.deposit-container .balance-card .balance-skeleton .skeleton-balance-value[data-v-15ee30ec] {
+  height: 3.5rem;
+  width: 200px;
+  margin: 0 auto 12px;
+  background-color: var(--skeleton-bg, rgba(0, 0, 0, 0.05));
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.deposit-container .balance-card .balance-skeleton .skeleton-balance-label[data-v-15ee30ec] {
+  height: 1.1rem;
+  width: 160px;
+  margin: 0 auto;
+  background-color: var(--skeleton-bg, rgba(0, 0, 0, 0.05));
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+.deposit-container .balance-card .balance-skeleton .skeleton-balance-value[data-v-15ee30ec]::after, .deposit-container .balance-card .balance-skeleton .skeleton-balance-label[data-v-15ee30ec]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-100%);
+  animation: shimmer-15ee30ec 2s infinite;
+  will-change: transform;
+}
+.deposit-container .deposit-card .card-body[data-v-15ee30ec] {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.deposit-container .deposit-card .deposit-notice[data-v-15ee30ec] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background-color: rgba(var(--theme-color-rgb), 0.1);
+  border-radius: 8px;
+}
+.deposit-container .deposit-card .deposit-notice .notice-icon[data-v-15ee30ec] {
+  color: var(--primary-color);
+}
+.deposit-container .deposit-card .deposit-notice span[data-v-15ee30ec] {
+  font-size: 0.9rem;
+}
+.deposit-container .deposit-card .amount-selection[data-v-15ee30ec] {
+  margin-bottom: 10px;
+  width: 100%;
+}
+.deposit-container .deposit-card .amount-selection .period-cards[data-v-15ee30ec] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 15px;
+  width: 100%;
+}
+.deposit-container .deposit-card .amount-selection .period-cards .period-card[data-v-15ee30ec] {
+  cursor: pointer;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--border-color);
+  transition: all 0.3s ease;
+  position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+.deposit-container .deposit-card .amount-selection .period-cards .period-card.active[data-v-15ee30ec] {
+  border-color: var(--theme-color);
+  box-shadow: 0 5px 15px rgba(var(--theme-color-rgb), 0.15);
+}
+.deposit-container .deposit-card .amount-selection .period-cards .period-card.active .period-card-inner[data-v-15ee30ec] {
+  background-color: rgba(var(--theme-color-rgb), 0.1);
+}
+.deposit-container .deposit-card .amount-selection .period-cards .period-card.active .period-price .currency[data-v-15ee30ec],
+.deposit-container .deposit-card .amount-selection .period-cards .period-card.active .period-price .amount[data-v-15ee30ec] {
+  color: var(--theme-color);
+}
+.deposit-container .deposit-card .amount-selection .period-cards .period-card[data-v-15ee30ec]:hover {
+  border-color: rgba(var(--theme-color-rgb), 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.deposit-container .deposit-card .amount-selection .period-cards .period-card .period-card-inner[data-v-15ee30ec] {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  transition: background-color 0.3s ease;
+}
+.deposit-container .deposit-card .amount-selection .period-cards .period-card .period-price[data-v-15ee30ec] {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+.deposit-container .deposit-card .amount-selection .period-cards .period-card .period-price .currency[data-v-15ee30ec] {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-right: 2px;
+}
+.deposit-container .deposit-card .amount-selection .period-cards .period-card .period-price .amount[data-v-15ee30ec] {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-color);
+}
+.deposit-container .deposit-card .custom-amount[data-v-15ee30ec] {
+  margin-top: 15px;
+}
+.deposit-container .deposit-card .custom-amount label[data-v-15ee30ec] {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--secondary-text-color);
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+.deposit-container .deposit-card .custom-amount .input-container[data-v-15ee30ec] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 50px;
+}
+.deposit-container .deposit-card .custom-amount .input-container .currency-symbol[data-v-15ee30ec] {
+  position: absolute;
+  left: 15px;
+  color: var(--text-color);
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+.deposit-container .deposit-card .custom-amount .input-container input[data-v-15ee30ec] {
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  background-color: var(--input-bg, rgba(0, 0, 0, 0.02));
+  padding: 0 15px 0 35px;
+  font-size: 1.2rem;
+  color: var(--text-color);
+  transition: all 0.3s ease;
+}
+.deposit-container .deposit-card .custom-amount .input-container input[data-v-15ee30ec]:hover {
+  border-color: rgba(var(--theme-color-rgb), 0.3);
+}
+.deposit-container .deposit-card .custom-amount .input-container input[data-v-15ee30ec]:focus {
+  outline: none;
+  border-color: var(--theme-color);
+  box-shadow: 0 0 0 4px rgba(var(--theme-color-rgb), 0.15);
+}
+.deposit-container .deposit-card .custom-amount .input-container input[data-v-15ee30ec]::-moz-placeholder {
+  color: rgba(var(--text-color-rgb), 0.4);
+}
+.deposit-container .deposit-card .custom-amount .input-container input[data-v-15ee30ec]::placeholder {
+  color: rgba(var(--text-color-rgb), 0.4);
+}
+.deposit-container .deposit-card .custom-amount .error-message[data-v-15ee30ec] {
+  display: block;
+  margin-top: 8px;
+  color: var(--danger-color, #ff4757);
+  font-size: 0.85rem;
+}
+.deposit-container .deposit-card .deposit-actions[data-v-15ee30ec] {
+  margin-top: 25px;
+  display: flex;
+  justify-content: center;
+}
+.deposit-container .deposit-card .deposit-actions .btn-order[data-v-15ee30ec] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: var(--theme-color);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 0 30px;
+  height: 50px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(var(--theme-color-rgb), 0.3);
+}
+.deposit-container .deposit-card .deposit-actions .btn-order[data-v-15ee30ec]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(var(--theme-color-rgb), 0.4);
+}
+.deposit-container .deposit-card .deposit-actions .btn-order[data-v-15ee30ec]:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(var(--theme-color-rgb), 0.3);
+}
+.deposit-container .deposit-card .deposit-actions .btn-order[data-v-15ee30ec]:disabled {
+  background-color: var(--disabled-bg, #cccccc);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.deposit-container .deposit-card .deposit-actions .btn-order .loader[data-v-15ee30ec] {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin-15ee30ec 1s linear infinite;
+}
+@keyframes shimmer-15ee30ec {
+0% {
+    transform: translateX(-100%);
+}
+100% {
+    transform: translateX(300%);
+}
+}
+@keyframes spin-15ee30ec {
+0% {
+    transform: rotate(0deg);
+}
+100% {
+    transform: rotate(360deg);
+}
+}
+.dark-theme .skeleton-balance-value[data-v-15ee30ec],
+.dark-theme .skeleton-balance-label[data-v-15ee30ec],
+.dark-theme .skeleton-price[data-v-15ee30ec],
+.dark-theme .skeleton-input-field[data-v-15ee30ec] {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.dark-theme .skeleton-balance-value[data-v-15ee30ec]::after,
+.dark-theme .skeleton-balance-label[data-v-15ee30ec]::after,
+.dark-theme .skeleton-price[data-v-15ee30ec]::after,
+.dark-theme .skeleton-input-field[data-v-15ee30ec]::after {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 100%);
+}
+@media (max-width: 768px) {
+.deposit-container[data-v-15ee30ec] {
+    padding: 15px;
+    padding-bottom: 100px;
+}
+.deposit-container .balance-card .balance-display .balance-value[data-v-15ee30ec] {
+    font-size: 2.5rem;
+}
+.deposit-container .deposit-card .amount-selection .period-cards[data-v-15ee30ec] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+}
+.skeleton-card[data-v-15ee30ec] {
+  cursor: default;
+  border: 2px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-card .skeleton-price[data-v-15ee30ec] {
+  height: 24px;
+  width: 80%;
+  margin: 0 auto;
+  background-color: var(--skeleton-bg, rgba(0, 0, 0, 0.05));
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-card .skeleton-price[data-v-15ee30ec]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-100%);
+  animation: shimmer-15ee30ec 2s infinite;
+  will-change: transform;
+}
+.skeleton-card[data-v-15ee30ec]:hover {
+  transform: none;
+  box-shadow: none;
+}
+.skeleton-input[data-v-15ee30ec] {
+  height: 50px;
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-input .skeleton-input-field[data-v-15ee30ec] {
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  background-color: var(--skeleton-bg, rgba(0, 0, 0, 0.05));
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-input .skeleton-input-field[data-v-15ee30ec]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-100%);
+  animation: shimmer-15ee30ec 2s infinite;
+  will-change: transform;
+}
+.btn-order-skeleton[data-v-15ee30ec] {
+  height: 50px;
+  min-width: 200px;
+  border-radius: 12px;
+  background-color: var(--skeleton-bg, rgba(0, 0, 0, 0.05));
+  position: relative;
+  overflow: hidden;
+}
+.btn-order-skeleton[data-v-15ee30ec]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-100%);
+  animation: shimmer-15ee30ec 2s infinite;
+  will-change: transform;
+}
+
+/* 放在头部的自动续费控件容器 */
+.header-renewal-control[data-v-15ee30ec] {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* 开关和文字的间距 */
+}
+
+/* 续费文字标签的样式 */
+.renewal-title[data-v-15ee30ec] {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--secondary-text-color);
+  transition: color 0.3s ease;
+  cursor: default;
+}
+
+/* 激活状态的文字颜色 */
+.renewal-title.is-active[data-v-15ee30ec] {
+  color: var(--theme-color);
+}
+
+/* 开关主体样式 */
+.switch[data-v-15ee30ec] {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+.switch.disabled[data-v-15ee30ec] {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.switch input[data-v-15ee30ec] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch input:checked + .slider[data-v-15ee30ec] {
+  background-color: var(--theme-color);
+}
+.switch input:checked + .slider[data-v-15ee30ec]:before {
+  transform: translateX(22px);
+}
+.switch input:disabled + .slider[data-v-15ee30ec] {
+  cursor: not-allowed;
+}
+.switch .slider[data-v-15ee30ec] {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  /* 加载中状态 */
+}
+.switch .slider.loading[data-v-15ee30ec] {
+  overflow: hidden;
+}
+.switch .slider.loading[data-v-15ee30ec]:before {
+  animation: pulse-15ee30ec 1.5s infinite;
+}
+.switch .slider.loading[data-v-15ee30ec]:after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: sweep-15ee30ec 1.5s infinite;
+}
+.switch .slider[data-v-15ee30ec]:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  z-index: 1;
+}
+.switch .slider.round[data-v-15ee30ec] {
+  border-radius: 34px;
+}
+.switch .slider.round[data-v-15ee30ec]:before {
+  border-radius: 50%;
+}
+
+/* 开关加载动画 */
+@keyframes pulse-15ee30ec {
+0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+}
+70% {
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0);
+}
+100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+}
+}
+@keyframes sweep-15ee30ec {
+0% {
+    transform: translateX(-100%);
+}
+100% {
+    transform: translateX(100%);
+}
+}
+/* 加载动画 */
+@keyframes spin-15ee30ec {
+0% {
+    transform: rotate(0deg);
+}
+100% {
+    transform: rotate(360deg);
+}
+}
+/* 暗色主题下的开关样式 */
+.dark-theme .auto-renewal-toggle .toggle-label .toggle-slider[data-v-15ee30ec] {
+  background-color: #555;
+}
+.dark-theme .auto-renewal-toggle .toggle-label .toggle-slider[data-v-15ee30ec]::before {
+  background-color: #fff;
+}
+.dark-theme .auto-renewal-toggle .toggle-label .toggle-input:checked + .toggle-slider[data-v-15ee30ec] {
+  background-color: var(--theme-color);
+}
