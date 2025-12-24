@@ -1,7 +1,9 @@
 # ==========================================
 # 🚀 Clash Meta (Mihomo) 天花板级专业配置
 # 核心特性：Split DNS / 流量嗅探 / 智能分流
+# 包含优化：TikTok 专属加速
 # ==========================================
+
 # ==========================================
 # 💾 缓存持久化 (解决更新后断网问题)
 # ==========================================
@@ -84,14 +86,15 @@ dns:
     - https://8.8.8.8/dns-query
     - https://dns.google/dns-query
     - tls://8.8.4.4:853
- # 5. DNS 强制分流策略 (在 fallback-filter 之前添加)
+
+  # 5. DNS 强制分流策略
   nameserver-policy: 
     "geosite:geolocation-!cn": [https://dns.google/dns-query, https://1.1.1.1/dns-query]
     "geosite:cn": [https://dns.alidns.com/dns-query, https://doh.pub/dns-query]
     "+.browserleaks.com": [https://dns.google/dns-query]
-    "geosite:!cn": [https://dns.google/dns-query]# 专门治测试站转圈/泄露
+    "geosite:!cn": [https://dns.google/dns-query]
 
-  # 5. DNS 分流策略
+  # 6. DNS 分流策略
   fallback-filter:
     geoip: true
     geoip-code: CN
@@ -111,14 +114,14 @@ dns:
       - '+.xnxx.com'
       - '+.googleapis.com'
       - '+.googleusercontent.com'
-      - '+.ggpht.com'    # Google Photos / Play Store Images
-      - '+.gvt1.com'     # Google Video / Play Store Updates
+      - '+.ggpht.com'    
+      - '+.gvt1.com'     
       - '+.gstatic.com'
       - '+.android.com'
       - '+.gvt0.com'
       - '+.gvt2.com'
       - '+.gvt3.com'
-      - '+.1e100.net'    # Google 骨干网
+      - '+.1e100.net'    
       - '+.crashlytics.com'
       - '+.app-measurement.com'      
 
@@ -206,8 +209,6 @@ proxy-groups:
     interval: 300
     tolerance: 50
     proxies:
-      # ❌ 之前写的是 - 🌐 全部节点 (导致死循环)
-      # ✅ 改为直接正则匹配：
       - "/^(?!.*(剩余|到期|过期|时间|有效|群|官网)).*$/u"
 
   - name: 🚑 故障转移
@@ -215,8 +216,6 @@ proxy-groups:
     url: http://www.gstatic.com/generate_204
     interval: 300
     proxies:
-      # ❌ 之前写的是 - 🌐 全部节点
-      # ✅ 改为直接正则匹配：
       - "/^(?!.*(剩余|到期|过期|时间|有效|群|官网)).*$/u"
 
   - name: 🌍 国外媒体
@@ -247,6 +246,17 @@ proxy-groups:
       - 🇸🇬 新加坡自动
       - 🇹🇼 台湾自动
 
+  # 🎵 TikTok 专属加速组
+  - name: 🎵 TikTok
+    type: select
+    proxies:
+      - 🇸🇬 新加坡自动
+      - 🇯🇵 日本自动
+      - 🇹🇼 台湾自动
+      - 🇺🇸 美国自动
+      - 🚀 节点选择
+      - DIRECT
+
   - name: 🍎 苹果服务
     type: select
     proxies:
@@ -260,9 +270,6 @@ proxy-groups:
       - REJECT
       - DIRECT
 
-  # ------------------------------------------
-  # 🕵️‍♂️ 兜底策略
-  # ------------------------------------------
   - name: 🐟 漏网之鱼
     type: select
     proxies:
@@ -270,7 +277,7 @@ proxy-groups:
       - DIRECT
 
   # ------------------------------------------
-  # 📂 地区节点提取 (包含了自动组)
+  # 📂 地区节点提取
   # ------------------------------------------
   - name: 🇭🇰 香港节点
     type: select
@@ -382,6 +389,13 @@ rule-providers:
     path: ./ruleset/telegram.yaml
     interval: 86400
 
+  tiktok:
+    type: http
+    behavior: classical
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/TikTok/TikTok.yaml"
+    path: ./ruleset/tiktok.yaml
+    interval: 86400
+
   gfw:
     type: http
     behavior: domain
@@ -420,6 +434,7 @@ rules:
   - RULE-SET,apple,🍎 苹果服务
   - RULE-SET,openai,🤖 人工智能
   - RULE-SET,telegram,📲 电报信息
+  - RULE-SET,tiktok,🎵 TikTok
   - RULE-SET,google,🚀 节点选择
   - RULE-SET,proxy,🚀 节点选择
   - RULE-SET,gfw,🚀 节点选择
