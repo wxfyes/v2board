@@ -27,12 +27,12 @@ class ClientController extends Controller
             $servers = $serverService->getAvailableServers($user);
 
             // Special handling for MOMclash (TianQueApp)
-            // It uses a dedicated Protocol class allowing specialized config templates (momclash.yaml)
-            if (stripos($request->header('User-Agent'), 'TianQueApp') !== false) {
+            // Enforce that this logic only triggers for subscription-related requests
+            if (stripos($request->header('User-Agent'), 'TianQueApp') !== false && ($request->is('**/subscribe') || $request->has('token'))) {
                 $class = new \App\Protocols\MOMclash($user, $servers);
-                return $class->handle();
-            }            
-            if($flag) {
+                return response($class->handle());
+            }
+            if ($flag) {
                 if (!strpos($flag, 'sing')) {
                     $this->setSubscribeInfoToServers($servers, $user);
                     foreach (array_reverse(glob(app_path('Protocols') . '/*.php')) as $file) {
@@ -63,8 +63,10 @@ class ClientController extends Controller
 
     private function setSubscribeInfoToServers(&$servers, $user)
     {
-        if (!isset($servers[0])) return;
-        if (!(int)config('v2board.show_info_to_server_enable', 0)) return;
+        if (!isset($servers[0]))
+            return;
+        if (!(int) config('v2board.show_info_to_server_enable', 0))
+            return;
         $useTraffic = $user['u'] + $user['d'];
         $totalTraffic = $user['transfer_enable'];
         $remainingTraffic = Helper::trafficConvert($totalTraffic - $useTraffic);

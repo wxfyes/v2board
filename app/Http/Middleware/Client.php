@@ -20,9 +20,18 @@ class Client
     {
         $token = $request->input('token');
         if (empty($token)) {
+            // Fallback: Check if user is already authenticated via JWT (Authorization header)
+            $authorization = $request->input('auth_data') ?? $request->header('authorization');
+            if ($authorization) {
+                $user = \App\Services\AuthService::decryptAuthData($authorization);
+                if ($user) {
+                    $request->merge(['user' => User::find($user['id'])]);
+                    return $next($request);
+                }
+            }
             abort(403, 'token is null');
         }
-        $submethod = (int)config('v2board.show_subscribe_method', 0);
+        $submethod = (int) config('v2board.show_subscribe_method', 0);
         switch ($submethod) {
             case 0:
                 break;
@@ -37,7 +46,7 @@ class Client
             case 2:
                 $usertoken = Cache::get("totp_{$token}");
                 if (!$usertoken) {
-                    $timestep = (int)config('v2board.show_subscribe_expire', 5) * 60;
+                    $timestep = (int) config('v2board.show_subscribe_expire', 5) * 60;
                     $counter = floor(time() / $timestep);
                     $counterBytes = pack('N*', 0) . pack('N*', $counter);
                     $idhash = Helper::base64DecodeUrlSafe($token);
