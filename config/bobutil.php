@@ -1,16 +1,16 @@
 <?php
 
 return [
-    // 邮件配置（留空则使用 V2Board 后台配置的邮件设置）
-    // 如果需要使用独立的邮件服务器，取消下面的注释并填入配置
-    // 'mail' => [
-    //     'host'          => 'smtp.gmail.com',
-    //     'port'          => '587',
-    //     'username'      => 'your@gmail.com',
-    //     'password'      => 'your_app_password',
-    //     'encryption'    => 'tls',
-    //     'from_address'  => 'your@gmail.com'
-    // ],
+    // 邮件营销专用邮箱配置（独立于 V2Board 系统邮箱）
+    // 建议使用单独的 Gmail 邮箱，避免影响系统邮件额度
+    'mail' => [
+        'host' => '',    // smtp.gmail.com
+        'port' => '',    // 587
+        'username' => '',    // your_marketing@gmail.com
+        'password' => '',    // Gmail 应用专用密码
+        'encryption' => '',    // tls
+        'from_address' => ''     // your_marketing@gmail.com
+    ],
 
     // 用户注册xxx分钟没订单发送邮件
     'register' => [
