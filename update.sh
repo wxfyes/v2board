@@ -23,8 +23,6 @@ if [ $php_main_version -ge 8 ]; then
         echo "Adding pcntl extension to cli-php.ini"
         sed -i '/extension=redis.so/a extension=pcntl.so' cli-php.ini
     fi
-    php -c cli-php.ini webman.php stop
-    echo "Webman stopped.Please restart it by yourself."
 fi
 
 php artisan v2board:update
@@ -33,8 +31,11 @@ if [ -f "/etc/init.d/bt" ]; then
   chown -R www $(pwd);
 fi
 
-# 提示用户手动重启 webman
+# 重启 webman（后台模式）
 echo ""
+echo "正在重启 webman..."
+php -c cli-php.ini webman.php stop 2>/dev/null
+sleep 1
+php -c cli-php.ini webman.php start -d
+echo "✅ Webman 已在后台重启"
 echo "🎉 更新完成！"
-echo "⚠️ 请到宝塔面板 Supervisor 页面手动重启 webman"
-
