@@ -27,7 +27,7 @@ class StatController extends Controller
     {
         return [
             'data' => [
-                'online_user' => User::where('t','>=', time() - 600)
+                'online_user' => User::where('t', '>=', time() - 600)
                     ->count(),
                 'month_income' => Order::where('created_at', '>=', strtotime(date('Y-m-1')))
                     ->where('created_at', '<', time())
@@ -61,6 +61,18 @@ class StatController extends Controller
                 'commission_last_month_payout' => CommissionLog::where('created_at', '>=', strtotime('-1 month', strtotime(date('Y-m-1'))))
                     ->where('created_at', '<', strtotime(date('Y-m-1')))
                     ->sum('get_amount'),
+                // 今日总流量（字节）
+                'today_traffic' => StatUser::where('record_at', '>=', strtotime(date('Y-m-d')))
+                    ->where('record_at', '<', time())
+                    ->where('record_type', 'd')
+                    ->sum(DB::raw('u + d')),
+                // 有效订阅用户数（套餐未过期且有套餐的用户）
+                'valid_subscribe_count' => User::whereNotNull('plan_id')
+                    ->where(function ($query) {
+                        $query->whereNull('expired_at')
+                            ->orWhere('expired_at', '>', time());
+                    })
+                    ->count(),
             ]
         ];
     }
@@ -116,7 +128,7 @@ class StatController extends Controller
             'vmess' => ServerVmess::where('parent_id', null)->get()->toArray(),
             'vless' => ServerVless::where('parent_id', null)->get()->toArray(),
             'tuic' => ServerTuic::where('parent_id', null)->get()->toArray(),
-            'hysteria'=> ServerHysteria::where('parent_id', null)->get()->toArray(),
+            'hysteria' => ServerHysteria::where('parent_id', null)->get()->toArray(),
             'anytls' => ServerAnytls::where('parent_id', null)->get()->toArray(),
             'v2node' => ServerV2node::where('parent_id', null)->get()->toArray()
         ];
@@ -159,7 +171,7 @@ class StatController extends Controller
             'vmess' => ServerVmess::where('parent_id', null)->get()->toArray(),
             'vless' => ServerVless::where('parent_id', null)->get()->toArray(),
             'tuic' => ServerTuic::where('parent_id', null)->get()->toArray(),
-            'hysteria'=> ServerHysteria::where('parent_id', null)->get()->toArray(),
+            'hysteria' => ServerHysteria::where('parent_id', null)->get()->toArray(),
             'anytls' => ServerAnytls::where('parent_id', null)->get()->toArray(),
             'v2node' => ServerV2node::where('parent_id', null)->get()->toArray()
         ];
