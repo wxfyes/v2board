@@ -26,14 +26,19 @@ class ClientController extends Controller
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
 
+            // 记录客户端登录时间和类型（所有客户端都记录）
+            $userAgent = $request->header('User-Agent') ?? '';
+            $clientType = $this->parseClientType($userAgent);
+            \DB::table('v2_user')
+                ->where('id', $user['id'])
+                ->update([
+                    'client_login_at' => time(),
+                    'client_type' => $clientType
+                ]);
+
             // Special handling for MOMclash (TianQueApp)
             // Enforce that this logic only triggers for subscription-related requests
-            if (stripos($request->header('User-Agent'), 'TianQueApp') !== false && ($request->is('**/subscribe') || $request->has('token'))) {
-                // 记录客户端登录时间
-                \DB::table('v2_user')
-                    ->where('id', $user['id'])
-                    ->update(['client_login_at' => time()]);
-
+            if (stripos($userAgent, 'TianQueApp') !== false && ($request->is('**/subscribe') || $request->has('token'))) {
                 $class = new \App\Protocols\MOMclash($user, $servers);
                 return response($class->handle());
             }
@@ -64,6 +69,46 @@ class ClientController extends Controller
             $class = new General($user, $servers);
             return $class->handle();
         }
+    }
+
+    /**
+     * 解析 User-Agent 获取客户端类型
+     */
+    private function parseClientType($userAgent)
+    {
+        $userAgent = strtolower($userAgent);
+
+        // 常见客户端识别
+        $clients = [
+            'tianqueapp' => '天阙(TianQue)',
+            'clash' => 'Clash',
+            'clash-verge' => 'Clash Verge',
+            'clashx' => 'ClashX',
+            'clash for windows' => 'Clash for Windows',
+            'shadowrocket' => 'Shadowrocket',
+            'quantumult' => 'Quantumult',
+            'quantumult%20x' => 'Quantumult X',
+            'surge' => 'Surge',
+            'v2rayn' => 'V2RayN',
+            'v2rayng' => 'V2RayNG',
+            'stash' => 'Stash',
+            'sing-box' => 'sing-box',
+            'hiddify' => 'Hiddify',
+            'nekobox' => 'NekoBox',
+            'nekoray' => 'NekoRay',
+            'passwall' => 'PassWall',
+            'ssrplus' => 'SSR+',
+            'openclash' => 'OpenClash',
+        ];
+
+        foreach ($clients as $keyword => $name) {
+            if (strpos($userAgent, $keyword) !== false) {
+                return $name;
+            }
+        }
+
+        // 如果无法识别，返回 User-Agent 的前 32 个字符
+        return substr($userAgent, 0, 32) ?: '未知';
     }
 
     private function setSubscribeInfoToServers(&$servers, $user)

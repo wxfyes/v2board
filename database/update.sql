@@ -860,3 +860,7 @@ CHANGE `action_value` `action_value` text NULL AFTER `action`;
 -- 添加客户端登录时间字段
 ALTER TABLE `v2_user`
 ADD `client_login_at` int(11) NULL COMMENT '客户端登录时间' AFTER `last_login_at`;
+
+-- 添加客户端类型字段
+ALTER TABLE `v2_user`
+ADD `client_type` varchar(64) NULL COMMENT '客户端类型' AFTER `client_login_at`;
