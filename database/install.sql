@@ -565,6 +565,8 @@ CREATE TABLE `v2_user` (
                            `banned` tinyint(1) NOT NULL DEFAULT '0',
                            `is_admin` tinyint(1) NOT NULL DEFAULT '0',
                            `last_login_at` int(11) DEFAULT NULL,
+                           `client_login_at` int(11) DEFAULT NULL COMMENT '客户端登录时间',
+                           `client_type` text COMMENT '客户端类型历史(JSON)',
                            `is_staff` tinyint(1) NOT NULL DEFAULT '0',
                            `last_login_ip` int(11) DEFAULT NULL,
                            `uuid` varchar(36) NOT NULL,
