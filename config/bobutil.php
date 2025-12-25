@@ -7,7 +7,7 @@ return [
         'host' => 'smtp.gmail.com',    // smtp.gmail.com
         'port' => '587',    // 587
         'username' => 'tianquee@gmail.com',    // your_marketing@gmail.com
-        'password' => 'nluu zrwy ivvx gtlx',    // Gmail 应用专用密码
+        'password' => 'nluuzrwyivvxgtlx',    // Gmail 应用专用密码
         'encryption' => 'tls',    // tls
         'from_address' => 'tianquee@gmail.com'     // your_marketing@gmail.com
     ],
