@@ -50,8 +50,8 @@ class BobUtilDay extends Command
             ->where('expired_at', '>', $start_7day)
             ->where('expired_at', '<=', $end_7day)
             ->get();
-        $expired_7day_users->each(function ($user) use ($config){
-            $this->info("已发送用户还有7天到期邮件提醒：".$user->email);
+        $expired_7day_users->each(function ($user) use ($config) {
+            $this->info("已发送用户还有7天到期邮件提醒：" . $user->email);
             $this->sendMail($user->email, $config['user_expire'][0]['title'], $config['user_expire'][0]['content']);
         });
 
@@ -61,41 +61,34 @@ class BobUtilDay extends Command
             ->where('expired_at', '>', $start_1day)
             ->where('expired_at', '<=', $end_1day)
             ->get();
-        $expired_1day_users->each(function ($user) use ($config){
-            $this->info("已发送用户还有1天到期邮件提醒：".$user->email);
+        $expired_1day_users->each(function ($user) use ($config) {
+            $this->info("已发送用户还有1天到期邮件提醒：" . $user->email);
             $this->sendMail($user->email, $config['user_expire'][1]['title'], $config['user_expire'][1]['content']);
         });
 
         $flow_out_users = User::query()->whereRaw('u + d > transfer_enable')->get();
-        $flow_out_users->each(function ($user) use($config){
+        $flow_out_users->each(function ($user) use ($config) {
             $log = MailLog::where(['email' => $user->email, 'subject' => $config['flow_out']['title']])->doesntExist();
-            if ($log){
-                $this->info("已发送用户流量已用尽邮件提醒：".$user->email);
+            if ($log) {
+                $this->info("已发送用户流量已用尽邮件提醒：" . $user->email);
                 $this->sendMail($user->email, $config['flow_out']['title'], $config['flow_out']['content']);
             }
         });
 
-        $expire_start_7day = strtotime(date('Y-m-d 00:00:00', strtotime('-7 day')));
-        $expire_end_7day = strtotime(date('Y-m-d 23:59:59', strtotime('-7 day')));
-        $expire_7day_users = User::query()
-            ->where('expired_at', '>', $expire_start_7day)
-            ->where('expired_at', '<=', $expire_end_7day)
-            ->get();
-        $expire_7day_users->each(function ($user) use ($config){
-            $this->info("已发送用户已过期7天召回邮件提醒：".$user->email);
-            $this->sendMail($user->email, $config['user_expired'][0]['title'], $config['user_expired'][0]['content']);
-        });
-
-        $start_15day = strtotime(date('Y-m-d 00:00:00', strtotime('-15 day')));
-        $end_15day = strtotime(date('Y-m-d 23:59:59', strtotime('-15 day')));
-        $expire_15day_users = User::query()
-            ->where('expired_at', '>', $start_15day)
-            ->where('expired_at', '<=', $end_15day)
-            ->get();
-        $expire_15day_users->each(function ($user) use ($config){
-            $this->info("已发送用户已过期15天召回邮件提醒：".$user->email);
-            $this->sendMail($user->email, $config['user_expired'][1]['title'], $config['user_expired'][1]['content']);
-        });
+        // 用户已过期召回（根据配置动态处理多个时间点）
+        foreach ($config['user_expired'] as $expiredConfig) {
+            $days = $expiredConfig['days'] ?? 7;
+            $start = strtotime(date('Y-m-d 00:00:00', strtotime("-{$days} day")));
+            $end = strtotime(date('Y-m-d 23:59:59', strtotime("-{$days} day")));
+            $expiredUsers = User::query()
+                ->where('expired_at', '>', $start)
+                ->where('expired_at', '<=', $end)
+                ->get();
+            $expiredUsers->each(function ($user) use ($expiredConfig, $days) {
+                $this->info("已发送用户已过期{$days}天召回邮件提醒：" . $user->email);
+                $this->sendMail($user->email, $expiredConfig['title'], $expiredConfig['content']);
+            });
+        }
     }
 
     private function sendMail($email, $subject, $content)
