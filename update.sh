@@ -33,17 +33,8 @@ if [ -f "/etc/init.d/bt" ]; then
   chown -R www $(pwd);
 fi
 
-# 自动重启 webman
-echo "正在重启 webman..."
-if command -v supervisorctl &> /dev/null; then
-  supervisorctl restart webman
-  echo "✅ Webman 已通过 supervisorctl 重启"
-elif command -v pm2 &> /dev/null; then
-  pm2 restart webman
-  echo "✅ Webman 已通过 pm2 重启"
-else
-  php -c cli-php.ini webman.php restart
-  echo "✅ Webman 已重启"
-fi
-
+# 提示用户手动重启 webman
+echo ""
 echo "🎉 更新完成！"
+echo "⚠️ 请到宝塔面板 Supervisor 页面手动重启 webman"
+
