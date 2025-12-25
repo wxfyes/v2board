@@ -113,9 +113,41 @@ class MOMclash
             $config['proxy-groups'][$k]['proxies'] = array_merge($config['proxy-groups'][$k]['proxies'], $proxies);
         }
         $config['proxy-groups'] = array_filter($config['proxy-groups'], function ($group) {
-            return $group['proxies'];
+            return !empty($group['proxies']);
         });
         $config['proxy-groups'] = array_values($config['proxy-groups']);
+
+        // -----------------------------------------------------------
+        // 🚀 纯 PHP 动态优化 (不依赖 YAML)
+        // -----------------------------------------------------------
+        $subscribeHost = $_SERVER['HTTP_HOST'] ?? null;
+        if ($subscribeHost) {
+            // 1. 自动将面板域名加入 DNS 加速 (防止解析不出 IP)
+            if (!isset($config['dns']['fallback-filter']['domain'])) {
+                $config['dns']['fallback-filter']['domain'] = [];
+            }
+            if (!in_array("+.$subscribeHost", $config['dns']['fallback-filter']['domain'])) {
+                $config['dns']['fallback-filter']['domain'][] = "+.$subscribeHost";
+            }
+
+            // 2. 自动在规则列表首部添加该域名，但不强制 DIRECT
+            // 默认让它走“🚀 节点选择”或者跟随规则集，确保代理可兜底
+            if (!isset($config['rules']) || !is_array($config['rules'])) {
+                $config['rules'] = [];
+            }
+            // 我们可以把它加在最前面作为“匹配项”，但目标设为一个策略组名
+            // 这样它就会走代理，直到直连规则（如 GEOIP,CN）接管它
+            array_unshift($config['rules'], "DOMAIN,{$subscribeHost},🚀 节点选择");
+        }
+
+        // 3. 基础解析 IP 放行 (仅用于解析服务器，不影响业务)
+        if (isset($config['dns']['proxy-server-nameserver']) && is_array($config['dns']['proxy-server-nameserver'])) {
+            foreach (array_reverse($config['dns']['proxy-server-nameserver']) as $ds) {
+                if (preg_match('/(\d+\.\d+\.\d+\.\d+)/', $ds, $matches)) {
+                    array_unshift($config['rules'], "IP-CIDR,{$matches[1]}/32,DIRECT,no-resolve");
+                }
+            }
+        }
 
         $yaml = Yaml::dump($config, 2, 4, Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE);
         $yaml = str_replace('$app_name', config('v2board.app_name', 'V2Board'), $yaml);

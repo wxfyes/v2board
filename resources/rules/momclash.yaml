@@ -1,16 +1,14 @@
 # ==========================================
 # 🚀 Clash Meta (Mihomo) 天花板级专业配置
 # 核心特性：Split DNS / 流量嗅探 / 智能分流
+# 包含优化：TikTok 专属加速 (修复版)
 # ==========================================
+
 # ==========================================
 # 💾 缓存持久化 (解决更新后断网问题)
 # ==========================================
 profile:
-  # 存储 Fake-IP 映射表到磁盘
-  # 重启/重载后能读取之前的记录，解决系统缓存了Fake-IP但核心忘了的问题
   store-fake-ip: true
-  
-  # 存储用户选择的节点 (可选，提升体验)
   store-selected: true
 
 port: 7890
@@ -27,7 +25,6 @@ ipv6: true
 external-controller: 127.0.0.1:9090
 
 # 🌟 天花板特性：流量嗅探 (Sniffer)
-# 能够从流量中还原域名，解决 DNS 污染和重定向问题
 sniffer:
   enable: true
   force-dns-mapping: true
@@ -44,7 +41,7 @@ sniffer:
       ports: [443, 8443]
       override-destination: false
 
-# 🌟 天花板特性：TCP 并发 (提升握手速度)
+# 🌟 天花板特性：TCP 并发
 tcp-concurrent: true
 
 # ==========================================
@@ -59,12 +56,10 @@ dns:
   use-hosts: true
   respect-rules: true
 
-  # 1. 默认 DNS (国内直连解析)
   default-nameserver:
     - 223.5.5.5
     - 119.29.29.29
 
-  # 2. 专门用于解析“代理节点域名”的 DNS
   proxy-server-nameserver:
     - quic://154.219.104.214
     - quic://103.20.222.133
@@ -73,25 +68,22 @@ dns:
     - tls://154.219.96.225
     - quic://154.219.96.225
 
-  # 3. 核心 Nameserver (国内域名)
   nameserver:
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
 
-  # 4. Fallback DNS (国外域名，防污染)
   fallback:
     - https://1.1.1.1/dns-query
     - https://8.8.8.8/dns-query
     - https://dns.google/dns-query
     - tls://8.8.4.4:853
- # 5. DNS 强制分流策略 (在 fallback-filter 之前添加)
+
   nameserver-policy: 
     "geosite:geolocation-!cn": [https://dns.google/dns-query, https://1.1.1.1/dns-query]
     "geosite:cn": [https://dns.alidns.com/dns-query, https://doh.pub/dns-query]
     "+.browserleaks.com": [https://dns.google/dns-query]
-    "geosite:!cn": [https://dns.google/dns-query]# 专门治测试站转圈/泄露
+    "geosite:!cn": [https://dns.google/dns-query]
 
-  # 5. DNS 分流策略
   fallback-filter:
     geoip: true
     geoip-code: CN
@@ -111,22 +103,37 @@ dns:
       - '+.xnxx.com'
       - '+.googleapis.com'
       - '+.googleusercontent.com'
-      - '+.ggpht.com'    # Google Photos / Play Store Images
-      - '+.gvt1.com'     # Google Video / Play Store Updates
+      - '+.ggpht.com'
+      - '+.gvt1.com'
       - '+.gstatic.com'
       - '+.android.com'
       - '+.gvt0.com'
       - '+.gvt2.com'
       - '+.gvt3.com'
-      - '+.1e100.net'    # Google 骨干网
+      - '+.1e100.net'
       - '+.crashlytics.com'
-      - '+.app-measurement.com'      
+      - '+.app-measurement.com'
+      - '+.github.com'
+      - '+.githubusercontent.com'
+      - '+.githubassets.com'
+      - '+.tiktok.com'
+      - '+.tiktokv.com'
+      - '+.tiktokcdn.com'
+      - '+.byteoversea.com'
+      - '+.ibytedtos.com'
+      - '+.cloudflare.com'
+      - '+.cloudflare.net'
+      - '+.cloudflare.org'
+      - '+.docker.com'
+      - '+.docker.io'
+      - '+.docker.net'
+      - '+.docker.sh'
 
 # ==========================================
 # 代理组策略 (Proxy Groups)
 # ==========================================
 proxies:
-  # 这里的占位符留给 v2board 自动填充节点
+  # 占位符留给 v2board 自动填充节点
   
 proxy-groups:
   # ------------------------------------------
@@ -181,7 +188,7 @@ proxy-groups:
       - "/(?i)(KR|Korea|韩国)/u"
 
   # ------------------------------------------
-  # 🚀 核心选择组
+  # 🚀 核心选择组 (主要入口)
   # ------------------------------------------
   - name: 🚀 节点选择
     type: select
@@ -193,6 +200,7 @@ proxy-groups:
       - 🇸🇬 新加坡节点
       - 🇺🇸 美国节点
       - 🇰🇷 韩国节点
+      - 🎵 TikTok    # 此处已加入 TikTok 入口      
       - 🌐 全部节点
       - 🚑 故障转移
       - DIRECT
@@ -206,8 +214,6 @@ proxy-groups:
     interval: 300
     tolerance: 50
     proxies:
-      # ❌ 之前写的是 - 🌐 全部节点 (导致死循环)
-      # ✅ 改为直接正则匹配：
       - "/^(?!.*(剩余|到期|过期|时间|有效|群|官网)).*$/u"
 
   - name: 🚑 故障转移
@@ -215,8 +221,6 @@ proxy-groups:
     url: http://www.gstatic.com/generate_204
     interval: 300
     proxies:
-      # ❌ 之前写的是 - 🌐 全部节点
-      # ✅ 改为直接正则匹配：
       - "/^(?!.*(剩余|到期|过期|时间|有效|群|官网)).*$/u"
 
   - name: 🌍 国外媒体
@@ -247,6 +251,18 @@ proxy-groups:
       - 🇸🇬 新加坡自动
       - 🇹🇼 台湾自动
 
+  # ------------------------------------------
+  # 🎵 TikTok 专属组 (修正版：彻底打破死循环)
+  # ------------------------------------------
+  - name: 🎵 TikTok
+    type: select
+    proxies:
+      - 🇸🇬 新加坡自动
+      - 🇯🇵 日本自动
+      - 🇺🇸 美国自动
+      - 🌐 全部节点    # <-- 注意：这里不包含“🚀 节点选择”，避免循环引用
+      - DIRECT
+
   - name: 🍎 苹果服务
     type: select
     proxies:
@@ -260,9 +276,6 @@ proxy-groups:
       - REJECT
       - DIRECT
 
-  # ------------------------------------------
-  # 🕵️‍♂️ 兜底策略
-  # ------------------------------------------
   - name: 🐟 漏网之鱼
     type: select
     proxies:
@@ -270,7 +283,7 @@ proxy-groups:
       - DIRECT
 
   # ------------------------------------------
-  # 📂 地区节点提取 (包含了自动组)
+  # 📂 地区节点提取
   # ------------------------------------------
   - name: 🇭🇰 香港节点
     type: select
@@ -382,6 +395,13 @@ rule-providers:
     path: ./ruleset/telegram.yaml
     interval: 86400
 
+  tiktok:
+    type: http
+    behavior: classical
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/TikTok/TikTok.yaml"
+    path: ./ruleset/tiktok.yaml
+    interval: 86400
+
   gfw:
     type: http
     behavior: domain
@@ -420,6 +440,7 @@ rules:
   - RULE-SET,apple,🍎 苹果服务
   - RULE-SET,openai,🤖 人工智能
   - RULE-SET,telegram,📲 电报信息
+  - RULE-SET,tiktok,🎵 TikTok
   - RULE-SET,google,🚀 节点选择
   - RULE-SET,proxy,🚀 节点选择
   - RULE-SET,gfw,🚀 节点选择
