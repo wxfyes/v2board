@@ -26,14 +26,39 @@ class ClientController extends Controller
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
 
-            // 记录客户端登录时间和类型（所有客户端都记录）
+            // 记录客户端登录时间和类型（所有客户端都记录，保留历史）
             $userAgent = $request->header('User-Agent') ?? '';
             $clientType = $this->parseClientType($userAgent);
+
+            // 获取现有的客户端历史记录
+            $existingData = \DB::table('v2_user')
+                ->where('id', $user['id'])
+                ->value('client_type');
+
+            // 解析现有记录（JSON 格式）
+            $clientHistory = [];
+            if ($existingData) {
+                $decoded = json_decode($existingData, true);
+                if (is_array($decoded)) {
+                    $clientHistory = $decoded;
+                }
+            }
+
+            // 添加新记录到数组开头
+            array_unshift($clientHistory, [
+                'type' => $clientType,
+                'time' => time()
+            ]);
+
+            // 只保留最近 5 条记录
+            $clientHistory = array_slice($clientHistory, 0, 5);
+
+            // 保存到数据库
             \DB::table('v2_user')
                 ->where('id', $user['id'])
                 ->update([
                     'client_login_at' => time(),
-                    'client_type' => $clientType
+                    'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE)
                 ]);
 
             // Special handling for MOMclash (TianQueApp)
