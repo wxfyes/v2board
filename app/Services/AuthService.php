@@ -43,8 +43,14 @@ class AuthService
     {
         try {
             if (!Cache::has($jwt)) {
-                $data = (array)JWT::decode($jwt, new Key(config('app.key'), 'HS256'));
-                if (!self::checkSession($data['id'], $data['session'])) return false;
+                $data = (array) JWT::decode($jwt, new Key(config('app.key'), 'HS256'));
+
+                // 检查 session，如果不存在则自动恢复
+                if (!self::checkSession($data['id'], $data['session'])) {
+                    // 自动恢复 session（JWT 有效但 Redis session 丢失的情况）
+                    self::restoreSession($data['id'], $data['session']);
+                }
+
                 $user = User::select([
                     'id',
                     'email',
@@ -52,7 +58,8 @@ class AuthService
                     'is_staff'
                 ])
                     ->find($data['id']);
-                if (!$user) return false;
+                if (!$user)
+                    return false;
                 Cache::put($jwt, $user->toArray(), 3600);
             }
             return Cache::get($jwt);
@@ -61,46 +68,66 @@ class AuthService
         }
     }
 
+    private static function restoreSession($userId, $session)
+    {
+        $cacheKey = CacheKey::get("USER_SESSIONS", $userId);
+        $sessions = (array) Cache::get($cacheKey, []);
+        $sessions[$session] = [
+            'ip' => request()->ip() ?? 'unknown',
+            'login_at' => time(),
+            'ua' => request()->userAgent() ?? 'unknown',
+            'restored' => true
+        ];
+        Cache::put($cacheKey, $sessions);
+    }
+
     private static function checkSession($userId, $session)
     {
-        $sessions = (array)Cache::get(CacheKey::get("USER_SESSIONS", $userId)) ?? [];
-        if (!in_array($session, array_keys($sessions))) return false;
+        $sessions = (array) Cache::get(CacheKey::get("USER_SESSIONS", $userId)) ?? [];
+        if (!in_array($session, array_keys($sessions)))
+            return false;
         return true;
     }
 
     private static function addSession($userId, $guid, $meta)
     {
         $cacheKey = CacheKey::get("USER_SESSIONS", $userId);
-        $sessions = (array)Cache::get($cacheKey, []);
+        $sessions = (array) Cache::get($cacheKey, []);
         $sessions[$guid] = $meta;
-        if (!Cache::put(
-            $cacheKey,
-            $sessions
-        )) return false;
+        if (
+            !Cache::put(
+                $cacheKey,
+                $sessions
+            )
+        )
+            return false;
         return true;
     }
 
     public function getSessions()
     {
-        return (array)Cache::get(CacheKey::get("USER_SESSIONS", $this->user->id), []);
+        return (array) Cache::get(CacheKey::get("USER_SESSIONS", $this->user->id), []);
     }
 
     public function removeSession($sessionId)
     {
         $cacheKey = CacheKey::get("USER_SESSIONS", $this->user->id);
-        $sessions = (array)Cache::get($cacheKey, []);
+        $sessions = (array) Cache::get($cacheKey, []);
         unset($sessions[$sessionId]);
-        if (!Cache::put(
-            $cacheKey,
-            $sessions
-        )) return false;
+        if (
+            !Cache::put(
+                $cacheKey,
+                $sessions
+            )
+        )
+            return false;
         return true;
     }
 
     public function removeAllSession()
     {
         $cacheKey = CacheKey::get("USER_SESSIONS", $this->user->id);
-        $sessions = (array)Cache::get($cacheKey, []);
+        $sessions = (array) Cache::get($cacheKey, []);
         foreach ($sessions as $guid => $meta) {
             if (isset($meta['auth_data'])) {
                 Cache::forget($meta['auth_data']);
