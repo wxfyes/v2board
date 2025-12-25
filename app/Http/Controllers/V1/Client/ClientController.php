@@ -29,6 +29,11 @@ class ClientController extends Controller
             // Special handling for MOMclash (TianQueApp)
             // Enforce that this logic only triggers for subscription-related requests
             if (stripos($request->header('User-Agent'), 'TianQueApp') !== false && ($request->is('**/subscribe') || $request->has('token'))) {
+                // 记录客户端登录时间
+                \DB::table('v2_user')
+                    ->where('id', $user['id'])
+                    ->update(['client_login_at' => time()]);
+
                 $class = new \App\Protocols\MOMclash($user, $servers);
                 return response($class->handle());
             }
