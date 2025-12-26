@@ -25,11 +25,27 @@ class UserController extends Controller
     public function resetSecret(Request $request)
     {
         $user = User::find($request->input('id'));
-        if (!$user) abort(500, '用户不存在');
+        if (!$user)
+            abort(500, '用户不存在');
         $user->token = Helper::guid();
         $user->uuid = Helper::guid(true);
         return response([
             'data' => $user->save()
+        ]);
+    }
+
+    public function toggleShadowBan(Request $request)
+    {
+        $user = User::find($request->input('id'));
+        if (!$user)
+            abort(500, '用户不存在');
+
+        // 切换影子封禁状态
+        $user->shadow_ban = $user->shadow_ban ? 0 : 1;
+
+        return response([
+            'data' => $user->save(),
+            'shadow_ban' => $user->shadow_ban
         ]);
     }
 
@@ -86,12 +102,12 @@ class UserController extends Controller
             //统计在线设备
             $countalive = 0;
             $ips = [];
-            $ips_array = Cache::get('ALIVE_IP_USER_'. $res[$i]['id']);
+            $ips_array = Cache::get('ALIVE_IP_USER_' . $res[$i]['id']);
             if ($ips_array) {
                 $countalive = $ips_array['alive_ip'];
-                foreach($ips_array as $nodetypeid => $data) {
+                foreach ($ips_array as $nodetypeid => $data) {
                     if (!is_int($data) && isset($data['aliveips'])) {
-                        foreach($data['aliveips'] as $ip_NodeId) {
+                        foreach ($data['aliveips'] as $ip_NodeId) {
                             $ip = explode("_", $ip_NodeId)[0];
                             $ips[] = $ip . '_' . $nodetypeid;
                         }
@@ -154,7 +170,7 @@ class UserController extends Controller
             $params['invite_user_id'] = null;
         }
 
-        if (isset($params['banned']) && (int)$params['banned'] === 1) {
+        if (isset($params['banned']) && (int) $params['banned'] === 1) {
             $authService = new AuthService($user);
             $authService->removeAllSession();
         }
@@ -184,7 +200,7 @@ class UserController extends Controller
         }
 
         $data = "邮箱,余额,推广佣金,总流量,设备数限制,剩余流量,套餐到期时间,订阅计划,订阅地址\r\n";
-        foreach($res as $user) {
+        foreach ($res as $user) {
             $expireDate = $user['expired_at'] === NULL ? '长期有效' : date('Y-m-d H:i:s', $user['expired_at']);
             $balance = $user['balance'] / 100;
             $commissionBalance = $user['commission_balance'] / 100;
@@ -192,7 +208,7 @@ class UserController extends Controller
             $deviceLimit = $user['devce_limit'] ? $user['devce_limit'] : NULL;
             $notUseFlow = (($user['transfer_enable'] - ($user['u'] + $user['d'])) / 1073741824) ?? 0;
             $planName = $user['plan_name'] ?? '无订阅';
-            $subscribeUrl =  Helper::getSubscribeUrl($user['token']);
+            $subscribeUrl = Helper::getSubscribeUrl($user['token']);
             $data .= "{$user['email']},{$balance},{$commissionBalance},{$transferEnable}, {$deviceLimit}, {$notUseFlow},{$expireDate},{$planName},{$subscribeUrl}\r\n";
 
         }
@@ -243,7 +259,7 @@ class UserController extends Controller
             }
         }
         $users = [];
-        for ($i = 0;$i < $request->input('generate_count');$i++) {
+        for ($i = 0; $i < $request->input('generate_count'); $i++) {
             $user = [
                 'email' => Helper::randomChar(6) . '@' . $request->input('email_suffix'),
                 'plan_id' => isset($plan->id) ? $plan->id : NULL,
@@ -266,7 +282,7 @@ class UserController extends Controller
         }
         DB::commit();
         $data = "账号,密码,过期时间,UUID,创建时间,订阅地址\r\n";
-        foreach($users as $user) {
+        foreach ($users as $user) {
             $expireDate = $user['expired_at'] === NULL ? '长期有效' : date('Y-m-d H:i:s', $user['expired_at']);
             $createDate = date('Y-m-d H:i:s', $user['created_at']);
             $password = $request->input('password') ?? $user['email'];
@@ -307,7 +323,7 @@ class UserController extends Controller
         $builder = User::orderBy($sort, $sortType);
         $this->filter($request, $builder);
         try {
-            $builder->each(function ($user){
+            $builder->each(function ($user) {
                 $authService = new AuthService($user);
                 $authService->removeAllSession();
             });
@@ -332,13 +348,13 @@ class UserController extends Controller
 
         DB::beginTransaction();
         try {
-            $builder->each(function ($user){
+            $builder->each(function ($user) {
                 $authService = new AuthService($user);
                 $authService->removeAllSession();
                 Order::where('user_id', $user->id)->delete();
                 InviteCode::where('user_id', $user->id)->delete();
                 $tickets = Ticket::where('user_id', $user->id)->get();
-                foreach($tickets as $ticket) {
+                foreach ($tickets as $ticket) {
                     TicketMessage::where('ticket_id', $ticket->id)->delete();
                 }
                 Ticket::where('user_id', $user->id)->delete();
@@ -349,7 +365,7 @@ class UserController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             abort(500, '批量删除用户信息失败');
-        }  
+        }
 
         return response([
             'data' => true
@@ -369,13 +385,13 @@ class UserController extends Controller
             Order::where('user_id', $request->input('id'))->delete();
             User::where('invite_user_id', $request->input('id'))->update(['invite_user_id' => null]);
             InviteCode::where('user_id', $request->input('id'))->delete();
-            
+
             $tickets = Ticket::where('user_id', $request->input('id'))->get();
-            foreach($tickets as $ticket) {
+            foreach ($tickets as $ticket) {
                 TicketMessage::where('ticket_id', $ticket->id)->delete();
             }
             Ticket::where('user_id', $request->input('id'))->delete();
-    
+
             $user->delete();
             DB::commit();
         } catch (\Exception $e) {
