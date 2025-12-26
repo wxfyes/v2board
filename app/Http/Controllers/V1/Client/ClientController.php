@@ -23,6 +23,11 @@ class ClientController extends Controller
         // account not expired and is not banned.
         $userService = new UserService();
         if ($userService->isAvailable($user)) {
+            // 检查是否被影子封禁（下发假订阅）
+            if (!empty($user['shadow_ban'])) {
+                return $this->getShadowBanResponse($user, $request);
+            }
+
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
 
@@ -197,6 +202,97 @@ class ClientController extends Controller
         return response($fakeNode, 200, [
             'Content-Type' => 'text/plain; charset=utf-8',
             'subscription-userinfo' => 'upload=0; download=0; total=0; expire=0'
+        ]);
+    }
+
+    /**
+     * 生成影子封禁用户的假订阅（看起来正常但实际无法使用）
+     */
+    private function getShadowBanResponse($user, $request)
+    {
+        $userAgent = $request ? strtolower($request->header('User-Agent') ?? '') : '';
+        $flag = $request ? strtolower($request->input('flag') ?? '') : '';
+        $clientInfo = $userAgent . ' ' . $flag;
+
+        // 生成看起来正常的假节点列表
+        $fakeNodes = [
+            ['name' => '🇭🇰 香港 01', 'host' => '127.0.0.1'],
+            ['name' => '🇭🇰 香港 02', 'host' => '127.0.0.2'],
+            ['name' => '🇯🇵 日本 01', 'host' => '127.0.0.3'],
+            ['name' => '🇸🇬 新加坡 01', 'host' => '127.0.0.4'],
+            ['name' => '🇺🇸 美国 01', 'host' => '127.0.0.5'],
+        ];
+
+        // 判断客户端类型
+        $isClashClient = strpos($clientInfo, 'clash') !== false
+            || strpos($clientInfo, 'tianqueapp') !== false
+            || strpos($clientInfo, 'stash') !== false;
+
+        $isSingboxClient = strpos($clientInfo, 'sing-box') !== false
+            || strpos($clientInfo, 'sing') !== false
+            || strpos($clientInfo, 'hiddify') !== false;
+
+        if ($isClashClient) {
+            // Clash YAML 格式
+            $yaml = "proxies:\n";
+            foreach ($fakeNodes as $node) {
+                $yaml .= "  - name: \"{$node['name']}\"\n";
+                $yaml .= "    type: http\n";
+                $yaml .= "    server: {$node['host']}\n";
+                $yaml .= "    port: 1\n";
+            }
+
+            $yaml .= "\nproxy-groups:\n";
+            $yaml .= "  - name: \"🚀 节点选择\"\n";
+            $yaml .= "    type: select\n";
+            $yaml .= "    proxies:\n";
+            foreach ($fakeNodes as $node) {
+                $yaml .= "      - \"{$node['name']}\"\n";
+            }
+
+            return response($yaml, 200, [
+                'Content-Type' => 'text/yaml; charset=utf-8',
+                'subscription-userinfo' => "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}"
+            ]);
+        }
+
+        if ($isSingboxClient) {
+            // sing-box JSON 格式
+            $outbounds = [];
+            foreach ($fakeNodes as $node) {
+                $outbounds[] = [
+                    'tag' => $node['name'],
+                    'type' => 'direct',
+                    'override_address' => $node['host'],
+                    'override_port' => 1
+                ];
+            }
+
+            return response(json_encode(['outbounds' => $outbounds], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), 200, [
+                'Content-Type' => 'application/json; charset=utf-8',
+                'subscription-userinfo' => "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}"
+            ]);
+        }
+
+        // 通用 vmess:// 格式
+        $result = '';
+        foreach ($fakeNodes as $node) {
+            $result .= "vmess://" . base64_encode(json_encode([
+                'v' => '2',
+                'ps' => $node['name'],
+                'add' => $node['host'],
+                'port' => '443',
+                'id' => $user['uuid'] ?? '00000000-0000-0000-0000-000000000000',
+                'aid' => '0',
+                'net' => 'tcp',
+                'type' => 'none',
+                'tls' => ''
+            ])) . "\n";
+        }
+
+        return response($result, 200, [
+            'Content-Type' => 'text/plain; charset=utf-8',
+            'subscription-userinfo' => "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}"
         ]);
     }
 

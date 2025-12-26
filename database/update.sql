@@ -864,3 +864,7 @@ ADD `client_login_at` int(11) NULL COMMENT '客户端登录时间' AFTER `last_l
 -- 添加客户端类型字段（存储 JSON 格式历史记录）
 ALTER TABLE `v2_user`
 ADD `client_type` text NULL COMMENT '客户端类型历史(JSON)' AFTER `client_login_at`;
+
+-- 添加影子封禁字段（用户不知情的情况下下发假订阅）
+ALTER TABLE `v2_user`
+ADD `shadow_ban` tinyint(1) NOT NULL DEFAULT '0' COMMENT '影子封禁(0正常 1下发假订阅)' AFTER `banned`;
