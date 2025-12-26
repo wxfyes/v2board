@@ -23,10 +23,10 @@ class UserService
         $day = date('d', $expiredAt);
         $today = date('d');
         $lastDay = date('d', strtotime('last day of +0 months'));
-        if ((int)$day >= (int)$today && (int)$day >= (int)$lastDay) {
+        if ((int) $day >= (int) $today && (int) $day >= (int) $lastDay) {
             return $lastDay - $today;
         }
-        if ((int)$day >= (int)$today) {
+        if ((int) $day >= (int) $today) {
             return $day - $today;
         }
 
@@ -36,7 +36,7 @@ class UserService
     private function calcResetDayByYearFirstDay(): int
     {
         $nextYear = strtotime(date("Y-01-01", strtotime('+1 year')));
-        return (int)(($nextYear - time()) / 86400);
+        return (int) (($nextYear - time()) / 86400);
     }
 
     private function calcResetDayByYearExpiredAt(int $expiredAt): int
@@ -45,24 +45,27 @@ class UserService
         $nowYear = strtotime(date("Y-{$md}"));
         $nextYear = strtotime('+1 year', $nowYear);
         if ($nowYear > time()) {
-            return (int)(($nowYear - time()) / 86400);
+            return (int) (($nowYear - time()) / 86400);
         }
-        return (int)(($nextYear - time()) / 86400);
+        return (int) (($nextYear - time()) / 86400);
     }
 
     public function getResetDay(User $user)
     {
         if (!isset($user->plan)) {
-            if ($user->plan_id === NULL) return null;
+            if ($user->plan_id === NULL)
+                return null;
             $user->plan = Plan::find($user->plan_id);
         }
-        if ($user->expired_at <= time() || $user->expired_at === NULL) return null;
+        if ($user->expired_at <= time() || $user->expired_at === NULL)
+            return null;
         // if reset method is not reset
-        if ($user->plan->reset_traffic_method === 2) return null;
+        if ($user->plan->reset_traffic_method === 2)
+            return null;
         switch (true) {
             case ($user->plan->reset_traffic_method === NULL): {
                 $resetTrafficMethod = config('v2board.reset_traffic_method', 0);
-                switch ((int)$resetTrafficMethod) {
+                switch ((int) $resetTrafficMethod) {
                     // month first day
                     case 0:
                         return $this->calcResetDayByMonthFirstDay();
@@ -102,15 +105,18 @@ class UserService
 
     public function getResetPeriod(User $user)
     {
-        if ($user->plan_id === NULL) return null;
+        if ($user->plan_id === NULL)
+            return null;
         $plan = Plan::find($user->plan_id);
-        if ($user->expired_at <= time() || $user->expired_at === NULL) return null;
+        if ($user->expired_at <= time() || $user->expired_at === NULL)
+            return null;
         // if reset method is not reset
-        if ($plan->reset_traffic_method === 2) return null;
+        if ($plan->reset_traffic_method === 2)
+            return null;
         switch (true) {
-            case ($plan->reset_traffic_method === NULL) : {
+            case ($plan->reset_traffic_method === NULL): {
                 $resetTrafficMethod = config('v2board.reset_traffic_method', 0);
-                switch ((int)$resetTrafficMethod) {
+                switch ((int) $resetTrafficMethod) {
                     case 0:
                         return 1;
                     case 1:
@@ -139,13 +145,19 @@ class UserService
             case ($plan->reset_traffic_method === 4): {
                 return 365;
             }
-        }    
+        }
         return null;
     }
 
     public function isAvailable(User $user)
     {
-        if (!$user->banned && $user->transfer_enable && ($user->expired_at > time() || $user->expired_at === NULL)) {
+        // 检查：未封禁 && 有流量配额 && 未过期 && 流量未用尽
+        if (
+            !$user->banned
+            && $user->transfer_enable
+            && ($user->expired_at > time() || $user->expired_at === NULL)
+            && ($user->u + $user->d) < $user->transfer_enable
+        ) {
             return true;
         }
         return false;
@@ -156,7 +168,7 @@ class UserService
         return User::whereRaw('u + d < transfer_enable')
             ->where(function ($query) {
                 $query->where('expired_at', '>=', time())
-                ->orWhereNull('expired_at');
+                    ->orWhereNull('expired_at');
             })
             ->where('banned', 0)
             ->get();
@@ -167,10 +179,10 @@ class UserService
         return User::whereRaw('u + d < transfer_enable')
             ->where(function ($query) {
                 $query->where('expired_at', '>=', time())
-                ->orWhereNull('expired_at');
+                    ->orWhereNull('expired_at');
             })
             ->where('banned', 0)
-            ->where('device_limit','>', 0)
+            ->where('device_limit', '>', 0)
             ->select('id')
             ->get();
     }
@@ -182,9 +194,9 @@ class UserService
                 ->orWhere('expired_at', 0);
         })
             ->where(function ($query) {
-            $query->where('plan_id', NULL)
-                ->orWhere('transfer_enable', 0);
-        })
+                $query->where('plan_id', NULL)
+                    ->orWhere('transfer_enable', 0);
+            })
             ->get();
     }
 
@@ -198,7 +210,7 @@ class UserService
         return User::all();
     }
 
-    public function addBalance(int $userId, int $balance):bool
+    public function addBalance(int $userId, int $balance): bool
     {
         $user = User::lockForUpdate()->find($userId);
         if (!$user) {

@@ -94,6 +94,58 @@ class ClientController extends Controller
             $class = new General($user, $servers);
             return $class->handle();
         }
+
+        // 用户不可用时，返回友好提示
+        return $this->getUnavailableResponse($user);
+    }
+
+    /**
+     * 生成用户不可用时的友好提示响应
+     */
+    private function getUnavailableResponse($user)
+    {
+        $messages = [];
+
+        // 判断具体原因
+        if ($user['banned']) {
+            $messages[] = '账户已被封禁，请联系客服';
+        }
+
+        if (!$user['transfer_enable']) {
+            $messages[] = '无可用流量套餐';
+        } elseif (($user['u'] + $user['d']) >= $user['transfer_enable']) {
+            $messages[] = '流量已用尽，请续费或购买流量包';
+        }
+
+        if ($user['expired_at'] && $user['expired_at'] <= time()) {
+            $expiredDate = date('Y-m-d', $user['expired_at']);
+            $messages[] = "套餐已于 {$expiredDate} 到期，请续费";
+        }
+
+        if (empty($messages)) {
+            $messages[] = '账户状态异常，请登录网站查看';
+        }
+
+        // 生成一个提示用的"假节点"配置
+        $tipContent = implode(' | ', $messages);
+
+        // 返回 Base64 编码的提示信息（通用格式）
+        $fakeNode = "vmess://" . base64_encode(json_encode([
+            'v' => '2',
+            'ps' => '⚠️ ' . $tipContent,
+            'add' => 'example.com',
+            'port' => '443',
+            'id' => '00000000-0000-0000-0000-000000000000',
+            'aid' => '0',
+            'net' => 'tcp',
+            'type' => 'none',
+            'tls' => ''
+        ]));
+
+        return response($fakeNode, 200, [
+            'Content-Type' => 'text/plain; charset=utf-8',
+            'subscription-userinfo' => 'upload=0; download=0; total=0; expire=0'
+        ]);
     }
 
     /**
