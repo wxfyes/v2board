@@ -146,9 +146,10 @@ class ClientController extends Controller
 
         if ($isClashClient) {
             // 返回 Clash YAML 格式的提示配置
+            // 使用 socks5 类型，127.0.0.1:1 是无效地址，只用于显示提示
             $yaml = "proxies:\n";
             $yaml .= "  - name: \"{$tipContent}\"\n";
-            $yaml .= "    type: http\n";
+            $yaml .= "    type: socks5\n";
             $yaml .= "    server: 127.0.0.1\n";
             $yaml .= "    port: 1\n";
 
