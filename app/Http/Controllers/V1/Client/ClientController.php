@@ -96,13 +96,13 @@ class ClientController extends Controller
         }
 
         // 用户不可用时，返回友好提示
-        return $this->getUnavailableResponse($user);
+        return $this->getUnavailableResponse($user, $request);
     }
 
     /**
      * 生成用户不可用时的友好提示响应
      */
-    private function getUnavailableResponse($user)
+    private function getUnavailableResponse($user, $request = null)
     {
         $messages = [];
 
@@ -126,13 +126,38 @@ class ClientController extends Controller
             $messages[] = '账户状态异常，请登录网站查看';
         }
 
-        // 生成一个提示用的"假节点"配置
-        $tipContent = implode(' | ', $messages);
+        $tipContent = '⚠️ ' . implode(' | ', $messages);
 
-        // 返回 Base64 编码的提示信息（通用格式）
+        // 检测客户端类型
+        $userAgent = $request ? strtolower($request->header('User-Agent') ?? '') : '';
+        $isClashClient = strpos($userAgent, 'clash') !== false
+            || strpos($userAgent, 'tianqueapp') !== false
+            || strpos($userAgent, 'stash') !== false;
+
+        if ($isClashClient) {
+            // 返回 Clash YAML 格式的提示配置
+            $yaml = "proxies:\n";
+            $yaml .= "  - name: \"{$tipContent}\"\n";
+            $yaml .= "    type: http\n";
+            $yaml .= "    server: 127.0.0.1\n";
+            $yaml .= "    port: 1\n";
+
+            $yaml .= "\nproxy-groups:\n";
+            $yaml .= "  - name: \"🚀 节点选择\"\n";
+            $yaml .= "    type: select\n";
+            $yaml .= "    proxies:\n";
+            $yaml .= "      - \"{$tipContent}\"\n";
+
+            return response($yaml, 200, [
+                'Content-Type' => 'text/yaml; charset=utf-8',
+                'subscription-userinfo' => 'upload=0; download=0; total=0; expire=0'
+            ]);
+        }
+
+        // 返回 vmess:// 格式（通用格式，适用于 V2RayN 等客户端）
         $fakeNode = "vmess://" . base64_encode(json_encode([
             'v' => '2',
-            'ps' => '⚠️ ' . $tipContent,
+            'ps' => $tipContent,
             'add' => 'example.com',
             'port' => '443',
             'id' => '00000000-0000-0000-0000-000000000000',
