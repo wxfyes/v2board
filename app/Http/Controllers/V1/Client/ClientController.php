@@ -130,9 +130,19 @@ class ClientController extends Controller
 
         // 检测客户端类型
         $userAgent = $request ? strtolower($request->header('User-Agent') ?? '') : '';
-        $isClashClient = strpos($userAgent, 'clash') !== false
-            || strpos($userAgent, 'tianqueapp') !== false
-            || strpos($userAgent, 'stash') !== false;
+        $flag = $request ? strtolower($request->input('flag') ?? '') : '';
+        $clientInfo = $userAgent . ' ' . $flag;
+
+        // Clash 系客户端（YAML 格式）
+        $isClashClient = strpos($clientInfo, 'clash') !== false
+            || strpos($clientInfo, 'tianqueapp') !== false
+            || strpos($clientInfo, 'stash') !== false;
+
+        // sing-box 客户端（JSON 格式）
+        $isSingboxClient = strpos($clientInfo, 'sing-box') !== false
+            || strpos($clientInfo, 'sing') !== false
+            || strpos($clientInfo, 'hiddify') !== false
+            || strpos($clientInfo, 'nekobox') !== false;
 
         if ($isClashClient) {
             // 返回 Clash YAML 格式的提示配置
@@ -154,7 +164,24 @@ class ClientController extends Controller
             ]);
         }
 
-        // 返回 vmess:// 格式（通用格式，适用于 V2RayN 等客户端）
+        if ($isSingboxClient) {
+            // 返回 sing-box JSON 格式的提示配置
+            $config = [
+                'outbounds' => [
+                    [
+                        'tag' => $tipContent,
+                        'type' => 'direct'
+                    ]
+                ]
+            ];
+
+            return response(json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), 200, [
+                'Content-Type' => 'application/json; charset=utf-8',
+                'subscription-userinfo' => 'upload=0; download=0; total=0; expire=0'
+            ]);
+        }
+
+        // 返回 vmess:// 格式（通用格式，适用于 Shadowrocket、V2RayN 等客户端）
         $fakeNode = "vmess://" . base64_encode(json_encode([
             'v' => '2',
             'ps' => $tipContent,
