@@ -211,6 +211,20 @@ class ClashMeta
                 if (isset($grpcSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
             }
         }
+        if ($network === 'xhttp') {
+            $xhttpSettings = $server['networkSettings'] ?? ($server['network_settings'] ?? []);
+            $array['transport'] = [
+                'type' => 'xhttp',
+                'xhttp-opts' => [
+                    'path' => $xhttpSettings['path'] ?? '/',
+                    'host' => $xhttpSettings['host'] ?? ($tlsSettings['serverName'] ?? ($tlsSettings['server_name'] ?? '')),
+                    'mode' => $xhttpSettings['mode'] ?? 'stream-one',
+                ]
+            ];
+            if (isset($xhttpSettings['extra'])) {
+                $array['transport']['xhttp-opts']['extra'] = $xhttpSettings['extra'];
+            }
+        }
 
         return $array;
     }
@@ -268,6 +282,21 @@ class ClashMeta
                 $grpcSettings = $server['network_settings'];
                 $array['grpc-opts'] = [];
                 if (isset($grpcSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
+            }
+        }
+
+        if ($server['network'] === 'xhttp') {
+            $xhttpSettings = $server['network_settings'] ?? [];
+            $array['transport'] = [
+                'type' => 'xhttp',
+                'xhttp-opts' => [
+                    'path' => $xhttpSettings['path'] ?? '/',
+                    'host' => $xhttpSettings['host'] ?? ($tlsSettings['server_name'] ?? ''),
+                    'mode' => $xhttpSettings['mode'] ?? 'stream-one',
+                ]
+            ];
+            if (isset($xhttpSettings['extra'])) {
+                $array['transport']['xhttp-opts']['extra'] = $xhttpSettings['extra'];
             }
         }
 
