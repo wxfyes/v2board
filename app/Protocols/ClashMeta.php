@@ -287,16 +287,14 @@ class ClashMeta
 
         if ($server['network'] === 'xhttp') {
             $xhttpSettings = $server['network_settings'] ?? [];
-            $array['transport'] = [
-                'type' => 'xhttp',
-                'xhttp-opts' => [
-                    'path' => $xhttpSettings['path'] ?? '/',
-                    'host' => $xhttpSettings['host'] ?? ($tlsSettings['server_name'] ?? ''),
-                    'mode' => $xhttpSettings['mode'] ?? 'stream-one',
-                ]
+            $array['network'] = 'xhttp';
+            $array['xhttp-opts'] = [
+                'path' => $xhttpSettings['path'] ?? '/',
+                'host' => $xhttpSettings['host'] ?? ($tlsSettings['server_name'] ?? ''),
+                'mode' => $xhttpSettings['mode'] ?? 'stream-one',
             ];
             if (isset($xhttpSettings['extra'])) {
-                $array['transport']['xhttp-opts']['extra'] = $xhttpSettings['extra'];
+                $array['xhttp-opts']['extra'] = $xhttpSettings['extra'];
             }
         }
 
