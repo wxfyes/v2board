@@ -1,0 +1,296 @@
+<?php
+namespace App\Http\Controllers\User;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\User\TicketSave;
+use App\Http\Requests\User\TicketWithdraw;
+use App\Jobs\SendTelegramJob;
+use App\Models\User;
+use App\Models\Plan;
+use App\Services\TelegramService;
+use App\Services\TicketService;
+use App\Utils\Dict;
+use Illuminate\Http\Request;
+use App\Models\Ticket;
+use App\Models\TicketMessage;
+use Illuminate\Support\Facades\DB;
+
+class TicketController extends Controller
+{
+    public function fetch(Request $request)
+    {
+        if ($request->input('id')) {
+            $ticket = Ticket::where('id', $request->input('id'))
+                ->where('user_id', $request->user['id'])
+                ->first();
+            if (!$ticket) {
+                abort(500, __('Ticket does not exist'));
+            }
+            $ticket['message'] = TicketMessage::where('ticket_id', $ticket->id)->get();
+            for ($i = 0; $i < count($ticket['message']); $i++) {
+                if ($ticket['message'][$i]['user_id'] == $ticket->user_id) {
+                    $ticket['message'][$i]['is_me'] = true;
+                } else {
+                    $ticket['message'][$i]['is_me'] = false;
+                }
+            }
+            return response([
+                'data' => $ticket
+            ]);
+        }
+        $ticket = Ticket::where('user_id', $request->user['id'])
+            ->orderBy('created_at', 'DESC')
+            ->get();
+        return response([
+            'data' => $ticket
+        ]);
+    }
+
+    public function save(TicketSave $request)
+    {
+        DB::beginTransaction();
+        if ((int) Ticket::where('status', 0)->where('user_id', $request->user['id'])->lockForUpdate()->count()) {
+            abort(500, __('There are other unresolved tickets'));
+        }
+        $ticket = Ticket::create(array_merge($request->only([
+            'subject',
+            'level'
+        ]), [
+            'user_id' => $request->user['id']
+        ]));
+        if (!$ticket) {
+            DB::rollback();
+            abort(500, __('Failed to open ticket'));
+        }
+        // 处理图片数据格式
+        $images = $request->input('images', []);
+        $processedImages = [];
+        foreach ($images as $image) {
+            if (is_string($image)) {
+                // 如果是字符串（原图路径），生成对应的缩略图路径
+                $pathInfo = pathinfo($image);
+                // 从原图文件名中提取基础部分（去掉_original后缀）
+                $baseFilename = str_replace('_original', '', $pathInfo['filename']);
+                $thumbnailPath = $pathInfo['dirname'] . '/' . $baseFilename . '_thumb.' . $pathInfo['extension'];
+                $processedImages[] = [
+                    'original_path' => $image,
+                    'thumbnail_path' => $thumbnailPath
+                ];
+            } else {
+                // 如果已经是对象格式，直接使用
+                $processedImages[] = $image;
+            }
+        }
+        
+        $ticketMessage = TicketMessage::create([
+            'user_id' => $request->user['id'],
+            'ticket_id' => $ticket->id,
+            'message' => $request->input('message') ?? '', // 确保空消息使用空字符串而不是NULL
+            'images' => $processedImages
+        ]);
+        if (!$ticketMessage) {
+            DB::rollback();
+            abort(500, __('Failed to open ticket'));
+        }
+        DB::commit();
+        
+        // 发送通知（包括Telegram话题创建）
+        $this->sendNotify($ticket, $request->input('message') ?? '', $request->user['id'], $processedImages);
+        
+        return response([
+            'data' => true
+        ]);
+    }
+
+    public function reply(Request $request)
+    {
+        if (empty($request->input('id'))) {
+            abort(500, __('Invalid parameter'));
+        }
+        // 允许在有图片的情况下消息为空
+        if (empty($request->input('message')) && empty($request->input('images'))) {
+            abort(500, __('Message cannot be empty'));
+        }
+        $ticket = Ticket::where('id', $request->input('id'))
+            ->where('user_id', $request->user['id'])
+            ->first();
+        if (!$ticket) {
+            abort(500, __('Ticket does not exist'));
+        }
+        if ($ticket->status) {
+            abort(500, __('The ticket is closed and cannot be replied'));
+        }
+        //用户必须等待管理员回复工单后才能回复限制
+        //if ($request->user['id'] == $this->getLastMessage($ticket->id)->user_id) {
+        //    abort(500, __('Please wait for the technical enginneer to reply'));
+        //}
+        $ticketService = new TicketService();
+        if (
+            !$ticketService->reply(
+                $ticket,
+                $request->input('message'),
+                $request->user['id'],
+                $request->input('images', [])
+            )
+        ) {
+            abort(500, __('Ticket reply failed'));
+        }
+        $this->sendNotify($ticket, $request->input('message') ?? '', $request->user['id'], $request->input('images', []));
+        return response([
+            'data' => true
+        ]);
+    }
+
+
+    public function close(Request $request)
+    {
+        if (empty($request->input('id'))) {
+            abort(500, __('Invalid parameter'));
+        }
+        $ticket = Ticket::where('id', $request->input('id'))
+            ->where('user_id', $request->user['id'])
+            ->first();
+        if (!$ticket) {
+            abort(500, __('Ticket does not exist'));
+        }
+        $ticket->status = 1;
+        if (!$ticket->save()) {
+            abort(500, __('Close failed'));
+        }
+        return response([
+            'data' => true
+        ]);
+    }
+
+    private function getLastMessage($ticketId)
+    {
+        return TicketMessage::where('ticket_id', $ticketId)
+            ->orderBy('id', 'DESC')
+            ->first();
+    }
+
+    public function withdraw(TicketWithdraw $request)
+    {
+        if ((int) config('v2board.withdraw_close_enable', 0)) {
+            abort(500, 'user.ticket.withdraw.not_support_withdraw');
+        }
+        if (
+            !in_array(
+                $request->input('withdraw_method'),
+                config(
+                    'v2board.commission_withdraw_method',
+                    Dict::WITHDRAW_METHOD_WHITELIST_DEFAULT
+                )
+            )
+        ) {
+            abort(500, __('Unsupported withdrawal method'));
+        }
+        $user = User::find($request->user['id']);
+        $limit = config('v2board.commission_withdraw_limit', 100);
+        if ($limit > ($user->commission_balance / 100)) {
+            abort(500, __('The current required minimum withdrawal commission is :limit', ['limit' => $limit]));
+        }
+        DB::beginTransaction();
+        $subject = __('[Commission Withdrawal Request] This ticket is opened by the system');
+        $ticket = Ticket::create([
+            'subject' => $subject,
+            'level' => 2,
+            'user_id' => $request->user['id']
+        ]);
+        if (!$ticket) {
+            DB::rollback();
+            abort(500, __('Failed to open ticket'));
+        }
+        $message = sprintf(
+            "%s\r\n%s",
+            __('Withdrawal method') . "：" . $request->input('withdraw_method'),
+            __('Withdrawal account') . "：" . $request->input('withdraw_account')
+        );
+        $ticketMessage = TicketMessage::create([
+            'user_id' => $request->user['id'],
+            'ticket_id' => $ticket->id,
+            'message' => $message
+        ]);
+        if (!$ticketMessage) {
+            DB::rollback();
+            abort(500, __('Failed to open ticket'));
+        }
+        DB::commit();
+        $this->sendNotify($ticket, $message);
+        return response([
+            'data' => true
+        ]);
+    }
+
+    private function sendNotify(Ticket $ticket, string $message, $userid = null, $images = [])
+    {
+        $telegramService = new TelegramService();
+        
+        // 确保消息不为空，如果为空且有图片，则使用默认消息
+        if (empty($message) && !empty($images)) {
+            $message = "用户上传了 " . count($images) . " 张图片";
+        } elseif (empty($message)) {
+            $message = "用户发送了空消息";
+        }
+        
+        if (!empty($userid)) {
+            $user = User::find($userid);
+            $transfer_enable = $this->getFlowData($user->transfer_enable); // 总流量
+            $remaining_traffic = $this->getFlowData($user->transfer_enable - $user->u - $user->d); // 剩余流量
+            $u = $this->getFlowData($user->u); // 上传
+            $d = $this->getFlowData($user->d); // 下载
+            $expired_at = date("Y-m-d h:m:s", $user->expired_at); // 到期时间
+            $ip_address = $_SERVER['REMOTE_ADDR']; // IP地址
+            $api_url = "http://ip-api.com/json/{$ip_address}?fields=520191&lang=zh-CN";
+            $response = file_get_contents($api_url);
+            $user_location = json_decode($response, true);
+            if ($user_location && $user_location['status'] === 'success') {
+                $location =  $user_location['city'] . ", " . $user_location['country'];
+            } else {
+                $location =  "无法确定用户地址";
+            }
+            $plan = Plan::find($user->plan_id);
+            $money = $user->balance / 100;
+            $affmoney = $user->commission_balance / 100;
+            
+            $userInfo = [
+                'email' => $user->email,
+                'location' => $location,
+                'ip' => $ip_address,
+                'plan_name' => $plan ? $plan->name : '无套餐',
+                'remaining_traffic' => $remaining_traffic,
+                'transfer_enable' => $transfer_enable,
+                'u' => $u,
+                'd' => $d,
+                'expired_at' => $expired_at,
+                'money' => $money,
+                'affmoney' => $affmoney
+            ];
+            
+            $telegramService->sendTicketNotificationWithImages($ticket, $message, $images, $userInfo);
+            
+            // 创建Telegram话题（仅在新工单创建时）
+            if ($userid) {
+                $telegramService->createTicketTopic($ticket, $message, $userInfo, $images);
+            }
+        } else {
+            $telegramService->sendTicketNotificationWithImages($ticket, $message, $images);
+            
+            // 创建Telegram话题（仅在新工单创建时）
+            if ($userid) {
+                $telegramService->createTicketTopic($ticket, $message, null, $images);
+            }
+        }
+    }
+    private function getFlowData($b)
+    {
+        $g = $b / (1024 * 1024 * 1024); // 转换流量数据
+        $m = $b / (1024 * 1024);
+        if ($g >= 1) {
+            $text = round($g, 2) . "GB";
+        } else {
+            $text = round($m, 2) . "MB";
+        }
+        return $text;
+    }
+}

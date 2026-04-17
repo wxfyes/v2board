@@ -1,0 +1,449 @@
+# ==========================================
+# 🚀 Clash Meta (Mihomo) 天花板级专业配置
+# 核心特性：Split DNS / 流量嗅探 / 智能分流
+# 包含优化：TikTok 专属加速 (修复版)
+# ==========================================
+
+# ==========================================
+# 💾 缓存持久化 (解决更新后断网问题)
+# ==========================================
+profile:
+  store-fake-ip: true
+  store-selected: true
+
+port: 7890
+socks-port: 7891
+redir-port: 7892
+tproxy-port: 7893
+mixed-port: 7890
+
+allow-lan: true
+bind-address: "*"
+mode: rule
+log-level: info
+ipv6: true
+external-controller: 127.0.0.1:9090
+
+# 🌟 天花板特性：流量嗅探 (Sniffer)
+sniffer:
+  enable: true
+  force-dns-mapping: true
+  parse-pure-ip: true
+  override-destination: true
+  sniff:
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+    TLS:
+      ports: [443, 8443]
+      override-destination: true
+    QUIC:
+      ports: [443, 8443]
+      override-destination: false
+
+# 🌟 天花板特性：TCP 并发
+tcp-concurrent: true
+
+# ==========================================
+# 🛡️ 终极 DNS 配置 (Split DNS)
+# ==========================================
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  ipv6: true
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  use-hosts: true
+  respect-rules: true
+
+  default-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+
+  proxy-server-nameserver:
+    - quic://154.219.104.214
+    - quic://103.20.222.133
+    - tls://103.20.222.133
+    - tls://154.219.104.214
+    - tls://154.219.96.225
+    - quic://154.219.96.225
+
+  nameserver:
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
+
+  fallback:
+    - https://1.1.1.1/dns-query
+    - https://8.8.8.8/dns-query
+    - https://dns.google/dns-query
+    - tls://8.8.4.4:853
+
+  nameserver-policy: 
+    "geosite:geolocation-!cn": [https://dns.google/dns-query, https://1.1.1.1/dns-query]
+    "geosite:cn": [https://dns.alidns.com/dns-query, https://doh.pub/dns-query]
+    "+.browserleaks.com": [https://dns.google/dns-query]
+    "geosite:!cn": [https://dns.google/dns-query]
+
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+    domain:
+      - '+.google.com'
+      - '+.facebook.com'
+      - '+.youtube.com'
+      - '+.x.com'
+      - '+.twitter.com'
+      - '+.telegram.org'
+      - '+.pornhub.com'
+      - '+.phncdn.com'
+      - '+.xvideos.com'
+      - '+.jable.tv'
+      - '+.xnxx.com'
+      - '+.googleapis.com'
+      - '+.googleusercontent.com'
+      - '+.ggpht.com'
+      - '+.gvt1.com'
+      - '+.gstatic.com'
+      - '+.android.com'
+      - '+.gvt0.com'
+      - '+.gvt2.com'
+      - '+.gvt3.com'
+      - '+.1e100.net'
+      - '+.crashlytics.com'
+      - '+.app-measurement.com'
+      - '+.github.com'
+      - '+.githubusercontent.com'
+      - '+.githubassets.com'
+      - '+.tiktok.com'
+      - '+.tiktokv.com'
+      - '+.tiktokcdn.com'
+      - '+.byteoversea.com'
+      - '+.ibytedtos.com'
+      - '+.cloudflare.com'
+      - '+.cloudflare.net'
+      - '+.cloudflare.org'
+      - '+.docker.com'
+      - '+.docker.io'
+      - '+.docker.net'
+      - '+.docker.sh'
+
+# ==========================================
+# 代理组策略 (Proxy Groups)
+# ==========================================
+proxies:
+  # 占位符留给 v2board 自动填充节点
+  
+proxy-groups:
+  # ------------------------------------------
+  # ⚡ 自动测速组 (带抗抖动)
+  # ------------------------------------------
+  - name: 🇭🇰 香港自动
+    type: url-test
+    url: http://www.google.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "/(?i)(HK|Hong|Kong|香港)/u"
+    
+  - name: 🇹🇼 台湾自动
+    type: url-test
+    url: http://www.google.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "/(?i)(TW|Tai|Wan|台湾)/u"
+
+  - name: 🇯🇵 日本自动
+    type: url-test
+    url: http://www.google.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "/(?i)(JP|Japan|日本)/u"
+
+  - name: 🇸🇬 新加坡自动
+    type: url-test
+    url: http://www.google.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "/(?i)(SG|Singapore|狮城|新加坡)/u"
+
+  - name: 🇺🇸 美国自动
+    type: url-test
+    url: http://www.google.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "/(?i)(US|United|States|美国)/u"
+      
+  - name: 🇰🇷 韩国自动
+    type: url-test
+    url: http://www.google.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "/(?i)(KR|Korea|韩国)/u"
+
+  # ------------------------------------------
+  # 🚀 核心选择组 (主要入口)
+  # ------------------------------------------
+  - name: 🚀 节点选择
+    type: select
+    proxies:
+      - ♻️ 自动选择
+      - 🇭🇰 香港节点
+      - 🇹🇼 台湾节点
+      - 🇯🇵 日本节点
+      - 🇸🇬 新加坡节点
+      - 🇺🇸 美国节点
+      - 🇰🇷 韩国节点
+      - 🎵 TikTok    # 此处已加入 TikTok 入口      
+      - 🌐 全部节点
+      - 🚑 故障转移
+      - DIRECT
+
+  # ------------------------------------------
+  # 🛠️ 功能分组
+  # ------------------------------------------
+  - name: ♻️ 自动选择
+    type: url-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    tolerance: 50
+    proxies:
+      - "/^(?!.*(剩余|到期|过期|时间|有效|群|官网)).*$/u"
+
+  - name: 🚑 故障转移
+    type: fallback
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+    proxies:
+      - "/^(?!.*(剩余|到期|过期|时间|有效|群|官网)).*$/u"
+
+  - name: 🌍 国外媒体
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - 🇭🇰 香港节点
+      - 🇹🇼 台湾节点
+      - 🇯🇵 日本节点
+      - 🇸🇬 新加坡节点
+      - 🇺🇸 美国节点
+      - 🇰🇷 韩国节点
+
+  - name: 📲 电报信息
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - 🇭🇰 香港自动
+      - 🇸🇬 新加坡自动
+      - 🇺🇸 美国自动
+
+  - name: 🤖 人工智能
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - 🇺🇸 美国自动
+      - 🇯🇵 日本自动
+      - 🇸🇬 新加坡自动
+      - 🇹🇼 台湾自动
+
+  # ------------------------------------------
+  # 🎵 TikTok 专属组 (修正版：彻底打破死循环)
+  # ------------------------------------------
+  - name: 🎵 TikTok
+    type: select
+    proxies:
+      - 🇸🇬 新加坡自动
+      - 🇯🇵 日本自动
+      - 🇺🇸 美国自动
+      - 🌐 全部节点    # <-- 注意：这里不包含“🚀 节点选择”，避免循环引用
+      - DIRECT
+
+  - name: 🍎 苹果服务
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - DIRECT
+      - 🇺🇸 美国自动
+
+  - name: 🛑 广告拦截
+    type: select
+    proxies:
+      - REJECT
+      - DIRECT
+
+  - name: 🐟 漏网之鱼
+    type: select
+    proxies:
+      - 🚀 节点选择
+      - DIRECT
+
+  # ------------------------------------------
+  # 📂 地区节点提取
+  # ------------------------------------------
+  - name: 🇭🇰 香港节点
+    type: select
+    proxies:
+      - 🇭🇰 香港自动
+      - "/(?i)(HK|Hong|Kong|香港)/u"
+  - name: 🇹🇼 台湾节点
+    type: select
+    proxies:
+      - 🇹🇼 台湾自动
+      - "/(?i)(TW|Tai|Wan|台湾)/u"
+  - name: 🇯🇵 日本节点
+    type: select
+    proxies:
+      - 🇯🇵 日本自动
+      - "/(?i)(JP|Japan|日本)/u"
+  - name: 🇸🇬 新加坡节点
+    type: select
+    proxies:
+      - 🇸🇬 新加坡自动
+      - "/(?i)(SG|Singapore|狮城|新加坡)/u"
+  - name: 🇺🇸 美国节点
+    type: select
+    proxies:
+      - 🇺🇸 美国自动
+      - "/(?i)(US|United|States|美国)/u"
+  - name: 🇰🇷 韩国节点
+    type: select
+    proxies:
+      - 🇰🇷 韩国自动
+      - "/(?i)(KR|Korea|韩国)/u"
+  - name: 🌐 全部节点
+    type: select
+    proxies:
+      - ♻️ 自动选择
+      - "/^(?!.*(剩余|到期|过期|时间|有效|群|官网)).*$/u"
+
+# ==========================================
+# 📜 规则集引用 (Rule Providers)
+# ==========================================
+rule-providers:
+  applications:
+    type: http
+    behavior: classical
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Applications/Applications.yaml"
+    path: ./ruleset/applications.yaml
+    interval: 86400
+
+  private:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Private/Private.yaml"
+    path: ./ruleset/private.yaml
+    interval: 86400
+
+  reject:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Hijacking/Hijacking.yaml"
+    path: ./ruleset/reject.yaml
+    interval: 86400
+
+  advertising:
+    type: http
+    behavior: classical
+    url: "https://cdn.jsdelivr.net/gh/privacy-protection-tools/anti-AD@master/anti-ad-clash.yaml"
+    path: ./ruleset/anti-ad.yaml
+    interval: 86400
+
+  icloud:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/iCloud/iCloud.yaml"
+    path: ./ruleset/icloud.yaml
+    interval: 86400
+
+  apple:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Apple/Apple.yaml"
+    path: ./ruleset/apple.yaml
+    interval: 86400
+
+  google:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Google/Google.yaml"
+    path: ./ruleset/google.yaml
+    interval: 86400
+
+  proxy:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Proxy/Proxy.yaml"
+    path: ./ruleset/proxy.yaml
+    interval: 86400
+
+  openai:
+    type: http
+    behavior: classical
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/OpenAI/OpenAI.yaml"
+    path: ./ruleset/openai.yaml
+    interval: 86400
+
+  telegram:
+    type: http
+    behavior: classical
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Telegram/Telegram.yaml"
+    path: ./ruleset/telegram.yaml
+    interval: 86400
+
+  tiktok:
+    type: http
+    behavior: classical
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/TikTok/TikTok.yaml"
+    path: ./ruleset/tiktok.yaml
+    interval: 86400
+
+  gfw:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/Global/Global.yaml"
+    path: ./ruleset/gfw.yaml
+    interval: 86400
+
+  cncidr:
+    type: http
+    behavior: ipcidr
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/ChinaIPs/ChinaIPs.yaml"
+    path: ./ruleset/cncidr.yaml
+    interval: 86400
+
+  lancidr:
+    type: http
+    behavior: ipcidr
+    url: "https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Clash/LAN/LAN.yaml"
+    path: ./ruleset/lancidr.yaml
+    interval: 86400
+    
+# ==========================================
+# 🚦 规则匹配 (Rules)
+# ==========================================
+rules:
+  - AND,((NETWORK,UDP),(DST-PORT,443)),REJECT
+  - RULE-SET,applications,DIRECT
+  - DOMAIN,clash.razord.top,DIRECT
+  - DOMAIN,yandex.ru,DIRECT
+  - RULE-SET,private,DIRECT
+  - RULE-SET,reject,🛑 广告拦截
+  - RULE-SET,advertising,🛑 广告拦截
+  - RULE-SET,lancidr,DIRECT
+  - GEOIP,LAN,DIRECT
+  - RULE-SET,icloud,DIRECT
+  - RULE-SET,apple,🍎 苹果服务
+  - RULE-SET,openai,🤖 人工智能
+  - RULE-SET,telegram,📲 电报信息
+  - RULE-SET,tiktok,🎵 TikTok
+  - RULE-SET,google,🚀 节点选择
+  - RULE-SET,proxy,🚀 节点选择
+  - RULE-SET,gfw,🚀 节点选择
+  - RULE-SET,cncidr,DIRECT
+  - GEOIP,CN,DIRECT
+  - MATCH,🐟 漏网之鱼
