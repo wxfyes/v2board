@@ -24,8 +24,3 @@ docker-compose.yml
 public/clients/*
 workerman.webman.php.pid
 workerman.log
-/public/static
-/public/*.js
-!/public/config.js
-!/public/landingpage.js
-# 为了安全，我们保留核心的 landingpage.html 和 config.js
