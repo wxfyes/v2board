@@ -61,6 +61,10 @@ class StatController extends Controller
                 'commission_last_month_payout' => CommissionLog::where('created_at', '>=', strtotime('-1 month', strtotime(date('Y-m-1'))))
                     ->where('created_at', '<', strtotime(date('Y-m-1')))
                     ->sum('get_amount'),
+                'total_user' => User::count(),
+                'day_traffic' => StatServer::where('record_at', '>=', strtotime(date('Y-m-d')))
+                    ->where('record_type', 'd')
+                    ->sum(DB::raw('u + d')),
             ]
         ];
     }
