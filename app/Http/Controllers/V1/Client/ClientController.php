@@ -105,6 +105,7 @@ class ClientController extends Controller
 
         // 常见客户端识别
         $clients = [
+            'mclash' => 'Mclash',
             'tianqueapp' => '天阙(TianQue)',
             'clash' => 'Clash',
             'clash-verge' => 'Clash Verge',
