@@ -20,79 +20,107 @@ class ClientController extends Controller
             ?? ($_SERVER['HTTP_USER_AGENT'] ?? '');
         $flag = strtolower($flag);
         $user = $request->user;
-        // account not expired and is not banned.
-        $userService = new UserService();
-        if ($userService->isAvailable($user)) {
-            $serverService = new ServerService();
-            $servers = $serverService->getAvailableServers($user);
 
-            // 记录客户端登录时间和类型（所有客户端都记录，保留历史）
-            $userAgent = $request->header('User-Agent') ?? '';
-            $clientType = $this->parseClientType($userAgent);
+        try {
+            // account not expired and is not banned.
+            $userService = new UserService();
+            if ($userService->isAvailable($user)) {
+                $serverService = new ServerService();
+                $servers = $serverService->getAvailableServers($user);
 
-            // 获取现有的客户端历史记录
-            $existingData = \DB::table('v2_user')
-                ->where('id', $user['id'])
-                ->value('client_type');
+                // 记录客户端登录时间和类型（所有客户端都记录，保留历史）
+                $userAgent = $request->header('User-Agent') ?? '';
+                $clientType = $this->parseClientType($userAgent);
 
-            // 解析现有记录（JSON 格式）
-            $clientHistory = [];
-            if ($existingData) {
-                $decoded = json_decode($existingData, true);
-                if (is_array($decoded)) {
-                    $clientHistory = $decoded;
+                // 获取现有的客户端历史记录
+                $existingData = \DB::table('v2_user')
+                    ->where('id', $user['id'])
+                    ->value('client_type');
+
+                // 解析现有记录（JSON 格式）
+                $clientHistory = [];
+                if ($existingData) {
+                    $decoded = json_decode($existingData, true);
+                    if (is_array($decoded)) {
+                        $clientHistory = $decoded;
+                    }
                 }
-            }
 
-            // 添加新记录到数组开头
-            array_unshift($clientHistory, [
-                'type' => $clientType,
-                'time' => time()
-            ]);
-
-            // 只保留最近 5 条记录
-            $clientHistory = array_slice($clientHistory, 0, 5);
-
-            // 保存到数据库
-            \DB::table('v2_user')
-                ->where('id', $user['id'])
-                ->update([
-                    'client_login_at' => time(),
-                    'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE)
+                // 添加新记录到数组开头
+                array_unshift($clientHistory, [
+                    'type' => $clientType,
+                    'time' => time()
                 ]);
 
-            // Special handling for MOMclash (TianQueApp)
-            // Enforce that this logic only triggers for subscription-related requests
-            if (stripos($userAgent, 'TianQueApp') !== false && ($request->is('**/subscribe') || $request->has('token'))) {
-                $class = new \App\Protocols\MOMclash($user, $servers);
-                return response($class->handle());
-            }
-            if ($flag) {
-                if (!strpos($flag, 'sing')) {
-                    $this->setSubscribeInfoToServers($servers, $user);
-                    foreach (array_reverse(glob(app_path('Protocols') . '/*.php')) as $file) {
-                        $file = 'App\\Protocols\\' . basename($file, '.php');
-                        $class = new $file($user, $servers);
-                        if (strpos($flag, $class->flag) !== false) {
-                            return $class->handle();
+                // 只保留最近 5 条记录
+                $clientHistory = array_slice($clientHistory, 0, 5);
+
+                // 保存到数据库
+                \DB::table('v2_user')
+                    ->where('id', $user['id'])
+                    ->update([
+                        'client_login_at' => time(),
+                        'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE)
+                    ]);
+
+                // --- 🔐 安全加固：核心逻辑 ---
+                // 1. 只要带了 security=1，无论什么 UA，一律下发加密流，防止探测器重放 URL 获取明文
+                if ($request->input('security') == '1') {
+                    $class = new \App\Protocols\MOMclash($user, $servers);
+                    $yaml = $class->handle();
+                    
+                    $key = 'MOMclashSafeKey2026SecureGCM8888'; 
+                    $iv = openssl_random_pseudo_bytes(12);
+                    $tag = "";
+                    $encrypted = openssl_encrypt($yaml, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+                    
+                    return response($iv . $tag . $encrypted)
+                        ->header('Content-Type', 'application/octet-stream')
+                        ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+                }
+
+                // 2. 如果没带 security=1，但 UA 是我们 App，为了安全，我们也强制使用加密逻辑（或者这里可以保留原样作为伪装）
+                // 这里我们选择：如果 UA 匹配但没带参数，依然返回明文（作为伪装），或者你可以要求改为报错。
+                if (stripos($userAgent, 'TianQueApp') !== false && ($request->is('**/subscribe') || $request->has('token'))) {
+                    $class = new \App\Protocols\MOMclash($user, $servers);
+                    $yaml = $class->handle();
+                    return response($yaml);
+                }
+                if ($flag) {
+                    if (!strpos($flag, 'sing')) {
+                        $this->setSubscribeInfoToServers($servers, $user);
+                        foreach (array_reverse(glob(app_path('Protocols') . '/*.php')) as $file) {
+                            $file = 'App\\Protocols\\' . basename($file, '.php');
+                            $class = new $file($user, $servers);
+                            if (strpos($flag, $class->flag) !== false) {
+                                return $class->handle();
+                            }
                         }
                     }
-                }
-                if (strpos($flag, 'sing') !== false) {
-                    $version = null;
-                    if (preg_match('/sing-box\s+([0-9.]+)/i', $flag, $matches)) {
-                        $version = $matches[1];
+                    if (strpos($flag, 'sing') !== false) {
+                        $version = null;
+                        if (preg_match('/sing-box\s+([0-9.]+)/i', $flag, $matches)) {
+                            $version = $matches[1];
+                        }
+                        if (!is_null($version) && $version >= '1.12.0') {
+                            $class = new Singbox($user, $servers);
+                        } else {
+                            $class = new SingboxOld($user, $servers);
+                        }
+                        return $class->handle();
                     }
-                    if (!is_null($version) && $version >= '1.12.0') {
-                        $class = new Singbox($user, $servers);
-                    } else {
-                        $class = new SingboxOld($user, $servers);
-                    }
-                    return $class->handle();
                 }
+                $class = new General($user, $servers);
+                return $class->handle();
             }
-            $class = new General($user, $servers);
-            return $class->handle();
+            return response([
+                'message' => 'Account is not available'
+            ], 403);
+        } catch (\Exception $e) {
+            return response([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
         }
     }
 
