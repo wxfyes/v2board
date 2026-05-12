@@ -5,9 +5,9 @@ namespace App\Protocols;
 use phpDocumentor\Reflection\Types\Self_;
 use Symfony\Component\Yaml\Yaml;
 
-class Clash
+class ClashOld
 {
-    public $flag = 'clash';
+    public $flag = 'clash-old';
     private $servers;
     private $user;
 
