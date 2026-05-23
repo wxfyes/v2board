@@ -211,6 +211,27 @@ class ClashVerge
                 if (isset($grpcSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
             }
         }
+        if ($network === 'xhttp') {
+            $xhttpSettings = $server['networkSettings'] ?? ($server['network_settings'] ?? []);
+            $array['transport'] = [
+                'type' => 'xhttp',
+                'xhttp-opts' => [
+                    'path' => $xhttpSettings['path'] ?? '/',
+                    'host' => $xhttpSettings['host'] ?? ($tlsSettings['serverName'] ?? ($tlsSettings['server_name'] ?? '')),
+                    'mode' => $xhttpSettings['mode'] ?? 'stream-one',
+                ]
+            ];
+            if (!empty($server['tls'])) {
+                $array['alpn'] = ['h2', 'http/1.1'];
+            }
+            if (isset($xhttpSettings['extra'])) {
+                $array['transport']['xhttp-opts']['extra'] = $xhttpSettings['extra'];
+            }
+            $downloadSettings = self::buildDownloadSettings($xhttpSettings);
+            if ($downloadSettings) {
+                $array['transport']['xhttp-opts']['download-settings'] = $downloadSettings;
+            }
+        }
 
         return $array;
     }
@@ -268,6 +289,26 @@ class ClashVerge
                 $grpcSettings = $server['network_settings'];
                 $array['grpc-opts'] = [];
                 if (isset($grpcSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
+            }
+        }
+
+        if ($server['network'] === 'xhttp') {
+            $xhttpSettings = $server['network_settings'] ?? [];
+            $array['network'] = 'xhttp';
+            $array['xhttp-opts'] = [
+                'path' => $xhttpSettings['path'] ?? '/',
+                'host' => $xhttpSettings['host'] ?? ($tlsSettings['server_name'] ?? ''),
+                'mode' => $xhttpSettings['mode'] ?? 'stream-one',
+            ];
+            if ($server['tls']) {
+                $array['alpn'] = ['h2', 'http/1.1'];
+            }
+            if (isset($xhttpSettings['extra'])) {
+                $array['xhttp-opts']['extra'] = $xhttpSettings['extra'];
+            }
+            $downloadSettings = self::buildDownloadSettings($xhttpSettings);
+            if ($downloadSettings) {
+                $array['xhttp-opts']['download-settings'] = $downloadSettings;
             }
         }
 
@@ -445,5 +486,61 @@ class ClashVerge
     private function isRegex($exp)
     {
         return @preg_match($exp, '') !== false;
+    }
+
+    public static function buildDownloadSettings($settings)
+    {
+        $ds = $settings['downloadSettings'] ?? ($settings['extra']['downloadSettings'] ?? null);
+        if (!$ds) return null;
+        $res = [];
+        if (isset($ds['address'])) $res['server'] = $ds['address'];
+        if (isset($ds['port'])) $res['port'] = (int)$ds['port'];
+        
+        $security = $ds['security'] ?? '';
+        if ($security === 'tls' || $security === 'reality') {
+            $res['tls'] = true;
+            $res['alpn'] = ['h2', 'http/1.1'];
+        }
+        
+        $tlsSettings = $ds['tlsSettings'] ?? ($ds['tls_settings'] ?? []);
+        if (isset($tlsSettings['serverName']) || isset($tlsSettings['server_name'])) {
+            $res['servername'] = $tlsSettings['serverName'] ?? $tlsSettings['server_name'];
+        }
+        if (isset($tlsSettings['allowInsecure']) || isset($tlsSettings['allow_insecure'])) {
+            $res['skip-cert-verify'] = (bool)($tlsSettings['allowInsecure'] ?? $tlsSettings['allow_insecure']);
+        }
+        if (isset($tlsSettings['fingerprint'])) {
+            $res['fingerprint'] = $tlsSettings['fingerprint'];
+            $res['client-fingerprint'] = $tlsSettings['fingerprint'];
+        }
+
+        if ($security === 'reality') {
+            $realitySettings = $ds['realitySettings'] ?? ($ds['reality_settings'] ?? []);
+            if (!empty($realitySettings)) {
+                $res['reality-opts'] = [
+                    'public-key' => $realitySettings['publicKey'] ?? ($realitySettings['public_key'] ?? ''),
+                    'short-id' => $realitySettings['shortId'] ?? ($realitySettings['short_id'] ?? ''),
+                ];
+            }
+        }
+
+        $xhttpSettings = $ds['xhttpSettings'] ?? ($ds['xhttp_settings'] ?? []);
+        if (isset($xhttpSettings['path'])) $res['path'] = $xhttpSettings['path'];
+        if (isset($xhttpSettings['host'])) $res['host'] = $xhttpSettings['host'];
+        $res['mode'] = $xhttpSettings['mode'] ?? 'auto';
+
+        // xmux inside downloadSettings
+        $xmux = $xhttpSettings['extra']['xmux'] ?? ($xhttpSettings['xmux'] ?? null);
+        if ($xmux) {
+            $res['reuse-settings'] = [
+                'max-concurrency' => $xmux['maxConcurrency'] ?? ($xmux['max_concurrency'] ?? '8'),
+                'max-connections' => $xmux['maxConnections'] ?? ($xmux['max_connections'] ?? '8'),
+                'c-max-reuse-times' => $xmux['cMaxReuseTimes'] ?? ($xmux['c_max_reuse_times'] ?? '0'),
+                'h-max-request-times' => $xmux['hMaxRequestTimes'] ?? ($xmux['h_max_request_times'] ?? '0'),
+                'h-max-reusable-secs' => $xmux['hMaxReusableSecs'] ?? ($xmux['h_max_reusable_secs'] ?? '0'),
+                'h-keep-alive-period' => (int)($xmux['hKeepAlivePeriod'] ?? ($xmux['h_keep_alive_period'] ?? 0)),
+            ];
+        }
+        return $res;
     }
 }

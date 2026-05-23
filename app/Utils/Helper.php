@@ -283,6 +283,10 @@ class Helper
                 $config['host'] = $networkSettings['host'] ?? null;
                 $config['mode'] = $networkSettings['mode'] ?? 'auto';
                 $config['extra'] = isset($networkSettings['extra']) ? json_encode($networkSettings['extra'], JSON_UNESCAPED_SLASHES) : null;
+                $downloadSettings = $networkSettings['downloadSettings'] ?? ($networkSettings['extra']['downloadSettings'] ?? null);
+                if ($downloadSettings) {
+                    $config['downloadSettings'] = json_encode($downloadSettings, JSON_UNESCAPED_SLASHES);
+                }
                 break;
         }
 
@@ -510,5 +514,10 @@ class Helper
         $config['host'] = $settings['host'] ?? '';
         $config['mode'] = $settings['mode'] ?? 'auto';
         $config['extra'] = isset($settings['extra']) ? json_encode($settings['extra'], JSON_UNESCAPED_SLASHES) : null;
+        
+        $downloadSettings = $settings['downloadSettings'] ?? ($settings['extra']['downloadSettings'] ?? null);
+        if ($downloadSettings) {
+            $config['downloadSettings'] = json_encode($downloadSettings, JSON_UNESCAPED_SLASHES);
+        }
     }
 }
