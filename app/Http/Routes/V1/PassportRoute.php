@@ -16,6 +16,8 @@ class PassportRoute
             $router->get ('/auth/token2Login', 'V1\\Passport\\AuthController@token2Login');
             $router->post('/auth/forget', 'V1\\Passport\\AuthController@forget');
             $router->post('/auth/getQuickLoginUrl', 'V1\\Passport\\AuthController@getQuickLoginUrl');
+            $router->get ('/auth/social/{provider}', 'V1\\Passport\\AuthController@socialRedirect');
+            $router->get ('/auth/social/{provider}/callback', 'V1\\Passport\\AuthController@socialCallback');
             // Comm
             $router->post('/comm/sendEmailVerify', 'V1\\Passport\\CommController@sendEmailVerify');
             $router->post('/comm/pv', 'V1\\Passport\\CommController@pv');

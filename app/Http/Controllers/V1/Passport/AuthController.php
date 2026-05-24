@@ -17,6 +17,8 @@ use App\Utils\Helper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use ReCaptcha\ReCaptcha;
+use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
@@ -275,5 +277,108 @@ class AuthController extends Controller
         return response([
             'data' => true
         ]);
+    }
+
+    public function socialRedirect($provider)
+    {
+        if (!in_array($provider, ['google', 'github'])) {
+            abort(500, 'Unsupported provider');
+        }
+
+        return Socialite::driver($provider)->stateless()->redirect();
+    }
+
+    public function socialCallback(Request $request, $provider)
+    {
+        if (!in_array($provider, ['google', 'github'])) {
+            abort(500, 'Unsupported provider');
+        }
+
+        try {
+            $socialUser = Socialite::driver($provider)->stateless()->user();
+        } catch (\Exception $e) {
+            return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('获取授权信息失败'));
+        }
+
+        $providerId = $socialUser->getId();
+        $email = $socialUser->getEmail();
+
+        if (empty($email)) {
+            return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('第三方账号未提供电子邮箱权限'));
+        }
+
+        $user = null;
+
+        $socialRelation = DB::table('user_socials')
+            ->where('provider', $provider)
+            ->where('provider_id', $providerId)
+            ->first();
+
+        if ($socialRelation) {
+            $user = User::find($socialRelation->user_id);
+        }
+
+        if (!$user) {
+            $user = User::where('email', $email)->first();
+
+            if (!$user) {
+                if ((int)config('v2board.stop_register', 0)) {
+                    return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('系统已关闭注册'));
+                }
+
+                DB::beginTransaction();
+                try {
+                    $user = new User();
+                    $user->email = $email;
+                    $user->password = password_hash(Helper::guid(16), PASSWORD_DEFAULT);
+                    $user->uuid = Helper::guid(true);
+                    $user->token = Helper::guid();
+
+                    // try out
+                    if ((int)config('v2board.try_out_plan_id', 0)) {
+                        $plan = Plan::find(config('v2board.try_out_plan_id'));
+                        if ($plan) {
+                            $user->transfer_enable = $plan->transfer_enable * 1073741824;
+                            $user->device_limit = $plan->device_limit;
+                            $user->plan_id = $plan->id;
+                            $user->group_id = $plan->group_id;
+                            $user->expired_at = time() + (config('v2board.try_out_hour', 1) * 3600);
+                            $user->speed_limit = $plan->speed_limit;
+                        }
+                    }
+
+                    if (!$user->save()) {
+                        throw new \Exception('Register failed');
+                    }
+
+                    DB::commit();
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('创建本地账号失败'));
+                }
+            }
+
+            DB::table('user_socials')->insert([
+                'user_id' => $user->id,
+                'provider' => $provider,
+                'provider_id' => $providerId,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+        }
+
+        if ($user->banned) {
+            return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('您的账号已被封禁'));
+        }
+
+        $user->last_login_at = time();
+        $user->save();
+
+        $code = Helper::guid();
+        $key = CacheKey::get('TEMP_TOKEN', $code);
+        Cache::put($key, $user->id, 60);
+
+        $redirectUrl = config('v2board.app_url', url('/')) . '/#/login?verify=' . $code;
+        return redirect()->to($redirectUrl);
     }
 }
