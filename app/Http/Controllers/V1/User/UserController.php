@@ -66,14 +66,22 @@ class UserController extends Controller
         if (!$user) {
             abort(500, __('The user does not exist'));
         }
-        if (!Helper::multiPasswordVerify(
-            $user->password_algo,
-            $user->password_salt,
-            $request->input('old_password'),
-            $user->password
-        )) {
-            abort(500, __('The old password is wrong'));
+
+        // 检查用户是否关联了社交登录
+        $hasSocial = DB::table('user_socials')->where('user_id', $user->id)->exists();
+
+        // 只有当没有关联社交账号时，才严格校验旧密码是否正确
+        if (!$hasSocial) {
+            if (!Helper::multiPasswordVerify(
+                $user->password_algo,
+                $user->password_salt,
+                $request->input('old_password'),
+                $user->password
+            )) {
+                abort(500, __('The old password is wrong'));
+            }
         }
+
         $user->password = password_hash($request->input('new_password'), PASSWORD_DEFAULT);
         $user->password_algo = NULL;
         $user->password_salt = NULL;
