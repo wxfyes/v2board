@@ -35,8 +35,22 @@ class ClientController extends Controller
                 $serverService = new ServerService();
                 $servers = $serverService->getAvailableServers($user);
             } else {
-                // 套餐过期或未购买，生成空节点列表，保证客户端正常加载不转圈，同时返回200状态码
-                $servers = [];
+                // 套餐过期或未购买，生成一个虚拟的“提示节点”，避免客户端转圈，并友好提示购买套餐
+                $servers = [
+                    [
+                        'id' => 99999,
+                        'name' => '⚠️ 请购买或续费套餐后使用',
+                        'type' => 'shadowsocks',
+                        'host' => '127.0.0.1',
+                        'port' => 10086,
+                        'server_port' => 10086,
+                        'cipher' => 'aes-128-gcm',
+                        'obfs' => null,
+                        'obfs_settings' => null,
+                        'tags' => [],
+                        'show' => 1,
+                    ]
+                ];
             }
 
             // 记录客户端登录时间和类型（所有客户端都记录，保留历史）
