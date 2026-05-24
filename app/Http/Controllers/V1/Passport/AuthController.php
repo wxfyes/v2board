@@ -279,13 +279,25 @@ class AuthController extends Controller
         ]);
     }
 
-    public function socialRedirect($provider)
+    public function socialRedirect(Request $request, $provider)
     {
         if (!in_array($provider, ['google', 'github'])) {
             abort(500, 'Unsupported provider');
         }
 
-        return Socialite::driver($provider)->stateless()->redirect();
+        // 动态获取发起登录请求的原始域名
+        $referer = $request->header('referer');
+        if ($referer) {
+            $parsed = parse_url($referer);
+            $origin = ($parsed['scheme'] ?? 'https') . '://' . ($parsed['host'] ?? 'go.tianquege.top') . (isset($parsed['port']) ? ':' . $parsed['port'] : '');
+        } else {
+            $origin = config('v2board.app_url', url('/'));
+        }
+
+        return Socialite::driver($provider)
+            ->stateless()
+            ->with(['state' => base64_encode($origin)])
+            ->redirect();
     }
 
     public function socialCallback(Request $request, $provider)
@@ -294,17 +306,28 @@ class AuthController extends Controller
             abort(500, 'Unsupported provider');
         }
 
+        // 从 state 动态恢复发起登录请求的原始域名
+        $state = $request->input('state');
+        $originUrl = config('v2board.app_url', url('/'));
+        if ($state) {
+            $decoded = base64_decode($state);
+            if (filter_var($decoded, FILTER_VALIDATE_URL)) {
+                $parsed = parse_url($decoded);
+                $originUrl = ($parsed['scheme'] ?? 'https') . '://' . ($parsed['host'] ?? 'go.tianquege.top') . (isset($parsed['port']) ? ':' . $parsed['port'] : '');
+            }
+        }
+
         try {
             $socialUser = Socialite::driver($provider)->stateless()->user();
         } catch (\Exception $e) {
-            return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('获取授权信息失败'));
+            return redirect()->to($originUrl . '/#/login?error=' . urlencode('获取授权信息失败'));
         }
 
         $providerId = $socialUser->getId();
         $email = $socialUser->getEmail();
 
         if (empty($email)) {
-            return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('第三方账号未提供电子邮箱权限'));
+            return redirect()->to($originUrl . '/#/login?error=' . urlencode('第三方账号未提供电子邮箱权限'));
         }
 
         $user = null;
@@ -323,7 +346,7 @@ class AuthController extends Controller
 
             if (!$user) {
                 if ((int)config('v2board.stop_register', 0)) {
-                    return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('系统已关闭注册'));
+                    return redirect()->to($originUrl . '/#/login?error=' . urlencode('系统已关闭注册'));
                 }
 
                 DB::beginTransaction();
@@ -354,7 +377,7 @@ class AuthController extends Controller
                     DB::commit();
                 } catch (\Exception $e) {
                     DB::rollBack();
-                    return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('创建本地账号失败'));
+                    return redirect()->to($originUrl . '/#/login?error=' . urlencode('创建本地账号失败'));
                 }
             }
 
@@ -368,7 +391,7 @@ class AuthController extends Controller
         }
 
         if ($user->banned) {
-            return redirect()->to(config('v2board.app_url', url('/')) . '/#/login?error=' . urlencode('您的账号已被封禁'));
+            return redirect()->to($originUrl . '/#/login?error=' . urlencode('您的账号已被封禁'));
         }
 
         $user->last_login_at = time();
@@ -378,7 +401,7 @@ class AuthController extends Controller
         $key = CacheKey::get('TEMP_TOKEN', $code);
         Cache::put($key, $user->id, 60);
 
-        $redirectUrl = config('v2board.app_url', url('/')) . '/#/login?verify=' . $code;
+        $redirectUrl = $originUrl . '/#/login?verify=' . $code;
         return redirect()->to($redirectUrl);
     }
 }
