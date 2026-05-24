@@ -17,7 +17,7 @@ class CreateUserSocialsTable extends Migration
             $table->increments('id');
             $table->integer('user_id')->comment('用户ID');
             $table->string('provider', 50)->comment('第三方渠道: google, github');
-            $table->string('provider_id', 255)->comment('第三方唯一ID');
+            $table->string('provider_id', 100)->comment('第三方唯一ID');
             $table->timestamps();
 
             $table->unique(['provider', 'provider_id'], 'uniq_provider_id');
