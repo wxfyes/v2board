@@ -77,12 +77,17 @@ if ($action === 'fetch') {
     
     $targetInterval = (int)($_GET['interval'] ?? 300);
     $tolerance = (int)($_GET['tolerance'] ?? 30);
-    $maxTrafficMb = (int)($_GET['max_traffic'] ?? 50); // 流量判定阈值，默认50MB
+    $maxTrafficMb = (int)($_GET['max_traffic'] ?? 50);
+    
+    // mode: detect (仅定时内鬼) | all_low (全部低流量活跃订阅用户)
+    $mode = $_GET['mode'] ?? 'detect'; 
+    // bypass_whitelist: true (包含天阙/MOMclash等) | false (过滤天阙/MOMclash等)
+    $bypassWhitelist = ($_GET['bypass_whitelist'] ?? 'false') === 'true';
 
     $now = time();
     $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
 
-    // 查询未封禁且拉取过订阅的用户，包含上传/下载流量字段 (u/d)
+    // 查询未封禁且拉取过订阅的用户
     $stmt = $pdo->prepare("SELECT id, email, u, d, client_type FROM v2_user WHERE banned = 0 AND client_type IS NOT NULL");
     $stmt->execute();
     $users = $stmt->fetchAll();
@@ -91,62 +96,81 @@ if ($action === 'fetch') {
 
     foreach ($users as $user) {
         $history = json_decode($user['client_type'], true);
-        if (!is_array($history) || count($history) < 5) {
+        if (!is_array($history) || count($history) < 1) {
             continue;
         }
 
-        // 时效过滤放宽到 24 小时，以便能捕获长周期（如每几小时拉一次）的探测行为
+        // 时效过滤放宽到 24 小时
         if ($now - $history[0]['time'] > 86400) {
             continue;
         }
 
-        // 白名单过滤
-        $hasWhitelistClient = false;
-        foreach ($history as $item) {
-            if (in_array($item['type'], $whitelistClients)) {
-                $hasWhitelistClient = true;
-                break;
+        // 流量去噪：如果该用户总流量已经超过设定的限额（如50MB），直接排除
+        $totalTrafficBytes = $user['u'] + $user['d'];
+        $totalTrafficMb = $totalTrafficBytes / 1024 / 1024;
+        if ($totalTrafficMb >= $maxTrafficMb) {
+            continue;
+        }
+
+        // 白名单过滤：只有在“不过滤白名单”时才跳过
+        if (!$bypassWhitelist) {
+            $hasWhitelistClient = false;
+            foreach ($history as $item) {
+                if (in_array($item['type'], $whitelistClients)) {
+                    $hasWhitelistClient = true;
+                    break;
+                }
+            }
+            if ($hasWhitelistClient) {
+                continue;
             }
         }
-        if ($hasWhitelistClient) {
-            continue;
+
+        $averageInterval = 0;
+        $range = 0;
+        $isMatched = false;
+
+        if ($mode === 'all_low') {
+            // 模式二：全部低流量活跃用户（有拉取轨迹即可，无视数学规律）
+            $isMatched = true;
+        } else {
+            // 模式一：捕获高规律定时测活机器
+            if (count($history) >= 5) {
+                // 5次的总跨度必须大于600秒，防止连点误伤
+                $totalSpan = $history[0]['time'] - $history[count($history) - 1]['time'];
+                if ($totalSpan >= 600) {
+                    // 计算拉取时间差
+                    $diffs = [];
+                    for ($i = 0; $i < count($history) - 1; $i++) {
+                        $diff = $history[$i]['time'] - $history[$i + 1]['time'];
+                        $diffs[] = $diff;
+                    }
+
+                    $averageInterval = array_sum($diffs) / count($diffs);
+                    $maxInterval = max($diffs);
+                    $minInterval = min($diffs);
+                    $range = $maxInterval - $minInterval;
+
+                    $isTargetInterval = abs($averageInterval - $targetInterval) <= $tolerance && $range <= $tolerance;
+                    $isGeneralFastRegular = $averageInterval <= 600 && $range <= 15;
+                    $isLongPeriodRegular = $averageInterval > 600 && $range <= 60;
+
+                    if ($isTargetInterval || $isGeneralFastRegular || $isLongPeriodRegular) {
+                        $isMatched = true;
+                    }
+                }
+            }
         }
 
-        // 跨度过滤 (5次的总跨度必须大于600秒，防止连点误伤)
-        $totalSpan = $history[0]['time'] - $history[count($history) - 1]['time'];
-        if ($totalSpan < 600) {
-            continue;
-        }
-
-        // 计算拉取时间差
-        $diffs = [];
-        for ($i = 0; $i < count($history) - 1; $i++) {
-            $diff = $history[$i]['time'] - $history[$i + 1]['time'];
-            $diffs[] = $diff;
-        }
-
-        $averageInterval = array_sum($diffs) / count($diffs);
-        $maxInterval = max($diffs);
-        $minInterval = min($diffs);
-        $range = $maxInterval - $minInterval;
-
-        // 判定规则：
-        // 1. 匹配管理员设定的目标秒数 (如 300秒)，且抖动极小
-        $isTargetInterval = abs($averageInterval - $targetInterval) <= $tolerance && $range <= $tolerance;
-        
-        // 2. 匹配通用的短周期高频规律拉取 (10分钟内，极差小于15秒)
-        $isGeneralFastRegular = $averageInterval <= 600 && $range <= 15;
-
-        // 3. 匹配长周期规律拉取 (如每小时、每几小时拉一次，极差抖动小于 60 秒，高度判定为机器行为)
-        $isLongPeriodRegular = $averageInterval > 600 && $range <= 60;
-
-        if ($isTargetInterval || $isGeneralFastRegular || $isLongPeriodRegular) {
-            $totalTrafficBytes = $user['u'] + $user['d'];
-            $totalTrafficMb = $totalTrafficBytes / 1024 / 1024;
-
-            // 核心去噪过滤：如果该用户总流量已经超过设定的限额（如50MB），说明是正常使用大流量的普通活人，直接排除！
-            if ($totalTrafficMb >= $maxTrafficMb) {
-                continue;
+        if ($isMatched) {
+            // 如果记录数不够计算间隔，则设为0
+            if (count($history) >= 5 && $averageInterval == 0) {
+                $diffs = [];
+                for ($i = 0; $i < count($history) - 1; $i++) {
+                    $diffs[] = $history[$i]['time'] - $history[$i + 1]['time'];
+                }
+                $averageInterval = array_sum($diffs) / count($diffs);
+                $range = max($diffs) - min($diffs);
             }
 
             // 归一化 IP 和 UA 列表
@@ -170,7 +194,6 @@ if ($action === 'fetch') {
                 'range' => $range,
                 'total_traffic_raw' => $totalTrafficBytes,
                 'total_traffic_formatted' => formatBytes($totalTrafficBytes),
-                'is_low_traffic' => true,
                 'ips' => array_values(array_unique($ips)),
                 'uas' => array_values(array_unique($uas)),
                 'history' => $formattedHistory
@@ -178,10 +201,16 @@ if ($action === 'fetch') {
         }
     }
 
-    // 按平均拉取间隔从小到大排序
-    usort($detected, function($a, $b) {
-        return $a['average_interval'] <=> $b['average_interval'];
-    });
+    // 模式一按平均拉取间隔升序排，模式二按 ID 排
+    if ($mode === 'detect') {
+        usort($detected, function($a, $b) {
+            return $a['average_interval'] <=> $b['average_interval'];
+        });
+    } else {
+        usort($detected, function($a, $b) {
+            return $a['id'] <=> $b['id'];
+        });
+    }
 
     echo json_encode(['data' => $detected], JSON_UNESCAPED_UNICODE);
     exit;
@@ -235,7 +264,7 @@ if ($action === 'reset') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>内鬼探测与测活审计面板</title>
+    <title>天阙订阅安全与行为审计中心</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -290,15 +319,15 @@ if ($action === 'reset') {
         <header class="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-white/5">
             <div>
                 <div class="flex items-center space-x-3 mb-2">
-                    <span class="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 rounded-full border border-indigo-500/20">安全物理单页</span>
+                    <span class="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 rounded-full border border-indigo-500/20">天阙行为审计中心</span>
                     <span class="flex h-2 w-2 relative">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                     </span>
-                    <span class="text-xs text-emerald-400/80 font-medium">行为引擎装载成功</span>
+                    <span class="text-xs text-indigo-400/80 font-medium">数据流正常</span>
                 </div>
                 <h1 class="text-3xl font-bold outfit tracking-tight text-white flex items-center">
-                    内鬼探测与防测活审计面板
+                    订阅轨迹与行为审计面板
                 </h1>
             </div>
             
@@ -308,39 +337,65 @@ if ($action === 'reset') {
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>{{ loading ? '分析中...' : '立即扫描' }}</span>
+                    <span>{{ loading ? '查询中...' : '立即扫描' }}</span>
                 </button>
             </div>
         </header>
 
         <!-- Configuration Bar -->
         <section class="glass-card rounded-2xl p-6 mb-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <!-- Mode Switcher -->
+            <div class="flex border-b border-white/10 pb-4 mb-6 gap-6">
+                <button @click="mode = 'detect'; fetchData()" :class="['pb-2 text-sm font-semibold transition-all border-b-2 outline-none', mode === 'detect' ? 'text-indigo-400 border-indigo-400' : 'text-slate-400 border-transparent hover:text-slate-200']">
+                    🔍 模式一：捕获定时测活内鬼
+                </button>
+                <button @click="mode = 'all_low'; fetchData()" :class="['pb-2 text-sm font-semibold transition-all border-b-2 outline-none', mode === 'all_low' ? 'text-indigo-400 border-indigo-400' : 'text-slate-400 border-transparent hover:text-slate-200']">
+                    📊 模式二：分析全部低流量活跃用户
+                </button>
+            </div>
+
+            <!-- Parameters Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
                 <div class="flex flex-col">
-                    <label class="text-xs text-slate-400 mb-1.5 font-medium">匹配特定目标拉取间隔 (秒)</label>
+                    <label class="text-xs text-slate-400 mb-1.5 font-medium">流量过滤上限阈值 (MB)</label>
+                    <input type="number" v-model="maxTraffic" class="px-4 py-2 text-sm rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full" placeholder="50" />
+                </div>
+                
+                <div v-if="mode === 'detect'" class="flex flex-col">
+                    <label class="text-xs text-slate-400 mb-1.5 font-medium">目标检测间隔 (秒)</label>
                     <input type="number" v-model="interval" class="px-4 py-2 text-sm rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full" placeholder="300" />
                 </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-slate-400 mb-1.5 font-medium">抖动容差 (秒)</label>
+                
+                <div v-if="mode === 'detect'" class="flex flex-col">
+                    <label class="text-xs text-slate-400 mb-1.5 font-medium">时间极差容差 (秒)</label>
                     <input type="number" v-model="tolerance" class="px-4 py-2 text-sm rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full" placeholder="30" />
                 </div>
-                <div class="flex flex-col">
-                    <label class="text-xs text-slate-400 mb-1.5 font-medium">内鬼低流量阈值 (MB)</label>
-                    <div class="flex space-x-3">
-                        <input type="number" v-model="maxTraffic" class="px-4 py-2 text-sm rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full" placeholder="50" />
-                        <button @click="fetchData" class="px-4 py-2 text-sm font-semibold rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 transition-all border border-white/5 shrink-0">
-                            应用参数
-                        </button>
-                    </div>
+
+                <div class="flex items-center h-10">
+                    <label class="flex items-center space-x-3 cursor-pointer select-none">
+                        <input type="checkbox" v-model="bypassWhitelist" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500 focus:ring-offset-black" />
+                        <span class="text-xs text-slate-300 font-medium">审计天阙/MOMclash (不跳过白名单)</span>
+                    </label>
+                </div>
+
+                <div v-if="mode === 'all_low'" class="col-span-1 md:col-span-2"></div>
+
+                <div class="flex justify-end">
+                    <button @click="fetchData" class="w-full md:w-auto px-5 py-2 text-sm font-semibold rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 transition-all border border-white/5">
+                        应用参数并重新扫描
+                    </button>
                 </div>
             </div>
 
-            <div class="text-xs text-slate-400 leading-relaxed mt-5 bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    💡 <span class="font-medium text-slate-300">升级版行为审计策略：</span>
-                    当前已放宽最近拉取时效为 <b>24小时</b>（适配数小时拉取一次的长周期内鬼）。
-                    判定算法自动联合分析 <b>“拉取规律极差”</b> 和 <b>“总流量消耗”</b>，揪出不吃流量、只拿节点定时探活的高可疑内鬼！
-                </div>
+            <!-- Helpful Strategy Explainer -->
+            <div class="text-xs text-slate-400 leading-relaxed mt-5 bg-white/5 border border-white/5 p-4 rounded-xl">
+                📌 <span class="font-medium text-slate-300">模式说明：</span>
+                <span v-if="mode === 'detect'">
+                    **定时测活模式**：自动排查 24 小时内有规律拉取订阅、但消耗总流量低于 <b>{{ maxTraffic }} MB</b> 的账号，常用于揪出悄悄挂脚本的内鬼探测器。
+                </span>
+                <span v-else>
+                    **分析全部低流量模式**：列出 24 小时内有订阅更新动作、且总流量小于 <b>{{ maxTraffic }} MB</b> 的所有有效用户。这适合您全局分析用户活跃轨迹、查询拉取客户端、解析 IP 分布等。
+                </span>
             </div>
         </section>
 
@@ -352,18 +407,18 @@ if ($action === 'reset') {
                     <div class="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
                     <div class="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
                 </div>
-                <p class="text-sm text-slate-400">正在进行 24 小时高频与长周期数据关联分析...</p>
+                <p class="text-sm text-slate-400">正在遍历并提取轨迹分析日志...</p>
             </div>
 
-            <!-- Empty State (No bots detected) -->
+            <!-- Empty State -->
             <div v-if="!loading && users.length === 0" class="glass-card rounded-2xl p-12 text-center flex flex-col items-center justify-center border-emerald-500/10">
                 <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4 shadow-lg shadow-emerald-500/5">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"></path>
                     </svg>
                 </div>
-                <h3 class="text-lg font-bold text-white mb-2">安全防护状态正常</h3>
-                <p class="text-sm text-slate-400 max-w-sm">目前未捕获到任何符合高频或长周期定时拉取的异常探针行为。</p>
+                <h3 class="text-lg font-bold text-white mb-2">未发现匹配条件的订阅用户</h3>
+                <p class="text-sm text-slate-400 max-w-sm">调大流量阈值或切换检测模式以查看更多轨迹。</p>
             </div>
 
             <!-- Bot User Cards Grid -->
@@ -379,16 +434,13 @@ if ($action === 'reset') {
                             
                             <!-- Badges -->
                             <div class="flex flex-wrap gap-2">
-                                <span v-if="user.is_low_traffic" class="px-2.5 py-1 text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg animate-pulse">
-                                    ⚠️ 流量极低 (仅 {{ user.total_traffic_formatted }})
+                                <span class="px-2.5 py-1 text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg">
+                                    ⚠️ 低流量活跃 (已用 {{ user.total_traffic_formatted }})
                                 </span>
-                                <span v-else class="px-2.5 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg">
-                                    流量消耗: {{ user.total_traffic_formatted }}
+                                <span v-if="user.average_interval > 0" class="px-2.5 py-1 text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg">
+                                    平均拉取间隔: {{ user.average_interval }} 秒 (~{{ Math.round(user.average_interval / 60) }}分钟)
                                 </span>
-                                <span class="px-2.5 py-1 text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg">
-                                    平均间隔: {{ user.average_interval }} 秒 (~{{ Math.round(user.average_interval / 60) }}分钟)
-                                </span>
-                                <span class="px-2.5 py-1 text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg">
+                                <span v-if="user.range > 0" class="px-2.5 py-1 text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg">
                                     极差抖动: ±{{ user.range }} 秒
                                 </span>
                             </div>
@@ -397,18 +449,18 @@ if ($action === 'reset') {
                         <!-- Card Meta Logs (IP and UA) -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm bg-white/5 border border-white/5 p-4 rounded-xl">
                             <div>
-                                <span class="text-xs text-slate-400 block mb-1">拉取服务器 IP 群 (点击可查询归属地)：</span>
+                                <span class="text-xs text-slate-400 block mb-1">订阅拉取公网 IP (点击可查询归属地)：</span>
                                 <div class="flex flex-wrap gap-2">
                                     <template v-if="user.ips && user.ips.length > 0">
                                         <a v-for="ip in user.ips" :key="ip" :href="'https://ipinfo.io/' + ip" target="_blank" class="px-2 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs rounded-md border border-indigo-500/20 transition-all font-mono">
                                             {{ ip }} ↗
                                         </a>
                                     </template>
-                                    <span v-else class="text-xs text-slate-500 italic">暂无记录</span>
+                                    <span v-else class="text-xs text-slate-500 italic font-mono">暂无记录</span>
                                 </div>
                             </div>
                             <div>
-                                <span class="text-xs text-slate-400 block mb-1">使用客户端 (UA)：</span>
+                                <span class="text-xs text-slate-400 block mb-1">使用客户端 (User-Agent)：</span>
                                 <div class="flex flex-wrap gap-2">
                                     <template v-if="user.uas && user.uas.length > 0">
                                         <span v-for="ua in user.uas" :key="ua" class="px-2 py-1 bg-slate-500/10 text-slate-300 text-xs rounded-md border border-slate-500/20 font-mono">
@@ -421,9 +473,9 @@ if ($action === 'reset') {
                         </div>
 
                         <!-- Sub-history Details (Collapse) -->
-                        <details class="group mb-4">
+                        <details class="group mb-4" open>
                             <summary class="text-xs font-semibold text-indigo-400/90 cursor-pointer hover:text-indigo-400 transition-all flex items-center space-x-1 outline-none select-none">
-                                <span>查看最近 5 次订阅拉取历史明细</span>
+                                <span>最新订阅拉取历史日志与轨迹</span>
                                 <svg class="w-3 h-3 transform group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>
                                 </svg>
@@ -434,15 +486,15 @@ if ($action === 'reset') {
                                     <thead>
                                         <tr class="bg-white/5 text-slate-400 border-b border-white/5">
                                             <th class="px-4 py-2 font-medium">拉取时间</th>
-                                            <th class="px-4 py-2 font-medium">识别UA类型</th>
-                                            <th class="px-4 py-2 font-medium">请求来源 IP</th>
+                                            <th class="px-4 py-2 font-medium">UA 设备</th>
+                                            <th class="px-4 py-2 font-medium">拉取者公网 IP</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-white/5">
                                         <tr v-for="(h, idx) in user.history" :key="idx" class="hover:bg-white/5">
                                             <td class="px-4 py-2 text-slate-300 font-mono">{{ h.time }}</td>
                                             <td class="px-4 py-2"><span class="px-1.5 py-0.5 rounded bg-white/5 border border-white/5">{{ h.type }}</span></td>
-                                            <td class="px-4 py-2 text-indigo-300 font-mono">{{ h.ip || '无' }}</td>
+                                            <td class="px-4 py-2 text-indigo-300 font-mono">{{ h.ip || '无记录' }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -475,6 +527,8 @@ if ($action === 'reset') {
                 const interval = ref(300);
                 const tolerance = ref(30);
                 const maxTraffic = ref(50); // 流量判定限额，默认50MB
+                const mode = ref('detect'); // detect | all_low
+                const bypassWhitelist = ref(false); // 是否跳过白名单
                 
                 // 获取地址栏的安全 token
                 const urlParams = new URLSearchParams(window.location.search);
@@ -494,10 +548,10 @@ if ($action === 'reset') {
                 const fetchData = async () => {
                     loading.value = true;
                     try {
-                        const response = await fetch(`tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}`);
+                        const response = await fetch(`tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}&mode=${mode.value}&bypass_whitelist=${bypassWhitelist.value}`);
                         const res = await response.json();
                         users.value = res.data;
-                        showToast(`扫描完毕，共分析出 ${users.value.length} 个潜在探针/测活账号`, 'success');
+                        showToast(`扫描完毕，共获取 ${users.value.length} 个分析样本`, 'success');
                     } catch (err) {
                         showToast('获取数据失败，请确认密钥无误', 'error');
                     } finally {
@@ -557,6 +611,8 @@ if ($action === 'reset') {
                     interval,
                     tolerance,
                     maxTraffic,
+                    mode,
+                    bypassWhitelist,
                     toast,
                     fetchData,
                     handleBan,
