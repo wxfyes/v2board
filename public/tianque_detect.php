@@ -144,6 +144,11 @@ if ($action === 'fetch') {
             $totalTrafficBytes = $user['u'] + $user['d'];
             $totalTrafficMb = $totalTrafficBytes / 1024 / 1024;
 
+            // 核心去噪过滤：如果该用户总流量已经超过设定的限额（如50MB），说明是正常使用大流量的普通活人，直接排除！
+            if ($totalTrafficMb >= $maxTrafficMb) {
+                continue;
+            }
+
             // 归一化 IP 和 UA 列表
             $ips = [];
             $uas = [];
@@ -158,9 +163,6 @@ if ($action === 'fetch') {
                 ];
             }
 
-            // 标记低流量嫌疑：若总已用流量低于设定的阈值，则亮起高危标记
-            $isSuspiciousLowTraffic = $totalTrafficMb < $maxTrafficMb;
-
             $detected[] = [
                 'id' => $user['id'],
                 'email' => $user['email'],
@@ -168,7 +170,7 @@ if ($action === 'fetch') {
                 'range' => $range,
                 'total_traffic_raw' => $totalTrafficBytes,
                 'total_traffic_formatted' => formatBytes($totalTrafficBytes),
-                'is_low_traffic' => $isSuspiciousLowTraffic,
+                'is_low_traffic' => true,
                 'ips' => array_values(array_unique($ips)),
                 'uas' => array_values(array_unique($uas)),
                 'history' => $formattedHistory
