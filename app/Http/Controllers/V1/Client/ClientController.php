@@ -74,7 +74,9 @@ class ClientController extends Controller
             // 添加新记录到数组开头
             array_unshift($clientHistory, [
                 'type' => $clientType,
-                'time' => time()
+                'time' => time(),
+                'ip' => $request->ip(),
+                'ua' => substr($userAgent, 0, 128)
             ]);
 
             // 只保留最近 5 条记录
