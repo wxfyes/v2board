@@ -132,11 +132,11 @@ if ($action === 'fetch') {
     $showExpired = ($_GET['show_expired'] ?? 'true') === 'true';
     // 新增：显示已封禁账号开关 (true | false)
     $showBanned = ($_GET['show_banned'] ?? 'true') === 'true';
-    // 新增：仅查看异常UA开关 (true | false)
-    $abnormalUaOnly = ($_GET['abnormal_ua_only'] ?? 'false') === 'true';
+    // 新增：仅查看异常UA开关 (true | false)，默认改为默认过滤只看异常
+    $abnormalUaOnly = ($_GET['abnormal_ua_only'] ?? 'true') === 'true';
 
-    // 【新增重要过滤控制】：拉取活跃时效限制 (秒)，默认 86400 (24小时)
-    $timeLimit = isset($_GET['time_limit']) ? (int)$_GET['time_limit'] : 86400;
+    // 【新增重要过滤控制】：拉取活跃时效限制 (秒)，默认修改为 259200 (3天)
+    $timeLimit = isset($_GET['time_limit']) ? (int)$_GET['time_limit'] : 259200;
 
     $now = time();
     $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
@@ -707,8 +707,8 @@ if ($action === 'toggle_honeypot') {
                 <div class="flex flex-col">
                     <label class="text-xs text-slate-400 mb-1.5 font-medium">活跃时效范围选择</label>
                     <select v-model="timeLimit" @change="fetchData" class="px-4 py-2 text-sm rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full cursor-pointer">
-                        <option value="86400" class="bg-darkBg">24小时内拉取 (默认)</option>
-                        <option value="259200" class="bg-darkBg">3天内拉取</option>
+                        <option value="86400" class="bg-darkBg">24小时内拉取</option>
+                        <option value="259200" class="bg-darkBg">3天内拉取 (默认)</option>
                         <option value="604800" class="bg-darkBg">7天内拉取</option>
                         <option value="2592000" class="bg-darkBg">30天内拉取</option>
                         <option value="0" class="bg-darkBg">全部历史留底记录（无时效限制）</option>
@@ -958,10 +958,10 @@ if ($action === 'toggle_honeypot') {
                 // 进阶不正常UA、封禁与过期用户过滤
                 const showExpired = ref(true); // 是否显示过期，默认显示
                 const showBanned = ref(true); // 是否显示已封禁，默认显示
-                const abnormalUaOnly = ref(false); // 是否只看命令行异常UA
+                const abnormalUaOnly = ref(true); // 默认只看命令行异常UA (改为 true)
                 
-                // 新增：时效限制绑定变量，默认值 86400 (24小时)
-                const timeLimit = ref(86400);
+                // 新增：时效限制绑定变量，默认修改为 259200 (3天)
+                const timeLimit = ref(259200);
 
                 // 获取地址栏的安全 token
                 const urlParams = new URLSearchParams(window.location.search);
