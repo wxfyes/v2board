@@ -374,6 +374,18 @@ if ($action === 'fetch') {
     exit;
 }
 
+// 辅助日志记录器：将审计操作记录写入 storage/logs/tianque_action.log
+function logTianqueAction($userId, $actionType, $detail = '') {
+    $logDir = __DIR__ . '/../storage/logs';
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0755, true);
+    }
+    $logPath = $logDir . '/tianque_action.log';
+    $time = date('Y-m-d H:i:s');
+    $logMsg = "[{$time}] [UserId: {$userId}] [Action: {$actionType}] {$detail}\n";
+    @file_put_contents($logPath, $logMsg, FILE_APPEND);
+}
+
 // API: 一键封禁
 if ($action === 'ban') {
     header('Content-Type: application/json; charset=utf-8');
@@ -385,6 +397,9 @@ if ($action === 'ban') {
 
     $stmt = $pdo->prepare("UPDATE v2_user SET banned = 1 WHERE id = :id");
     $res = $stmt->execute(['id' => $userId]);
+    if ($res) {
+        logTianqueAction($userId, 'BAN_USER', '一键封禁该用户');
+    }
 
     echo json_encode(['ok' => $res]);
     exit;
@@ -408,6 +423,9 @@ if ($action === 'reset') {
         'uuid' => $uuid,
         'id' => $userId
     ]);
+    if ($res) {
+        logTianqueAction($userId, 'RESET_TOKEN', "重置订阅 token 为 {$token}, UUID 为 {$uuid}");
+    }
 
     echo json_encode(['ok' => $res]);
     exit;
