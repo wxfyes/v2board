@@ -10,9 +10,10 @@
 $securityToken = 'tianque_audit_key_888';
 $cookieName = 'tianque_audit_session';
 
-// A. 敲门机制：如果 URL 传入了 set_token 参数
-if (isset($_GET['set_token'])) {
-    if ($_GET['set_token'] === $securityToken) {
+// A. 敲门机制：兼容支持 set_token 和旧的 token 参数进行首次授权
+$passedToken = $_GET['set_token'] ?? ($_GET['token'] ?? null);
+if ($passedToken !== null) {
+    if ($passedToken === $securityToken) {
         // 写入 1 年有效期的安全 Cookie (设置 HttpOnly 防止脚本窃取)
         setcookie($cookieName, hash('sha256', $securityToken), time() + 365 * 86400, '/', '', false, true);
         // 清洗 URL，防止密钥留在浏览器的历史记录或书签里
