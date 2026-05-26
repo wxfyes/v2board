@@ -264,11 +264,56 @@ if ($action === 'fetch') {
 
         $averageInterval = 0;
         $range = 0;
+        $cv = 0.0;
+        $ipCount24h = 0;
+        $ipCount7d = 0;
         $isMatched = false;
+
+        // 计算 24 小时和 7 天内拉取的独立 IP 数量（Token 泄露扩散分析）
+        $ips24h = [];
+        $ips7d = [];
+        foreach ($history as $item) {
+            if (!empty($item['ip'])) {
+                $t = (int)($item['time'] ?? 0);
+                if ($t > 0) {
+                    if ($now - $t <= 86400) {
+                        $ips24h[] = $item['ip'];
+                    }
+                    if ($now - $t <= 7 * 86400) {
+                        $ips7d[] = $item['ip'];
+                    }
+                }
+            }
+        }
+        $ipCount24h = count(array_unique($ips24h));
+        $ipCount7d = count(array_unique($ips7d));
 
         if ($mode === 'all_low') {
             // 模式二：全部低流量活跃用户
             $isMatched = true;
+            if (count($history) >= 2) { 
+                $sortedTimes = array_column($history, 'time');
+                rsort($sortedTimes);
+                $diffs = [];
+                for ($i = 0; $i < count($sortedTimes) - 1; $i++) {
+                    $diff = $sortedTimes[$i] - $sortedTimes[$i + 1];
+                    if ($diff > 0) $diffs[] = $diff;
+                }
+                if (count($diffs) > 0) {
+                    $averageInterval = array_sum($diffs) / count($diffs);
+                    $maxInterval = max($diffs);
+                    $minInterval = min($diffs);
+                    $range = $maxInterval - $minInterval;
+
+                    // 计算标准差和变异系数 cv
+                    $variance = 0;
+                    foreach ($diffs as $val) {
+                        $variance += pow($val - $averageInterval, 2);
+                    }
+                    $stdDev = sqrt($variance / count($diffs));
+                    $cv = $averageInterval > 0 ? ($stdDev / $averageInterval) : 0.0;
+                }
+            }
         } else {
             // 模式一：捕获高规律定时测活机器
             if (count($history) >= 2) { 
@@ -286,6 +331,14 @@ if ($action === 'fetch') {
                     $maxInterval = max($diffs);
                     $minInterval = min($diffs);
                     $range = $maxInterval - $minInterval;
+
+                    // 计算标准差和变异系数 cv
+                    $variance = 0;
+                    foreach ($diffs as $val) {
+                        $variance += pow($val - $averageInterval, 2);
+                    }
+                    $stdDev = sqrt($variance / count($diffs));
+                    $cv = $averageInterval > 0 ? ($stdDev / $averageInterval) : 0.0;
 
                     $isTargetInterval = abs($averageInterval - $targetInterval) <= $tolerance && $range <= $tolerance;
                     $isGeneralFastRegular = $averageInterval <= 600 && $range <= 15;
@@ -342,6 +395,9 @@ if ($action === 'fetch') {
                 'email' => $user['email'],
                 'average_interval' => round($averageInterval),
                 'range' => $range,
+                'cv' => round($cv, 4),
+                'ip_count_24h' => $ipCount24h,
+                'ip_count_7d' => $ipCount7d,
                 'total_traffic_raw' => $totalTrafficBytes,
                 'total_traffic_formatted' => formatBytes($totalTrafficBytes),
                 'is_expired' => $isExpired,
@@ -600,17 +656,41 @@ if ($action === 'toggle_honeypot') {
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .outfit { font-family: 'Outfit', sans-serif; }
+
+        /* 暗黑模式 */
+        html.dark body {
             background-color: #05070f;
             background-image: 
                 radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.12) 0%, transparent 50%),
                 radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+            color: #f1f5f9;
         }
-        .outfit { font-family: 'Outfit', sans-serif; }
-        .glass-card {
+        html.dark .glass-card {
             background: rgba(13, 20, 38, 0.75);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        /* 明亮模式 */
+        html.light body {
+            background-color: #f3f4f6;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
+            color: #1f2937;
+        }
+        html.light .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
         }
     </style>
 </head>
@@ -647,6 +727,10 @@ if ($action === 'toggle_honeypot') {
             </div>
             
             <div class="mt-4 md:mt-0 flex items-center space-x-3">
+                <!-- 黑白主题切换按钮 -->
+                <button @click="toggleTheme" class="px-4 py-2 text-xs font-semibold rounded-xl border border-indigo-500/20 dark:border-white/10 bg-indigo-500/5 dark:bg-white/5 hover:bg-indigo-500/10 dark:hover:bg-white/10 text-indigo-600 dark:text-slate-200 transition-all flex items-center space-x-1 outline-none select-none">
+                    <span>{{ isDark ? '☀️ 明亮模式' : '🌙 暗黑模式' }}</span>
+                </button>
                 <button @click="fetchData" :disabled="loading" class="px-4 py-2 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white transition-all shadow-lg shadow-indigo-600/20 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     <svg v-if="loading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -881,6 +965,12 @@ if ($action === 'toggle_honeypot') {
                                 <span v-if="user.has_abnormal_ua" class="px-2.5 py-1 text-xs font-black bg-rose-600/30 text-rose-400 border border-rose-500/50 rounded-lg">
                                     ⚙️ 命令行探测 (curl等)
                                 </span>
+                                <span v-if="user.ip_count_24h >= 3" class="px-2.5 py-1 text-xs font-black bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg animate-pulse" title="24小时内拉取IP数超过阈值">
+                                    🚨 订阅涉嫌泄露 (24h内 {{ user.ip_count_24h }} 个 IP)
+                                </span>
+                                <span v-else-if="user.ip_count_7d >= 5" class="px-2.5 py-1 text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg" title="7天内拉取IP数超过阈值">
+                                    ⚠️ 7天多IP扩散 ({{ user.ip_count_7d }} 个 IP)
+                                </span>
                                 <span v-if="user.is_expired" class="px-2.5 py-1 text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg">
                                     ⚠️ 订阅已过期 ({{ user.expired_at_formatted }})
                                 </span>
@@ -892,6 +982,11 @@ if ($action === 'toggle_honeypot') {
                                 </span>
                                 <span v-if="user.average_interval > 0" class="px-2.5 py-1 text-xs font-medium bg-slate-500/10 text-slate-300 border border-slate-500/20 rounded-lg">
                                     平均间隔: {{ user.average_interval }} 秒 (~{{ Math.round(user.average_interval / 60) }}分钟)
+                                </span>
+                                <span v-if="user.average_interval > 0" class="px-2.5 py-1 text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg" :title="'标准差/平均值，值越小更新越规律，表示周期化自动客户端。当前 CV: ' + user.cv">
+                                    📊 变异系数(CV): {{ user.cv }}
+                                    <span v-if="user.cv <= 0.15" class="ml-1 text-emerald-400 font-bold">🤖 定时自动</span>
+                                    <span v-else-if="user.cv >= 0.5" class="ml-1 text-purple-400 font-bold">👤 随机手动</span>
                                 </span>
                             </div>
                         </div>
@@ -1025,6 +1120,21 @@ if ($action === 'toggle_honeypot') {
                 // --- 🛡️ 天阙安全与蜜罐配置状态 ---
                 const config = ref({ banned_strategy: 'bait', banned_redirect_url: '', subconverter_enable: true, subconverter_url: 'https://api.wcc.best/sub', banned_keywords: '一元机场,1元机场,smallstrawberry', replace_keyword_to: '天阙精品', honeypot_users: [] });
                 const isSavingConfig = ref(false);
+                const isDark = ref(true);
+
+                const toggleTheme = () => {
+                    isDark.value = !isDark.value;
+                    const htmlEl = document.documentElement;
+                    if (isDark.value) {
+                        htmlEl.classList.add('dark');
+                        htmlEl.classList.remove('light');
+                        localStorage.setItem('tianque_theme', 'dark');
+                    } else {
+                        htmlEl.classList.remove('dark');
+                        htmlEl.classList.add('light');
+                        localStorage.setItem('tianque_theme', 'light');
+                    }
+                };
 
                 const showToast = (message, type = 'info') => {
                     toast.value.message = message;
@@ -1184,6 +1294,16 @@ if ($action === 'toggle_honeypot') {
                 };
 
                 onMounted(() => {
+                    const savedTheme = localStorage.getItem('tianque_theme') || 'dark';
+                    isDark.value = savedTheme === 'dark';
+                    const htmlEl = document.documentElement;
+                    if (isDark.value) {
+                        htmlEl.classList.add('dark');
+                        htmlEl.classList.remove('light');
+                    } else {
+                        htmlEl.classList.remove('dark');
+                        htmlEl.classList.add('light');
+                    }
                     fetchData();
                     fetchConfig();
                 });
@@ -1206,6 +1326,8 @@ if ($action === 'toggle_honeypot') {
                     toast,
                     config,
                     isSavingConfig,
+                    isDark,
+                    toggleTheme,
                     getFormattedRange,
                     fetchData,
                     fetchConfig,
