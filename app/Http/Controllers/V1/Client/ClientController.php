@@ -33,6 +33,9 @@ class ClientController extends Controller
             $bannedRedirectUrl = '';
             $subconverterEnable = true;
             $subconverterUrl = 'https://api.wcc.best/sub';
+            $bannedTrafficEnable = true;
+            $bannedTrafficMin = 100;
+            $bannedTrafficMax = 300;
 
             if (file_exists($configPath)) {
                 $tianqueConfig = json_decode(@file_get_contents($configPath), true);
@@ -42,6 +45,9 @@ class ClientController extends Controller
                     $bannedRedirectUrl = $tianqueConfig['banned_redirect_url'] ?? '';
                     $subconverterEnable = isset($tianqueConfig['subconverter_enable']) ? (bool)$tianqueConfig['subconverter_enable'] : true;
                     $subconverterUrl = $tianqueConfig['subconverter_url'] ?? 'https://api.wcc.best/sub';
+                    $bannedTrafficEnable = isset($tianqueConfig['banned_traffic_enable']) ? (bool)$tianqueConfig['banned_traffic_enable'] : true;
+                    $bannedTrafficMin = isset($tianqueConfig['banned_traffic_min']) ? (int)$tianqueConfig['banned_traffic_min'] : 100;
+                    $bannedTrafficMax = isset($tianqueConfig['banned_traffic_max']) ? (int)$tianqueConfig['banned_traffic_max'] : 300;
                 }
             } 
 
@@ -89,13 +95,22 @@ class ClientController extends Controller
                     'ua' => substr($userAgent, 0, 128)
                 ]);
                 $clientHistory = array_slice($clientHistory, 0, 5);
-                // 模拟消耗流量：为防白嫖并最大化拟真度，每次拉取订阅自动在主站扣除/累加 100MB ~ 300MB 虚拟下行流量
-                $virtualTraffic = rand(104857600, 314572800);
-                \DB::table('v2_user')->where('id', $user['id'])->update([
+                // 模拟消耗流量：根据配置判断是否开启，将 MB 转换为 Bytes 并随机生成流量扣除
+                $updateData = [
                     'client_login_at' => time(),
-                    'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE),
-                    'd' => \DB::raw("d + {$virtualTraffic}")
-                ]);
+                    'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE)
+                ];
+
+                if ($bannedTrafficEnable) {
+                    $minBytes = max(0, $bannedTrafficMin) * 1048576;
+                    $maxBytes = max($bannedTrafficMin, $bannedTrafficMax) * 1048576;
+                    $virtualTraffic = ($minBytes === $maxBytes) ? $minBytes : rand($minBytes, $maxBytes);
+                    if ($virtualTraffic > 0) {
+                        $updateData['d'] = \DB::raw("d + {$virtualTraffic}");
+                    }
+                }
+
+                \DB::table('v2_user')->where('id', $user['id'])->update($updateData);
 
                 if ($bannedStrategy === 'redirect') {
                     return redirect($bannedRedirectUrl);

@@ -515,6 +515,9 @@ if ($action === 'get_config') {
         'subconverter_url' => 'https://api.wcc.best/sub',
         'banned_keywords' => '一元机场,1元机场,smallstrawberry',
         'replace_keyword_to' => '天阙精品',
+        'banned_traffic_enable' => true,
+        'banned_traffic_min' => 100,
+        'banned_traffic_max' => 300,
         'honeypot_users' => []
     ];
     if (file_exists($configPath)) {
@@ -541,6 +544,9 @@ if ($action === 'save_config') {
     $subconverterUrl = $_POST['subconverter_url'] ?? 'https://api.wcc.best/sub';
     $bannedKeywords = $_POST['banned_keywords'] ?? '一元机场,1元机场,smallstrawberry';
     $replaceKeywordTo = $_POST['replace_keyword_to'] ?? '天阙精品';
+    $bannedTrafficEnable = ($_POST['banned_traffic_enable'] ?? 'true') === 'true';
+    $bannedTrafficMin = (int)($_POST['banned_traffic_min'] ?? 100);
+    $bannedTrafficMax = (int)($_POST['banned_traffic_max'] ?? 300);
     
     $config = [
         'banned_strategy' => 'bait',
@@ -549,6 +555,9 @@ if ($action === 'save_config') {
         'subconverter_url' => 'https://api.wcc.best/sub',
         'banned_keywords' => '一元机场,1元机场,smallstrawberry',
         'replace_keyword_to' => '天阙精品',
+        'banned_traffic_enable' => true,
+        'banned_traffic_min' => 100,
+        'banned_traffic_max' => 300,
         'honeypot_users' => []
     ];
     if (file_exists($configPath)) {
@@ -564,6 +573,9 @@ if ($action === 'save_config') {
     $config['subconverter_url'] = $subconverterUrl;
     $config['banned_keywords'] = $bannedKeywords;
     $config['replace_keyword_to'] = $replaceKeywordTo;
+    $config['banned_traffic_enable'] = $bannedTrafficEnable;
+    $config['banned_traffic_min'] = $bannedTrafficMin;
+    $config['banned_traffic_max'] = $bannedTrafficMax;
     
     $res = @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     echo json_encode(['ok' => $res !== false]);
@@ -587,6 +599,9 @@ if ($action === 'toggle_honeypot') {
         'subconverter_url' => 'https://api.wcc.best/sub',
         'banned_keywords' => '一元机场,1元机场,smallstrawberry',
         'replace_keyword_to' => '天阙精品',
+        'banned_traffic_enable' => true,
+        'banned_traffic_min' => 100,
+        'banned_traffic_max' => 300,
         'honeypot_users' => []
     ];
     if (file_exists($configPath)) {
@@ -831,6 +846,30 @@ if ($action === 'toggle_honeypot') {
                     <label class="text-xs text-slate-400 mb-2 font-medium">5. 敏感词替换为 (仅用于 Clash 模式下的名字净化替换)</label>
                     <input type="text" v-model="config.replace_keyword_to" class="px-4 py-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full font-mono placeholder:text-slate-600" placeholder="天阙精品" />
                     <span class="text-[10px] text-slate-500 mt-2">※ 替换为安全的品牌别称（如天阙精品、VIP等），保持 YAML 引用完整度。</span>
+                </div>
+            </div>
+
+            <!-- 第三行：灰名单与封禁用户拉取虚拟扣量控制 -->
+            <div class="mt-5 border-t border-white/5 pt-5 grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div class="md:col-span-4 flex flex-col justify-start">
+                    <label class="text-xs text-slate-400 mb-2 font-medium flex items-center justify-between">
+                        <span>6. 拦截状态下模拟扣量防白嫖</span>
+                        <label class="flex items-center space-x-1 cursor-pointer select-none">
+                            <input type="checkbox" v-model="config.banned_traffic_enable" class="w-3.5 h-3.5 rounded text-indigo-600 bg-white/5 border-white/10" />
+                            <span class="text-[10px] font-bold" :class="config.banned_traffic_enable ? 'text-emerald-400' : 'text-slate-500'">{{ config.banned_traffic_enable ? '已开启' : '已关闭' }}</span>
+                        </label>
+                    </label>
+                    <span class="text-[10px] text-slate-500">※ 开启后，内鬼与封禁用户每次拉取蜜罐配置都会在主站自动扣减流量，防止无限白嫖。</span>
+                </div>
+                <div class="md:col-span-4 flex flex-col justify-start border-l border-white/10 pl-4">
+                    <label class="text-xs text-slate-400 mb-2 font-medium">7. 扣除下限随机值 (MB)</label>
+                    <input type="number" :disabled="!config.banned_traffic_enable" v-model="config.banned_traffic_min" class="px-4 py-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full font-mono disabled:opacity-40" placeholder="100" />
+                    <span class="text-[10px] text-slate-500 mt-2">※ 每次拉取扣除流量的最小范围 (默认 100 MB)。</span>
+                </div>
+                <div class="md:col-span-4 flex flex-col justify-start border-l border-white/10 pl-4">
+                    <label class="text-xs text-slate-400 mb-2 font-medium">8. 扣除上限随机值 (MB)</label>
+                    <input type="number" :disabled="!config.banned_traffic_enable" v-model="config.banned_traffic_max" class="px-4 py-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full font-mono disabled:opacity-40" placeholder="300" />
+                    <span class="text-[10px] text-slate-500 mt-2">※ 每次拉取扣除流量的最大范围 (默认 300 MB，若等于下限则为固定值)。</span>
                 </div>
             </div>
         </details>
@@ -1141,7 +1180,7 @@ if ($action === 'toggle_honeypot') {
                 const toast = ref({ show: false, message: '', type: 'info' });
                 
                 // --- 🛡️ 天阙安全与蜜罐配置状态 ---
-                const config = ref({ banned_strategy: 'bait', banned_redirect_url: '', subconverter_enable: true, subconverter_url: 'https://api.wcc.best/sub', banned_keywords: '一元机场,1元机场,smallstrawberry', replace_keyword_to: '天阙精品', honeypot_users: [] });
+                const config = ref({ banned_strategy: 'bait', banned_redirect_url: '', subconverter_enable: true, subconverter_url: 'https://api.wcc.best/sub', banned_keywords: '一元机场,1元机场,smallstrawberry', replace_keyword_to: '天阙精品', banned_traffic_enable: true, banned_traffic_min: 100, banned_traffic_max: 300, honeypot_users: [] });
                 const isSavingConfig = ref(false);
                 const isDark = ref(true);
 
@@ -1211,6 +1250,9 @@ if ($action === 'toggle_honeypot') {
                         formData.append('subconverter_url', config.value.subconverter_url);
                         formData.append('banned_keywords', config.value.banned_keywords || '');
                         formData.append('replace_keyword_to', config.value.replace_keyword_to || '');
+                        formData.append('banned_traffic_enable', config.value.banned_traffic_enable ? 'true' : 'false');
+                        formData.append('banned_traffic_min', config.value.banned_traffic_min);
+                        formData.append('banned_traffic_max', config.value.banned_traffic_max);
                         const response = await fetch(`tianque_detect.php?action=save_config&token=${token}`, {
                             method: 'POST',
                             body: formData
