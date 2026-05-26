@@ -86,11 +86,19 @@ if ($action === 'fetch') {
 
     // 高级特定时段过滤参数
     $timeFilterEnable = ($_GET['time_filter_enable'] ?? 'false') === 'true';
-    $timeTarget = $_GET['time_target'] ?? '08:00'; // 目标时分，例如 08:00
-    $timeRangeMin = (int)($_GET['time_range_min'] ?? 15); // 浮动分钟，例如 15 分钟
+    $timeTarget = $_GET['time_target'] ?? '08:00'; 
+    $timeRangeMin = (int)($_GET['time_range_min'] ?? 15);
+
+    // 新增：显示已过期账号开关 (true | false)
+    $showExpired = ($_GET['show_expired'] ?? 'true') === 'true';
+    // 新增：仅查看异常UA开关 (true | false)
+    $abnormalUaOnly = ($_GET['abnormal_ua_only'] ?? 'false') === 'true';
 
     $now = time();
     $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
+    
+    // 判定异常命令行/开发库 UA 的关键字
+    $abnormalKeywords = ['curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2'];
 
     // 解析目标特定时间段
     $targetSecs = 0;
@@ -101,8 +109,8 @@ if ($action === 'fetch') {
         $rangeSecs = $timeRangeMin * 60;
     }
 
-    // 查询未封禁且拉取过订阅的用户
-    $stmt = $pdo->prepare("SELECT id, email, u, d, client_type FROM v2_user WHERE banned = 0 AND client_type IS NOT NULL");
+    // 查询未封禁且拉取过订阅的用户，额外带上 expired_at 字段
+    $stmt = $pdo->prepare("SELECT id, email, u, d, expired_at, client_type FROM v2_user WHERE banned = 0 AND client_type IS NOT NULL");
     $stmt->execute();
     $users = $stmt->fetchAll();
 
@@ -116,6 +124,17 @@ if ($action === 'fetch') {
 
         // 时效过滤放宽到 24 小时
         if ($now - $history[0]['time'] > 86400) {
+            continue;
+        }
+
+        // 判定是否过期
+        $isExpired = false;
+        if ($user['expired_at'] !== null && $user['expired_at'] > 0 && $user['expired_at'] < $now) {
+            $isExpired = true;
+        }
+
+        // 过期过滤控制
+        if (!$showExpired && $isExpired) {
             continue;
         }
 
@@ -140,6 +159,23 @@ if ($action === 'fetch') {
             }
         }
 
+        // 检索该用户的 5 次历史中是否有异常 UA 命令行爬取行为
+        $hasAbnormalUa = false;
+        foreach ($history as $item) {
+            $uaLower = strtolower($item['ua'] ?? '');
+            foreach ($abnormalKeywords as $kw) {
+                if (strpos($uaLower, $kw) !== false) {
+                    $hasAbnormalUa = true;
+                    break 2;
+                }
+            }
+        }
+
+        // 异常 UA 强力过滤
+        if ($abnormalUaOnly && !$hasAbnormalUa) {
+            continue;
+        }
+
         // 高级特定时间段匹配检测
         if ($timeFilterEnable) {
             $hasTimeMatch = false;
@@ -150,9 +186,7 @@ if ($action === 'fetch') {
                 $s = (int)date('s', $t);
                 $recordSecs = $h * 3600 + $m * 60 + $s;
 
-                // 判断是否在浮动区间内（考虑跨天或常规区间）
                 $diffSecs = abs($recordSecs - $targetSecs);
-                // 考虑一天 24 小时循环 (如23:55 和 00:05 差10分钟)
                 if ($diffSecs > 43200) {
                     $diffSecs = 86400 - $diffSecs;
                 }
@@ -177,34 +211,35 @@ if ($action === 'fetch') {
         } else {
             // 模式一：捕获高规律定时测活机器
             if (count($history) >= 5) {
-                // 5次的总跨度必须大于600秒，防止连点误伤
                 $totalSpan = $history[0]['time'] - $history[count($history) - 1]['time'];
                 if ($totalSpan >= 600) {
                     // 计算拉取时间差
                     $diffs = [];
                     for ($i = 0; $i < count($history) - 1; $i++) {
-                        $diff = $history[$i]['time'] - $history[$i + 1]['time'];
-                        $diffs[] = $diff;
+                        $diffs[] = $history[$i]['time'] - $history[$i + 1]['time'];
+                        $diffs = array_filter($diffs); // 过滤异常差值
                     }
 
-                    $averageInterval = array_sum($diffs) / count($diffs);
-                    $maxInterval = max($diffs);
-                    $minInterval = min($diffs);
-                    $range = $maxInterval - $minInterval;
+                    if (count($diffs) > 0) {
+                        $averageInterval = array_sum($diffs) / count($diffs);
+                        $maxInterval = max($diffs);
+                        $minInterval = min($diffs);
+                        $range = $maxInterval - $minInterval;
 
-                    $isTargetInterval = abs($averageInterval - $targetInterval) <= $tolerance && $range <= $tolerance;
-                    $isGeneralFastRegular = $averageInterval <= 600 && $range <= 15;
-                    $isLongPeriodRegular = $averageInterval > 600 && $range <= 60;
+                        $isTargetInterval = abs($averageInterval - $targetInterval) <= $tolerance && $range <= $tolerance;
+                        $isGeneralFastRegular = $averageInterval <= 600 && $range <= 15;
+                        $isLongPeriodRegular = $averageInterval > 600 && $range <= 60;
 
-                    if ($isTargetInterval || $isGeneralFastRegular || $isLongPeriodRegular) {
-                        $isMatched = true;
+                        if ($isTargetInterval || $isGeneralFastRegular || $isLongPeriodRegular) {
+                            $isMatched = true;
+                        }
                     }
                 }
             }
         }
 
         if ($isMatched) {
-            // 如果记录数够计算间隔，并且未初始化过
+            // 补正间隔计算数据
             if (count($history) >= 5 && $averageInterval == 0) {
                 $diffs = [];
                 for ($i = 0; $i < count($history) - 1; $i++) {
@@ -235,6 +270,9 @@ if ($action === 'fetch') {
                 'range' => $range,
                 'total_traffic_raw' => $totalTrafficBytes,
                 'total_traffic_formatted' => formatBytes($totalTrafficBytes),
+                'is_expired' => $isExpired,
+                'expired_at_formatted' => $user['expired_at'] ? date('Y-m-d H:i:s', $user['expired_at']) : '长期有效',
+                'has_abnormal_ua' => $hasAbnormalUa,
                 'ips' => array_values(array_unique($ips)),
                 'uas' => array_values(array_unique($uas)),
                 'history' => $formattedHistory
@@ -365,7 +403,7 @@ if ($action === 'reset') {
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                     </span>
-                    <span class="text-xs text-indigo-400/80 font-medium">数据流正常</span>
+                    <span class="text-xs text-indigo-400/80 font-medium">行为沙盒就绪</span>
                 </div>
                 <h1 class="text-3xl font-bold outfit tracking-tight text-white flex items-center">
                     订阅轨迹与行为审计面板
@@ -378,7 +416,7 @@ if ($action === 'reset') {
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>{{ loading ? '查询中...' : '立即扫描' }}</span>
+                    <span>{{ loading ? '抓内鬼中...' : '立即扫描' }}</span>
                 </button>
             </div>
         </header>
@@ -414,7 +452,7 @@ if ($action === 'reset') {
 
                 <div class="flex items-center h-10">
                     <label class="flex items-center space-x-3 cursor-pointer select-none">
-                        <input type="checkbox" v-model="bypassWhitelist" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500 focus:ring-offset-black" />
+                        <input type="checkbox" v-model="bypassWhitelist" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500" />
                         <span class="text-xs text-slate-300 font-medium">审计天阙/MOMclash (不跳过白名单)</span>
                     </label>
                 </div>
@@ -422,27 +460,38 @@ if ($action === 'reset') {
                 <div v-if="mode === 'all_low'" class="col-span-1 md:col-span-2"></div>
             </div>
 
-            <!-- Advanced Target Time Period Filter -->
+            <!-- Toggles and Time Settings -->
             <div class="border-t border-white/10 pt-5 mt-4">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div class="flex flex-wrap items-center gap-4">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <!-- Checkboxes & Options -->
+                    <div class="flex flex-wrap items-center gap-6">
                         <label class="flex items-center space-x-3 cursor-pointer select-none">
-                            <input type="checkbox" v-model="timeFilterEnable" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500 focus:ring-offset-black" />
-                            <span class="text-sm font-semibold text-indigo-400">启用特定拉取时间段过滤</span>
+                            <input type="checkbox" v-model="showExpired" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500" />
+                            <span class="text-xs text-slate-300 font-medium">显示套餐已过期账号 (抓过期测活)</span>
                         </label>
                         
-                        <div v-if="timeFilterEnable" class="flex items-center space-x-2">
+                        <label class="flex items-center space-x-3 cursor-pointer select-none">
+                            <input type="checkbox" v-model="abnormalUaOnly" @change="fetchData" class="w-4 h-4 rounded text-rose-600 bg-white/5 border-white/10 focus:ring-rose-500" />
+                            <span class="text-xs text-rose-400 font-semibold">🚨 只看异常UA (命令行/curl/python)</span>
+                        </label>
+
+                        <label class="flex items-center space-x-3 cursor-pointer select-none border-l border-white/10 pl-6">
+                            <input type="checkbox" v-model="timeFilterEnable" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500" />
+                            <span class="text-xs font-semibold text-indigo-400">特定拉取时间段过滤</span>
+                        </label>
+                        
+                        <div v-if="timeFilterEnable" class="flex items-center space-x-2 bg-white/5 px-3 py-1 rounded-lg border border-white/5">
                             <span class="text-xs text-slate-400">目标时刻:</span>
-                            <input type="text" v-model="timeTarget" class="px-3 py-1 text-xs rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-20 text-center font-mono" placeholder="08:00" />
+                            <input type="text" v-model="timeTarget" class="px-2 py-0.5 text-xs rounded bg-white/5 border border-white/10 text-white focus:outline-none w-16 text-center font-mono" placeholder="08:00" />
                             
-                            <span class="text-xs text-slate-400">允许上下浮动:</span>
-                            <input type="number" v-model="timeRangeMin" class="px-3 py-1 text-xs rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-16 text-center" placeholder="15" />
+                            <span class="text-xs text-slate-400">浮动:</span>
+                            <input type="number" v-model="timeRangeMin" class="px-2 py-0.5 text-xs rounded bg-white/5 border border-white/10 text-white focus:outline-none w-12 text-center" placeholder="15" />
                             <span class="text-xs text-slate-400">分钟</span>
                         </div>
                     </div>
 
-                    <div class="flex justify-end">
-                        <button @click="fetchData" class="w-full md:w-auto px-5 py-2 text-sm font-semibold rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white transition-all border border-indigo-500/30">
+                    <div class="flex justify-end shrink-0">
+                        <button @click="fetchData" class="px-5 py-2 text-sm font-semibold rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white transition-all border border-indigo-500/30">
                             应用参数并重新扫描
                         </button>
                     </div>
@@ -451,15 +500,13 @@ if ($action === 'reset') {
 
             <!-- Helpful Strategy Explainer -->
             <div class="text-xs text-slate-400 leading-relaxed mt-5 bg-white/5 border border-white/5 p-4 rounded-xl">
-                📌 <span class="font-medium text-slate-300">模式说明：</span>
-                <span v-if="mode === 'detect'">
-                    **定时测活模式**：自动排查 24 小时内有规律拉取订阅、且消耗总流量低于 <b>{{ maxTraffic }} MB</b> 的账号。
-                </span>
-                <span v-else>
-                    **分析全部低流量模式**：列出 24 小时内有订阅更新动作、且总流量小于 <b>{{ maxTraffic }} MB</b> 的所有有效用户。
-                </span>
-                <span v-if="timeFilterEnable" class="text-indigo-400 font-medium">
-                    (已启用高级时段过滤：最近 5 次拉取明细中至少有一次发生在 <b>{{ timeTarget }}</b> 上下 <b>{{ timeRangeMin }}</b> 分钟内，即 <b>{{ getFormattedRange() }}</b> 之间。)
+                📌 <span class="font-medium text-slate-300">过滤器状态：</span>
+                当前模式下，总流量高于 <b>{{ maxTraffic }} MB</b> 的用户已被隐藏过滤。
+                <span v-if="showExpired" class="text-amber-400">已启用过期账户探测（即便套餐过期仍显示其测活轨迹）；</span>
+                <span v-else>已隐藏过期账户；</span>
+                <span v-if="abnormalUaOnly" class="text-rose-400 font-bold">已启用硬降维打击（仅检索含有 curl、python、requests 等命令行 UA 的连接记录）；</span>
+                <span v-if="timeFilterEnable" class="text-indigo-400">
+                    (已启用高级时段过滤，限 <b>{{ getFormattedRange() }}</b> 之间。)
                 </span>
             </div>
         </section>
@@ -472,7 +519,7 @@ if ($action === 'reset') {
                     <div class="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
                     <div class="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
                 </div>
-                <p class="text-sm text-slate-400">正在进行 24 小时时空轨迹数据关联分析...</p>
+                <p class="text-sm text-slate-400">正在进行时空轨迹与客户端UA类型关联关联分析...</p>
             </div>
 
             <!-- Empty State -->
@@ -483,7 +530,7 @@ if ($action === 'reset') {
                     </svg>
                 </div>
                 <h3 class="text-lg font-bold text-white mb-2">未发现匹配条件的订阅用户</h3>
-                <p class="text-sm text-slate-400 max-w-sm">调大流量阈值、切换检测模式或调整时段过滤条件以查看更多轨迹。</p>
+                <p class="text-sm text-slate-400 max-w-sm">调大流量过滤限制、关闭过滤开关或切换检测条件以查看更多轨迹。</p>
             </div>
 
             <!-- Bot User Cards Grid -->
@@ -499,14 +546,20 @@ if ($action === 'reset') {
                             
                             <!-- Badges -->
                             <div class="flex flex-wrap gap-2">
-                                <span class="px-2.5 py-1 text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg">
-                                    ⚠️ 低流量活跃 (已用 {{ user.total_traffic_formatted }})
+                                <span v-if="user.has_abnormal_ua" class="px-2.5 py-1 text-xs font-black bg-rose-600/30 text-rose-400 border border-rose-500/50 rounded-lg animate-pulse">
+                                    🚨 命令行探测UA (curl等)
                                 </span>
-                                <span v-if="user.average_interval > 0" class="px-2.5 py-1 text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg">
-                                    平均拉取间隔: {{ user.average_interval }} 秒 (~{{ Math.round(user.average_interval / 60) }}分钟)
+                                <span v-if="user.is_expired" class="px-2.5 py-1 text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg">
+                                    ⚠️ 订阅已过期 ({{ user.expired_at_formatted }})
                                 </span>
-                                <span v-if="user.range > 0" class="px-2.5 py-1 text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg">
-                                    极差抖动: ±{{ user.range }} 秒
+                                <span v-else class="px-2.5 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg">
+                                    正常计费中
+                                </span>
+                                <span class="px-2.5 py-1 text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg">
+                                    流量已用: {{ user.total_traffic_formatted }}
+                                </span>
+                                <span v-if="user.average_interval > 0" class="px-2.5 py-1 text-xs font-medium bg-slate-500/10 text-slate-300 border border-slate-500/20 rounded-lg">
+                                    平均间隔: {{ user.average_interval }} 秒 (~{{ Math.round(user.average_interval / 60) }}分钟)
                                 </span>
                             </div>
                         </div>
@@ -528,7 +581,7 @@ if ($action === 'reset') {
                                 <span class="text-xs text-slate-400 block mb-1">使用客户端 (User-Agent)：</span>
                                 <div class="flex flex-wrap gap-2">
                                     <template v-if="user.uas && user.uas.length > 0">
-                                        <span v-for="ua in user.uas" :key="ua" class="px-2 py-1 bg-slate-500/10 text-slate-300 text-xs rounded-md border border-slate-500/20 font-mono">
+                                        <span v-for="ua in user.uas" :key="ua" :class="['px-2 py-1 text-xs rounded-md font-mono border', ua.toLowerCase().includes('curl') || ua.toLowerCase().includes('python') ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 font-bold' : 'bg-slate-500/10 text-slate-300 border-slate-500/20']">
                                             {{ ua }}
                                         </span>
                                     </template>
@@ -558,7 +611,11 @@ if ($action === 'reset') {
                                     <tbody class="divide-y divide-white/5">
                                         <tr v-for="(h, idx) in user.history" :key="idx" class="hover:bg-white/5">
                                             <td class="px-4 py-2 text-slate-300 font-mono">{{ h.time }}</td>
-                                            <td class="px-4 py-2"><span class="px-1.5 py-0.5 rounded bg-white/5 border border-white/5">{{ h.type }}</span></td>
+                                            <td class="px-4 py-2">
+                                                <span :class="['px-1.5 py-0.5 rounded border text-[10px]', h.type.toLowerCase().includes('curl') || h.type.toLowerCase().includes('python') ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 font-bold' : 'bg-white/5 border border-white/5']">
+                                                    {{ h.type }}
+                                                </span>
+                                            </td>
                                             <td class="px-4 py-2 text-indigo-300 font-mono">{{ h.ip || '无记录' }}</td>
                                         </tr>
                                     </tbody>
@@ -595,10 +652,14 @@ if ($action === 'reset') {
                 const mode = ref('detect'); // detect | all_low
                 const bypassWhitelist = ref(false); // 是否跳过白名单
 
-                // 高级时段过滤前端响应
+                // 进阶特定时段过滤前端响应
                 const timeFilterEnable = ref(false);
                 const timeTarget = ref('08:00');
                 const timeRangeMin = ref(15);
+
+                // 进阶不正常UA与过期用户过滤
+                const showExpired = ref(true); // 是否显示过期，默认显示
+                const abnormalUaOnly = ref(false); // 是否只看命令行异常UA
                 
                 // 获取地址栏的安全 token
                 const urlParams = new URLSearchParams(window.location.search);
@@ -641,7 +702,7 @@ if ($action === 'reset') {
                 const fetchData = async () => {
                     loading.value = true;
                     try {
-                        const query = `tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}&mode=${mode.value}&bypass_whitelist=${bypassWhitelist.value}&time_filter_enable=${timeFilterEnable.value}&time_target=${timeTarget.value}&time_range_min=${timeRangeMin.value}`;
+                        const query = `tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}&mode=${mode.value}&bypass_whitelist=${bypassWhitelist.value}&time_filter_enable=${timeFilterEnable.value}&time_target=${timeTarget.value}&time_range_min=${timeRangeMin.value}&show_expired=${showExpired.value}&abnormal_ua_only=${abnormalUaOnly.value}`;
                         const response = await fetch(query);
                         const res = await response.json();
                         users.value = res.data;
@@ -710,6 +771,8 @@ if ($action === 'reset') {
                     timeFilterEnable,
                     timeTarget,
                     timeRangeMin,
+                    showExpired,
+                    abnormalUaOnly,
                     toast,
                     getFormattedRange,
                     fetchData,
