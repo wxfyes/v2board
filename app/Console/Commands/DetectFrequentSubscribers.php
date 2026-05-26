@@ -51,11 +51,37 @@ class DetectFrequentSubscribers extends Command
 
         $detectedCount = 0;
 
+        $now = time();
+        $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
+
         foreach ($users as $user) {
             $history = json_decode($user->client_type, true);
             
-            // 必须具有至少 5 次以上的拉取记录（确保样本充足，防止偶然拉取造成的误判）
+            // 1. 必须具有至少 5 次以上的拉取记录（确保样本充足，防止偶然拉取造成的误判）
             if (!is_array($history) || count($history) < 5) {
+                continue;
+            }
+
+            // 2. 检查最近一次拉取时间是否在 1 小时内，如果很久没拉了，说明不是当前活跃的挂机号，直接排除
+            if ($now - $history[0]['time'] > 3600) {
+                continue;
+            }
+
+            // 3. 检查历史中是否包含白名单客户端类型，包含则跳过，防止误伤自家App真实活跃用户
+            $hasWhitelistClient = false;
+            foreach ($history as $item) {
+                if (in_array($item['type'], $whitelistClients)) {
+                    $hasWhitelistClient = true;
+                    break;
+                }
+            }
+            if ($hasWhitelistClient) {
+                continue;
+            }
+
+            // 4. 检查这 5 次拉取的总时间跨度是否太短。如果是连刷，总时间跨度只有几秒，挂机定时测活则至少大于10分钟(600秒)。防止误伤网络卡顿瞬间连刷多次的用户。
+            $totalSpan = $history[0]['time'] - $history[count($history) - 1]['time'];
+            if ($totalSpan < 600) {
                 continue;
             }
 
