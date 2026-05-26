@@ -31,6 +31,8 @@ class ClientController extends Controller
             $honeypotUsers = [];
             $bannedStrategy = 'bait';
             $bannedRedirectUrl = '';
+            $subconverterEnable = true;
+            $subconverterUrl = 'https://api.wcc.best/sub';
 
             if (file_exists($configPath)) {
                 $tianqueConfig = json_decode(@file_get_contents($configPath), true);
@@ -38,6 +40,8 @@ class ClientController extends Controller
                     $honeypotUsers = $tianqueConfig['honeypot_users'] ?? [];
                     $bannedStrategy = $tianqueConfig['banned_strategy'] ?? 'bait';
                     $bannedRedirectUrl = $tianqueConfig['banned_redirect_url'] ?? '';
+                    $subconverterEnable = isset($tianqueConfig['subconverter_enable']) ? (bool)$tianqueConfig['subconverter_enable'] : true;
+                    $subconverterUrl = $tianqueConfig['subconverter_url'] ?? 'https://api.wcc.best/sub';
                 }
             } 
 
@@ -114,11 +118,16 @@ class ClientController extends Controller
                         $isAdaptiveSubscription = true;
                     }
 
-                    // 构造拉取的最终 URL。若是自适应订阅，我们直接透传 User-Agent，对方机场主站会自动转换，无需经过任何第三方二次转换，确保 0 字符错误；
-                    // 只有像 GitHub 这种静态文本源，且客户端为 Clash 时，才需要通过第三方转换器生成 YAML
+                    // 构造拉取的最终 URL。
+                    // 1. 如果全局开启了 subconverter 转换，且客户端为 Clash，且并非无需二次转换的自适应源，我们才通过指定转换器拉取
+                    // 2. 如果关闭了转换，或者该源原本就是自适应的机场链接，我们直接拉取原始订阅
                     $targetFetchUrl = $baitSourceUrl;
-                    if ($isClash && !$isAdaptiveSubscription) {
-                        $targetFetchUrl = 'https://api.wcc.best/sub?target=clash&url=' . urlencode($baitSourceUrl);
+                    if ($isClash && $subconverterEnable && !$isAdaptiveSubscription) {
+                        $apiBase = rtrim($subconverterUrl, '/');
+                        if (strpos($apiBase, 'sub') === false && strpos($apiBase, '?') === false) {
+                            $apiBase .= '/sub';
+                        }
+                        $targetFetchUrl = $apiBase . '?target=clash&url=' . urlencode($baitSourceUrl);
                     }
 
                     // 缓存文件名，避免高并发频繁拉取 GitHub 慢导致卡死 PHP 进程
@@ -131,9 +140,10 @@ class ClientController extends Controller
                     }
 
                     if (empty($cachedContent)) {
-                        // 准备备用转换接口，如果是自适应源则无需备用转换，直接透传拉取
+                        // 准备备用转换接口，如果关闭了 subconverter 或者是自适应源，则只拉取原始订阅
                         $urlsToTry = [$targetFetchUrl];
-                        if ($isClash && !$isAdaptiveSubscription) {
+                        if ($isClash && $subconverterEnable && !$isAdaptiveSubscription) {
+                            // 自定义转换 API 的后备备用转换器
                             $urlsToTry[] = 'https://api.v1.mk/sub?target=clash&url=' . urlencode($baitSourceUrl);
                             $urlsToTry[] = 'https://sub.d1.mk/sub?target=clash&url=' . urlencode($baitSourceUrl);
                         } elseif (!$isClash && !$isAdaptiveSubscription) {
@@ -153,8 +163,8 @@ class ClientController extends Controller
                             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                             curl_close($ch);
 
-                            // 排除常见的带有报错信息的返回值，确保获取的是合法的订阅内容
-                            if ($httpCode === 200 && !empty($responseContent) && stripos($responseContent, 'invalid') === false && stripos($responseContent, 'error') === false) {
+                            // 排除常见的带有报错信息的返回值，确保获取的是合法的订阅内容。同时过滤 403 Forbidden 拦截
+                            if ($httpCode === 200 && !empty($responseContent) && stripos($responseContent, 'invalid') === false && stripos($responseContent, 'error') === false && stripos($responseContent, 'Forbidden') === false && stripos($responseContent, 'cloudflare') === false) {
                                 $cachedContent = $responseContent;
                                 @file_put_contents($cacheFile, $responseContent);
                                 break;
@@ -169,7 +179,15 @@ class ClientController extends Controller
                             ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
                     }
 
-                    // 若公益拉取超时或失败，降级为默认的警告虚拟节点，防止直接白给
+                    // 若拉取异常或被对方 403 拦截拦截，这里执行强健的本地兜底，直接返回纯净警告 YAML 文本，保证 Clash 100% 不弹 invalid yaml 报错
+                    if ($isClash) {
+                        $cleanYaml = "mixed-port: 7890\nallow-lan: false\nmode: rule\nlog-level: info\nproxies:\n  - name: \"⚠️ 订阅拉取异常，请联系客服获取最新客户端\"\n    type: ss\n    server: 127.0.0.1\n    port: 10086\n    cipher: aes-128-gcm\n    password: \"tianquegemiji\"\nproxy-groups:\n  - name: \"Proxy\"\n    type: select\n    proxies:\n      - \"⚠️ 订阅拉取异常，请联系客服获取最新客户端\"\nrules:\n  - MATCH,Proxy";
+                        return response($cleanYaml)
+                            ->header('Content-Type', 'application/yaml; charset=utf-8')
+                            ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+                    }
+
+                    // 否则（如 v2rayN 等通用客户端），降级下发通用 Base64 格式
                     $servers = [
                         [
                             'id' => 99991,

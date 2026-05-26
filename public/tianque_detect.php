@@ -454,7 +454,9 @@ if ($action === 'get_config') {
     $configPath = __DIR__ . '/../storage/tianque_config.json';
     $config = [
         'banned_strategy' => 'bait',
-        'banned_redirect_url' => 'https://go.tianquege.top/api/v1/client/subscribe?token=bait_token',
+        'banned_redirect_url' => '',
+        'subconverter_enable' => true,
+        'subconverter_url' => 'https://api.wcc.best/sub',
         'honeypot_users' => []
     ];
     if (file_exists($configPath)) {
@@ -477,10 +479,14 @@ if ($action === 'save_config') {
     
     $strategy = $_POST['banned_strategy'] ?? 'bait';
     $redirectUrl = $_POST['banned_redirect_url'] ?? '';
+    $subconverterEnable = ($_POST['subconverter_enable'] ?? 'true') === 'true';
+    $subconverterUrl = $_POST['subconverter_url'] ?? 'https://api.wcc.best/sub';
     
     $config = [
         'banned_strategy' => 'bait',
-        'banned_redirect_url' => 'https://go.tianquege.top/api/v1/client/subscribe?token=bait_token',
+        'banned_redirect_url' => '',
+        'subconverter_enable' => true,
+        'subconverter_url' => 'https://api.wcc.best/sub',
         'honeypot_users' => []
     ];
     if (file_exists($configPath)) {
@@ -492,6 +498,8 @@ if ($action === 'save_config') {
     
     $config['banned_strategy'] = $strategy;
     $config['banned_redirect_url'] = $redirectUrl;
+    $config['subconverter_enable'] = $subconverterEnable;
+    $config['subconverter_url'] = $subconverterUrl;
     
     $res = @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     echo json_encode(['ok' => $res !== false]);
@@ -510,7 +518,9 @@ if ($action === 'toggle_honeypot') {
     $configPath = __DIR__ . '/../storage/tianque_config.json';
     $config = [
         'banned_strategy' => 'bait',
-        'banned_redirect_url' => 'https://go.tianquege.top/api/v1/client/subscribe?token=bait_token',
+        'banned_redirect_url' => '',
+        'subconverter_enable' => true,
+        'subconverter_url' => 'https://api.wcc.best/sub',
         'honeypot_users' => []
     ];
     if (file_exists($configPath)) {
@@ -650,33 +660,45 @@ if ($action === 'toggle_honeypot') {
             </summary>
             
             <div class="mt-5 border-t border-white/5 pt-5 grid grid-cols-1 md:grid-cols-12 gap-6">
-                <div class="md:col-span-4 flex flex-col justify-start">
+                <div class="md:col-span-3 flex flex-col justify-start">
                     <label class="text-xs text-slate-400 mb-2 font-medium">1. 拦截防御动作选择</label>
-                    <div class="flex flex-col space-y-3">
-                        <label class="flex items-center space-x-3 cursor-pointer text-xs text-slate-300">
+                    <div class="flex flex-col space-y-2">
+                        <label class="flex items-center space-x-2.5 cursor-pointer text-xs text-slate-300">
                             <input type="radio" name="banned_strategy" value="bait" v-model="config.banned_strategy" class="w-4 h-4 text-indigo-600 bg-white/5 border-white/10" />
-                            <span>👻 <b>下发蜜罐节点</b> (显示内鬼真实 IP，警示作用)</span>
+                            <span>👻 <b>下发蜜罐节点</b> (显示真实 IP)</span>
                         </label>
-                        <label class="flex items-center space-x-3 cursor-pointer text-xs text-slate-300">
+                        <label class="flex items-center space-x-2.5 cursor-pointer text-xs text-slate-300">
                             <input type="radio" name="banned_strategy" value="redirect" v-model="config.banned_strategy" class="w-4 h-4 text-indigo-600 bg-white/5 border-white/10" />
-                            <span>🔄 <b>302 重定向</b> (自动引流至指定订阅链接)</span>
+                            <span>🔄 <b>302 重定向</b> (跳转外部订阅)</span>
                         </label>
-                        <label class="flex items-center space-x-3 cursor-pointer text-xs text-slate-300">
+                        <label class="flex items-center space-x-2.5 cursor-pointer text-xs text-slate-300">
                             <input type="radio" name="banned_strategy" value="banned" v-model="config.banned_strategy" class="w-4 h-4 text-indigo-600 bg-white/5 border-white/10" />
-                            <span>🚫 <b>原生 403 阻断</b> (直接抛出账户封禁提示)</span>
+                            <span>🚫 <b>原生 403 阻断</b> (账户封禁提示)</span>
                         </label>
                     </div>
                 </div>
 
-                <div class="md:col-span-6 flex flex-col justify-start">
-                    <label class="text-xs text-slate-400 mb-2 font-medium">2. 重定向目标订阅 URL (当选择 302 重定向时生效)</label>
-                    <input type="text" v-model="config.banned_redirect_url" class="px-4 py-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full font-mono" placeholder="输入公益订阅地址，例如 https://free-sub.top/api/v1/client/subscribe?token=..." />
-                    <span class="text-[10px] text-slate-500 mt-2">※ 凡是 [已被封禁] 或是被放入 [无感灰名单] 的用户，拉取订阅时会自动掉包/重定向。</span>
+                <div class="md:col-span-3 flex flex-col justify-start">
+                    <label class="text-xs text-slate-400 mb-2 font-medium">2. 重定向/蜜罐目标订阅 URL</label>
+                    <input type="text" v-model="config.banned_redirect_url" class="px-4 py-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full font-mono" placeholder="输入备用订阅地址..." />
+                    <span class="text-[10px] text-slate-500 mt-2">※ 凡是封禁或灰名单内鬼，拉取订阅时会自动下发此源的节点。</span>
+                </div>
+
+                <div class="md:col-span-4 flex flex-col justify-start border-l border-white/10 pl-4">
+                    <label class="text-xs text-slate-400 mb-2 font-medium flex items-center justify-between">
+                        <span>3. 第三方 Clash 订阅转换配置</span>
+                        <label class="flex items-center space-x-1 cursor-pointer select-none">
+                            <input type="checkbox" v-model="config.subconverter_enable" class="w-3.5 h-3.5 rounded text-indigo-600 bg-white/5 border-white/10" />
+                            <span class="text-[10px] font-bold" :class="config.subconverter_enable ? 'text-emerald-400' : 'text-slate-500'">{{ config.subconverter_enable ? '已开启' : '已关闭' }}</span>
+                        </label>
+                    </label>
+                    <input type="text" :disabled="!config.subconverter_enable" v-model="config.subconverter_url" class="px-4 py-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full font-mono disabled:opacity-40" placeholder="https://api.wcc.best/sub" />
+                    <span class="text-[10px] text-slate-500 mt-2">※ 开启后，Clash 客户端拉取时会通过此 API 转换为 YAML 格式。若关闭则直接透传。</span>
                 </div>
 
                 <div class="md:col-span-2 flex items-end">
                     <button @click="saveConfig" :disabled="isSavingConfig" class="px-5 py-2.5 text-xs font-bold rounded-xl bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white transition-all w-full shadow-lg shadow-violet-600/20 disabled:opacity-50">
-                        {{ isSavingConfig ? '正在保存...' : '💾 保存防御配置' }}
+                        {{ isSavingConfig ? '正在保存...' : '💾 保存配置' }}
                     </button>
                 </div>
             </div>
@@ -1028,6 +1050,8 @@ if ($action === 'toggle_honeypot') {
                         const formData = new FormData();
                         formData.append('banned_strategy', config.value.banned_strategy);
                         formData.append('banned_redirect_url', config.value.banned_redirect_url);
+                        formData.append('subconverter_enable', config.value.subconverter_enable ? 'true' : 'false');
+                        formData.append('subconverter_url', config.value.subconverter_url);
                         const response = await fetch(`tianque_detect.php?action=save_config&token=${token}`, {
                             method: 'POST',
                             body: formData
