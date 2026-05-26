@@ -111,7 +111,7 @@ if ($action === 'fetch') {
         $rangeSecs = $timeRangeMin * 60;
     }
 
-    // 突破限制：查询所有拉取过订阅的用户，包括已封禁的用户 (去掉了 banned = 0)
+    // 突破限制：查询所有拉取过订阅的用户，包括已封禁的用户
     $stmt = $pdo->prepare("SELECT id, email, u, d, banned, expired_at, client_type FROM v2_user WHERE client_type IS NOT NULL");
     $stmt->execute();
     $users = $stmt->fetchAll();
@@ -124,8 +124,10 @@ if ($action === 'fetch') {
             continue;
         }
 
-        // 时效过滤放宽到 24 小时
-        if ($now - $history[0]['time'] > 86400) {
+        // 强健时效判定：获取 5 条历史中最大（最新）的时间戳进行 24 小时活跃比对，兼容首尾不同追加排序
+        $timestamps = array_column($history, 'time');
+        $latestTime = count($timestamps) > 0 ? max($timestamps) : 0;
+        if ($now - $latestTime > 86400) {
             continue;
         }
 
@@ -146,7 +148,7 @@ if ($action === 'fetch') {
             continue;
         }
 
-        // 流量去噪：如果该用户总流量已经超过设定的限额（如50MB），直接排除
+        // 流量去噪：如果该用户总流量已经超过设定的限额（如5000MB），直接排除
         $totalTrafficBytes = $user['u'] + $user['d'];
         $totalTrafficMb = $totalTrafficBytes / 1024 / 1024;
         if ($totalTrafficMb >= $maxTrafficMb) {
@@ -170,9 +172,11 @@ if ($action === 'fetch') {
         // 检索该用户的 5 次历史中是否有异常 UA 命令行爬取行为
         $hasAbnormalUa = false;
         foreach ($history as $item) {
+            // 【关键兼容】：原版 V2Board 官方将客户端/UA 信息直接存入了 'type' 键；而新版记录则存入 'ua'。必须同时检测！
             $uaLower = strtolower($item['ua'] ?? '');
+            $typeLower = strtolower($item['type'] ?? '');
             foreach ($abnormalKeywords as $kw) {
-                if (strpos($uaLower, $kw) !== false) {
+                if (strpos($uaLower, $kw) !== false || strpos($typeLower, $kw) !== false) {
                     $hasAbnormalUa = true;
                     break 2;
                 }
@@ -218,58 +222,55 @@ if ($action === 'fetch') {
             $isMatched = true;
         } else {
             // 模式一：捕获高规律定时测活机器
-            if (count($history) >= 5) {
-                $totalSpan = $history[0]['time'] - $history[count($history) - 1]['time'];
-                if ($totalSpan >= 600) {
-                    // 计算拉取时间差
-                    $diffs = [];
-                    for ($i = 0; $i < count($history) - 1; $i++) {
-                        $diffs[] = $history[$i]['time'] - $history[$i + 1]['time'];
-                        $diffs = array_filter($diffs); 
-                    }
+            if (count($history) >= 2) { 
+                $sortedTimes = array_column($history, 'time');
+                rsort($sortedTimes);
+                
+                $diffs = [];
+                for ($i = 0; $i < count($sortedTimes) - 1; $i++) {
+                    $diff = $sortedTimes[$i] - $sortedTimes[$i + 1];
+                    if ($diff > 0) $diffs[] = $diff;
+                }
 
-                    if (count($diffs) > 0) {
-                        $averageInterval = array_sum($diffs) / count($diffs);
-                        $maxInterval = max($diffs);
-                        $minInterval = min($diffs);
-                        $range = $maxInterval - $minInterval;
+                if (count($diffs) > 0) {
+                    $averageInterval = array_sum($diffs) / count($diffs);
+                    $maxInterval = max($diffs);
+                    $minInterval = min($diffs);
+                    $range = $maxInterval - $minInterval;
 
-                        $isTargetInterval = abs($averageInterval - $targetInterval) <= $tolerance && $range <= $tolerance;
-                        $isGeneralFastRegular = $averageInterval <= 600 && $range <= 15;
-                        $isLongPeriodRegular = $averageInterval > 600 && $range <= 60;
+                    $isTargetInterval = abs($averageInterval - $targetInterval) <= $tolerance && $range <= $tolerance;
+                    $isGeneralFastRegular = $averageInterval <= 600 && $range <= 15;
+                    $isLongPeriodRegular = $averageInterval > 600 && $range <= 60;
 
-                        if ($isTargetInterval || $isGeneralFastRegular || $isLongPeriodRegular) {
-                            $isMatched = true;
-                        }
+                    if ($isTargetInterval || $isGeneralFastRegular || $isLongPeriodRegular) {
+                        $isMatched = true;
                     }
                 }
             }
         }
 
         if ($isMatched) {
-            // 补正间隔计算数据
-            if (count($history) >= 5 && $averageInterval == 0) {
-                $diffs = [];
-                for ($i = 0; $i < count($history) - 1; $i++) {
-                    $diffs[] = $history[$i]['time'] - $history[$i + 1]['time'];
-                }
-                $averageInterval = array_sum($diffs) / count($diffs);
-                $range = max($diffs) - min($diffs);
-            }
-
-            // 归一化 IP 和 UA 列表
+            // 归一化 IP 和 UA 列表，并把时间倒序排列
             $ips = [];
             $uas = [];
             $formattedHistory = [];
             foreach ($history as $item) {
                 if (!empty($item['ip'])) $ips[] = $item['ip'];
-                if (!empty($item['ua'])) $uas[] = $item['ua'];
+                // 如果 item['ua'] 为空，则把官方原生存的 type 也收集作为 UA 显示
+                $actualUa = !empty($item['ua']) ? $item['ua'] : $item['type'];
+                $uas[] = $actualUa;
+
                 $formattedHistory[] = [
                     'time' => date('Y-m-d H:i:s', $item['time']),
                     'type' => $item['type'],
                     'ip' => $item['ip'] ?? ''
                 ];
             }
+
+            // 按时间排序，确保最新的一定排最前
+            usort($formattedHistory, function($a, $b) {
+                return strtotime($b['time']) <=> strtotime($a['time']);
+            });
 
             $detected[] = [
                 'id' => $user['id'],
@@ -667,7 +668,7 @@ if ($action === 'reset') {
                 const users = ref([]);
                 const interval = ref(300);
                 const tolerance = ref(30);
-                const maxTraffic = ref(50); // 流量判定限额，默认50MB
+                const maxTraffic = ref(5000); // 【关键修正】：前端响应的默认上限初始化同步修改为5000MB，防止硬编码50限制导致漏人
                 const mode = ref('detect'); // detect | all_low
                 const bypassWhitelist = ref(false); // 是否跳过白名单
 
