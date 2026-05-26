@@ -71,11 +71,24 @@ class ClientController extends Controller
                 }
             }
 
+            // 穿透 CDN 与反向代理获取真实用户公网 IP
+            $realIp = null;
+            if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+                $realIp = $_SERVER['HTTP_CF_CONNECTING_IP'];
+            } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+                $realIp = trim($ips[0]);
+            } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
+                $realIp = $_SERVER['HTTP_X_REAL_IP'];
+            } else {
+                $realIp = $request->ip();
+            }
+
             // 添加新记录到数组开头
             array_unshift($clientHistory, [
                 'type' => $clientType,
                 'time' => time(),
-                'ip' => $request->ip(),
+                'ip' => $realIp,
                 'ua' => substr($userAgent, 0, 128)
             ]);
 
