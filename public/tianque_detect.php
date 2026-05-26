@@ -96,6 +96,9 @@ if ($action === 'fetch') {
     // 新增：仅查看异常UA开关 (true | false)
     $abnormalUaOnly = ($_GET['abnormal_ua_only'] ?? 'false') === 'true';
 
+    // 【新增重要过滤控制】：拉取活跃时效限制 (秒)，默认 86400 (24小时)
+    $timeLimit = isset($_GET['time_limit']) ? (int)$_GET['time_limit'] : 86400;
+
     $now = time();
     $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
     
@@ -124,11 +127,13 @@ if ($action === 'fetch') {
             continue;
         }
 
-        // 强健时效判定：获取 5 条历史中最大（最新）的时间戳进行 24 小时活跃比对，兼容首尾不同追加排序
-        $timestamps = array_column($history, 'time');
-        $latestTime = count($timestamps) > 0 ? max($timestamps) : 0;
-        if ($now - $latestTime > 86400) {
-            continue;
+        // 强健时效判定：获取 5 条历史中最大（最新）的时间戳进行活跃比对，支持调大范围或无限制
+        if ($timeLimit > 0) {
+            $timestamps = array_column($history, 'time');
+            $latestTime = count($timestamps) > 0 ? max($timestamps) : 0;
+            if ($now - $latestTime > $timeLimit) {
+                continue;
+            }
         }
 
         // 判定是否封禁
@@ -460,14 +465,16 @@ if ($action === 'reset') {
                     <input type="number" v-model="tolerance" class="px-4 py-2 text-sm rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full" placeholder="30" />
                 </div>
 
-                <div class="flex items-center h-10">
-                    <label class="flex items-center space-x-3 cursor-pointer select-none">
-                        <input type="checkbox" v-model="bypassWhitelist" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500" />
-                        <span class="text-xs text-slate-300 font-medium">审计天阙/MOMclash (不跳过白名单)</span>
-                    </label>
+                <div class="flex flex-col">
+                    <label class="text-xs text-slate-400 mb-1.5 font-medium">活跃时效范围选择</label>
+                    <select v-model="timeLimit" @change="fetchData" class="px-4 py-2 text-sm rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full cursor-pointer">
+                        <option value="86400" class="bg-darkBg">24小时内拉取 (默认)</option>
+                        <option value="259200" class="bg-darkBg">3天内拉取</option>
+                        <option value="604800" class="bg-darkBg">7天内拉取</option>
+                        <option value="2592000" class="bg-darkBg">30天内拉取</option>
+                        <option value="0" class="bg-darkBg">全部历史留底记录（无时效限制）</option>
+                    </select>
                 </div>
-
-                <div v-if="mode === 'all_low'" class="col-span-1 md:col-span-2"></div>
             </div>
 
             <!-- Toggles and Time Settings -->
@@ -488,6 +495,11 @@ if ($action === 'reset') {
                         <label class="flex items-center space-x-3 cursor-pointer select-none">
                             <input type="checkbox" v-model="abnormalUaOnly" @change="fetchData" class="w-4 h-4 rounded text-rose-600 bg-white/5 border-white/10 focus:ring-rose-500" />
                             <span class="text-xs text-rose-400 font-semibold">🚨 只看异常UA (命令行/curl/python)</span>
+                        </label>
+
+                        <label class="flex items-center space-x-3 cursor-pointer select-none">
+                            <input type="checkbox" v-model="bypassWhitelist" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500" />
+                            <span class="text-xs text-slate-300 font-medium">审计天阙/MOMclash (不跳过白名单)</span>
                         </label>
 
                         <label class="flex items-center space-x-3 cursor-pointer select-none border-l border-white/10 pl-6">
@@ -557,15 +569,20 @@ if ($action === 'reset') {
                         <!-- Card Header Info -->
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/5 mb-4">
                             <div>
-                                <span class="text-xs text-slate-400 font-semibold outfit uppercase">用户 ID: {{ user.id }}</span>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs text-slate-400 font-semibold outfit uppercase">用户 ID: {{ user.id }}</span>
+                                    <span v-if="user.is_banned" class="px-2 py-0.5 text-[10px] font-bold bg-rose-600/30 text-rose-400 border border-rose-500/50 rounded animate-pulse">
+                                        已封禁 (Banned)
+                                    </span>
+                                    <span v-if="user.is_expired" class="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded">
+                                        已过期
+                                    </span>
+                                </div>
                                 <h3 class="text-lg font-bold text-white tracking-wide mt-0.5">{{ user.email }}</h3>
                             </div>
                             
                             <!-- Badges -->
                             <div class="flex flex-wrap gap-2">
-                                <span v-if="user.is_banned" class="px-2.5 py-1 text-xs font-black bg-rose-600/30 text-rose-400 border border-rose-500/50 rounded-lg animate-pulse">
-                                    🚨 账号已封禁 (Banned)
-                                </span>
                                 <span v-if="user.has_abnormal_ua" class="px-2.5 py-1 text-xs font-black bg-rose-600/30 text-rose-400 border border-rose-500/50 rounded-lg">
                                     ⚙️ 命令行探测 (curl等)
                                 </span>
@@ -668,7 +685,7 @@ if ($action === 'reset') {
                 const users = ref([]);
                 const interval = ref(300);
                 const tolerance = ref(30);
-                const maxTraffic = ref(5000); // 【关键修正】：前端响应的默认上限初始化同步修改为5000MB，防止硬编码50限制导致漏人
+                const maxTraffic = ref(5000); 
                 const mode = ref('detect'); // detect | all_low
                 const bypassWhitelist = ref(false); // 是否跳过白名单
 
@@ -682,6 +699,9 @@ if ($action === 'reset') {
                 const showBanned = ref(true); // 是否显示已封禁，默认显示
                 const abnormalUaOnly = ref(false); // 是否只看命令行异常UA
                 
+                // 新增：时效限制绑定变量，默认值 86400 (24小时)
+                const timeLimit = ref(86400);
+
                 // 获取地址栏的安全 token
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token') || '';
@@ -723,7 +743,7 @@ if ($action === 'reset') {
                 const fetchData = async () => {
                     loading.value = true;
                     try {
-                        const query = `tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}&mode=${mode.value}&bypass_whitelist=${bypassWhitelist.value}&time_filter_enable=${timeFilterEnable.value}&time_target=${timeTarget.value}&time_range_min=${timeRangeMin.value}&show_expired=${showExpired.value}&show_banned=${showBanned.value}&abnormal_ua_only=${abnormalUaOnly.value}`;
+                        const query = `tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}&mode=${mode.value}&bypass_whitelist=${bypassWhitelist.value}&time_filter_enable=${timeFilterEnable.value}&time_target=${timeTarget.value}&time_range_min=${timeRangeMin.value}&show_expired=${showExpired.value}&show_banned=${showBanned.value}&abnormal_ua_only=${abnormalUaOnly.value}&time_limit=${timeLimit.value}`;
                         const response = await fetch(query);
                         const res = await response.json();
                         users.value = res.data;
@@ -795,6 +815,7 @@ if ($action === 'reset') {
                     showExpired,
                     showBanned,
                     abnormalUaOnly,
+                    timeLimit,
                     toast,
                     getFormattedRange,
                     fetchData,

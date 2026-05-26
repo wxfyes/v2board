@@ -25,6 +25,40 @@ class ClientController extends Controller
             $userService = new UserService();
             $isBanned = (bool)($user['banned'] ?? 0);
             if ($isBanned) {
+                // 同样记录被封禁账号的客户端拉取行为！以防内鬼残留探测漏抓
+                $userAgent = $request->header('User-Agent') ?? '';
+                $clientType = $this->parseClientType($userAgent);
+                $existingData = \DB::table('v2_user')->where('id', $user['id'])->value('client_type');
+                $clientHistory = [];
+                if ($existingData) {
+                    $decoded = json_decode($existingData, true);
+                    if (is_array($decoded)) {
+                        $clientHistory = $decoded;
+                    }
+                }
+                $realIp = null;
+                if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+                    $realIp = $_SERVER['HTTP_CF_CONNECTING_IP'];
+                } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                    $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+                    $realIp = trim($ips[0]);
+                } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
+                    $realIp = $_SERVER['HTTP_X_REAL_IP'];
+                } else {
+                    $realIp = $request->ip();
+                }
+                array_unshift($clientHistory, [
+                    'type' => $clientType,
+                    'time' => time(),
+                    'ip' => $realIp,
+                    'ua' => substr($userAgent, 0, 128)
+                ]);
+                $clientHistory = array_slice($clientHistory, 0, 5);
+                \DB::table('v2_user')->where('id', $user['id'])->update([
+                    'client_login_at' => time(),
+                    'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE)
+                ]);
+
                 return response([
                     'message' => 'Your account has been suspended'
                 ], 403);
