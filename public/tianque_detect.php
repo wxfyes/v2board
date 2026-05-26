@@ -539,6 +539,13 @@ if ($action === 'toggle_honeypot') {
     $config['honeypot_users'] = $honeypots;
     
     $res = @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    if ($res !== false) {
+        if ($actionType === 'added') {
+            logTianqueAction($userId, 'ADD_HONEYPOT', '一键加入灰名单蜜罐');
+        } else {
+            logTianqueAction($userId, 'REMOVE_HONEYPOT', '一键移出灰名单蜜罐');
+        }
+    }
     echo json_encode(['ok' => $res !== false, 'action' => $actionType, 'honeypots' => $honeypots]);
     exit;
 }
