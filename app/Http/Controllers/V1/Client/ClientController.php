@@ -210,6 +210,9 @@ class ClientController extends Controller
                     }
 
                     if (!empty($cachedContent)) {
+                        // 过滤并净化订阅中的广告词与品牌敏感词
+                        $cachedContent = $this->sanitizeBaitContent($cachedContent, $isClash);
+
                         $contentType = $isClash ? 'application/yaml; charset=utf-8' : 'text/plain; charset=utf-8';
                         return response($cachedContent)
                             ->header('Content-Type', $contentType)
@@ -443,5 +446,86 @@ class ClientController extends Controller
         array_unshift($servers, array_merge($servers[0], [
             'name' => "剩余流量：{$remainingTraffic}",
         ]));
+    }
+
+    private function sanitizeBaitContent($content, $isClash)
+    {
+        $configPath = storage_path('tianque_config.json');
+        $keywords = ['一元机场', '1元机场', 'smallstrawberry'];
+        $replaceTo = '天阙精品';
+
+        if (file_exists($configPath)) {
+            $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+            if (is_array($tianqueConfig)) {
+                $bannedKeywords = $tianqueConfig['banned_keywords'] ?? '一元机场,1元机场,smallstrawberry';
+                $replaceTo = $tianqueConfig['replace_keyword_to'] ?? '天阙精品';
+                if (!empty($bannedKeywords)) {
+                    $keywords = array_filter(array_map('trim', preg_split('/[,\r\n]+/', $bannedKeywords)));
+                }
+            }
+        }
+
+        if (empty($keywords)) {
+            return $content;
+        }
+
+        if ($isClash) {
+            // 对 Clash YAML，采用名字直接替换，防止直接删除导致 proxy-groups 找不到节点而报错
+            foreach ($keywords as $keyword) {
+                $content = str_replace($keyword, $replaceTo, $content);
+            }
+            return $content;
+        } else {
+            // 对通用 Base64 订阅，解密后过滤，如果某一行包含敏感字，则直接整行剔除，最后重新 Base64 编码
+            $decoded = @base64_decode($content);
+            if ($decoded === false || empty($decoded)) {
+                // 如果解密失败，说明不是 base64 或者是明文，我们退而求其次进行全局替换
+                foreach ($keywords as $keyword) {
+                    $content = str_replace($keyword, $replaceTo, $content);
+                }
+                return $content;
+            }
+
+            $lines = preg_split('/\r\n|\r|\n/', $decoded);
+            $keptLines = [];
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if (empty($line)) continue;
+
+                // 判断这行是否包含敏感词
+                $hasKeyword = false;
+                $decodedLine = urldecode($line);
+                
+                // 处理 vmess:// 内部 JSON 的 Base64
+                if (stripos($decodedLine, 'vmess://') !== false) {
+                    $vmessData = substr($line, 8);
+                    $vmessDecoded = @base64_decode($vmessData);
+                    if ($vmessDecoded) {
+                        $vmessJson = json_decode($vmessDecoded, true);
+                        if (is_array($vmessJson) && isset($vmessJson['ps'])) {
+                            foreach ($keywords as $keyword) {
+                                if (stripos($vmessJson['ps'], $keyword) !== false) {
+                                    $hasKeyword = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                foreach ($keywords as $keyword) {
+                    if (stripos($decodedLine, $keyword) !== false) {
+                        $hasKeyword = true;
+                        break;
+                    }
+                }
+
+                if (!$hasKeyword) {
+                    $keptLines[] = $line;
+                }
+            }
+
+            return base64_encode(implode("\n", $keptLines));
+        }
     }
 }

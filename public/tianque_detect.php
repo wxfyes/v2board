@@ -457,6 +457,8 @@ if ($action === 'get_config') {
         'banned_redirect_url' => '',
         'subconverter_enable' => true,
         'subconverter_url' => 'https://api.wcc.best/sub',
+        'banned_keywords' => '一元机场,1元机场,smallstrawberry',
+        'replace_keyword_to' => '天阙精品',
         'honeypot_users' => []
     ];
     if (file_exists($configPath)) {
@@ -481,12 +483,16 @@ if ($action === 'save_config') {
     $redirectUrl = $_POST['banned_redirect_url'] ?? '';
     $subconverterEnable = ($_POST['subconverter_enable'] ?? 'true') === 'true';
     $subconverterUrl = $_POST['subconverter_url'] ?? 'https://api.wcc.best/sub';
+    $bannedKeywords = $_POST['banned_keywords'] ?? '一元机场,1元机场,smallstrawberry';
+    $replaceKeywordTo = $_POST['replace_keyword_to'] ?? '天阙精品';
     
     $config = [
         'banned_strategy' => 'bait',
         'banned_redirect_url' => '',
         'subconverter_enable' => true,
         'subconverter_url' => 'https://api.wcc.best/sub',
+        'banned_keywords' => '一元机场,1元机场,smallstrawberry',
+        'replace_keyword_to' => '天阙精品',
         'honeypot_users' => []
     ];
     if (file_exists($configPath)) {
@@ -500,6 +506,8 @@ if ($action === 'save_config') {
     $config['banned_redirect_url'] = $redirectUrl;
     $config['subconverter_enable'] = $subconverterEnable;
     $config['subconverter_url'] = $subconverterUrl;
+    $config['banned_keywords'] = $bannedKeywords;
+    $config['replace_keyword_to'] = $replaceKeywordTo;
     
     $res = @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     echo json_encode(['ok' => $res !== false]);
@@ -521,6 +529,8 @@ if ($action === 'toggle_honeypot') {
         'banned_redirect_url' => '',
         'subconverter_enable' => true,
         'subconverter_url' => 'https://api.wcc.best/sub',
+        'banned_keywords' => '一元机场,1元机场,smallstrawberry',
+        'replace_keyword_to' => '天阙精品',
         'honeypot_users' => []
     ];
     if (file_exists($configPath)) {
@@ -700,6 +710,20 @@ if ($action === 'toggle_honeypot') {
                     <button @click="saveConfig" :disabled="isSavingConfig" class="px-5 py-2.5 text-xs font-bold rounded-xl bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white transition-all w-full shadow-lg shadow-violet-600/20 disabled:opacity-50">
                         {{ isSavingConfig ? '正在保存...' : '💾 保存配置' }}
                     </button>
+                </div>
+            </div>
+
+            <!-- 第二行：敏感词过滤与节点名称广告净化 -->
+            <div class="mt-5 border-t border-white/5 pt-5 grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div class="md:col-span-8 flex flex-col justify-start">
+                    <label class="text-xs text-slate-400 mb-2 font-medium">4. 节点名字广告词/品牌词过滤 (英文逗号或换行分隔，支持过滤 & 剔除敏感节点)</label>
+                    <textarea v-model="config.banned_keywords" rows="2" class="px-4 py-2 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full font-mono placeholder:text-slate-600" placeholder="一元机场,1元机场,smallstrawberry,广告"></textarea>
+                    <span class="text-[10px] text-slate-500 mt-2">※ 开启后，Clash 节点名字中的敏感词会被自动替换净化；通用客户端（如 v2rayN）中含有该敏感词的节点将被直接整行剔除。</span>
+                </div>
+                <div class="md:col-span-4 flex flex-col justify-start border-l border-white/10 pl-4">
+                    <label class="text-xs text-slate-400 mb-2 font-medium">5. 敏感词替换为 (仅用于 Clash 模式下的名字净化替换)</label>
+                    <input type="text" v-model="config.replace_keyword_to" class="px-4 py-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full font-mono placeholder:text-slate-600" placeholder="天阙精品" />
+                    <span class="text-[10px] text-slate-500 mt-2">※ 替换为安全的品牌别称（如天阙精品、VIP等），保持 YAML 引用完整度。</span>
                 </div>
             </div>
         </details>
@@ -999,7 +1023,7 @@ if ($action === 'toggle_honeypot') {
                 const toast = ref({ show: false, message: '', type: 'info' });
                 
                 // --- 🛡️ 天阙安全与蜜罐配置状态 ---
-                const config = ref({ banned_strategy: 'bait', banned_redirect_url: '', honeypot_users: [] });
+                const config = ref({ banned_strategy: 'bait', banned_redirect_url: '', subconverter_enable: true, subconverter_url: 'https://api.wcc.best/sub', banned_keywords: '一元机场,1元机场,smallstrawberry', replace_keyword_to: '天阙精品', honeypot_users: [] });
                 const isSavingConfig = ref(false);
 
                 const showToast = (message, type = 'info') => {
@@ -1052,6 +1076,8 @@ if ($action === 'toggle_honeypot') {
                         formData.append('banned_redirect_url', config.value.banned_redirect_url);
                         formData.append('subconverter_enable', config.value.subconverter_enable ? 'true' : 'false');
                         formData.append('subconverter_url', config.value.subconverter_url);
+                        formData.append('banned_keywords', config.value.banned_keywords || '');
+                        formData.append('replace_keyword_to', config.value.replace_keyword_to || '');
                         const response = await fetch(`tianque_detect.php?action=save_config&token=${token}`, {
                             method: 'POST',
                             body: formData
