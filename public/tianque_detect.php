@@ -84,8 +84,22 @@ if ($action === 'fetch') {
     // bypass_whitelist: true (包含天阙/MOMclash等) | false (过滤天阙/MOMclash等)
     $bypassWhitelist = ($_GET['bypass_whitelist'] ?? 'false') === 'true';
 
+    // 高级特定时段过滤参数
+    $timeFilterEnable = ($_GET['time_filter_enable'] ?? 'false') === 'true';
+    $timeTarget = $_GET['time_target'] ?? '08:00'; // 目标时分，例如 08:00
+    $timeRangeMin = (int)($_GET['time_range_min'] ?? 15); // 浮动分钟，例如 15 分钟
+
     $now = time();
     $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
+
+    // 解析目标特定时间段
+    $targetSecs = 0;
+    $rangeSecs = 0;
+    if ($timeFilterEnable) {
+        list($tHour, $tMin) = explode(':', $timeTarget . ':00');
+        $targetSecs = (int)$tHour * 3600 + (int)$tMin * 60;
+        $rangeSecs = $timeRangeMin * 60;
+    }
 
     // 查询未封禁且拉取过订阅的用户
     $stmt = $pdo->prepare("SELECT id, email, u, d, client_type FROM v2_user WHERE banned = 0 AND client_type IS NOT NULL");
@@ -126,12 +140,39 @@ if ($action === 'fetch') {
             }
         }
 
+        // 高级特定时间段匹配检测
+        if ($timeFilterEnable) {
+            $hasTimeMatch = false;
+            foreach ($history as $item) {
+                $t = $item['time'];
+                $h = (int)date('H', $t);
+                $m = (int)date('i', $t);
+                $s = (int)date('s', $t);
+                $recordSecs = $h * 3600 + $m * 60 + $s;
+
+                // 判断是否在浮动区间内（考虑跨天或常规区间）
+                $diffSecs = abs($recordSecs - $targetSecs);
+                // 考虑一天 24 小时循环 (如23:55 和 00:05 差10分钟)
+                if ($diffSecs > 43200) {
+                    $diffSecs = 86400 - $diffSecs;
+                }
+
+                if ($diffSecs <= $rangeSecs) {
+                    $hasTimeMatch = true;
+                    break;
+                }
+            }
+            if (!$hasTimeMatch) {
+                continue;
+            }
+        }
+
         $averageInterval = 0;
         $range = 0;
         $isMatched = false;
 
         if ($mode === 'all_low') {
-            // 模式二：全部低流量活跃用户（有拉取轨迹即可，无视数学规律）
+            // 模式二：全部低流量活跃用户
             $isMatched = true;
         } else {
             // 模式一：捕获高规律定时测活机器
@@ -163,7 +204,7 @@ if ($action === 'fetch') {
         }
 
         if ($isMatched) {
-            // 如果记录数不够计算间隔，则设为0
+            // 如果记录数够计算间隔，并且未初始化过
             if (count($history) >= 5 && $averageInterval == 0) {
                 $diffs = [];
                 for ($i = 0; $i < count($history) - 1; $i++) {
@@ -355,7 +396,7 @@ if ($action === 'reset') {
             </div>
 
             <!-- Parameters Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end mb-6">
                 <div class="flex flex-col">
                     <label class="text-xs text-slate-400 mb-1.5 font-medium">流量过滤上限阈值 (MB)</label>
                     <input type="number" v-model="maxTraffic" class="px-4 py-2 text-sm rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full" placeholder="50" />
@@ -379,11 +420,32 @@ if ($action === 'reset') {
                 </div>
 
                 <div v-if="mode === 'all_low'" class="col-span-1 md:col-span-2"></div>
+            </div>
 
-                <div class="flex justify-end">
-                    <button @click="fetchData" class="w-full md:w-auto px-5 py-2 text-sm font-semibold rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 transition-all border border-white/5">
-                        应用参数并重新扫描
-                    </button>
+            <!-- Advanced Target Time Period Filter -->
+            <div class="border-t border-white/10 pt-5 mt-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <label class="flex items-center space-x-3 cursor-pointer select-none">
+                            <input type="checkbox" v-model="timeFilterEnable" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500 focus:ring-offset-black" />
+                            <span class="text-sm font-semibold text-indigo-400">启用特定拉取时间段过滤</span>
+                        </label>
+                        
+                        <div v-if="timeFilterEnable" class="flex items-center space-x-2">
+                            <span class="text-xs text-slate-400">目标时刻:</span>
+                            <input type="text" v-model="timeTarget" class="px-3 py-1 text-xs rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-20 text-center font-mono" placeholder="08:00" />
+                            
+                            <span class="text-xs text-slate-400">允许上下浮动:</span>
+                            <input type="number" v-model="timeRangeMin" class="px-3 py-1 text-xs rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-16 text-center" placeholder="15" />
+                            <span class="text-xs text-slate-400">分钟</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button @click="fetchData" class="w-full md:w-auto px-5 py-2 text-sm font-semibold rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white transition-all border border-indigo-500/30">
+                            应用参数并重新扫描
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -391,10 +453,13 @@ if ($action === 'reset') {
             <div class="text-xs text-slate-400 leading-relaxed mt-5 bg-white/5 border border-white/5 p-4 rounded-xl">
                 📌 <span class="font-medium text-slate-300">模式说明：</span>
                 <span v-if="mode === 'detect'">
-                    **定时测活模式**：自动排查 24 小时内有规律拉取订阅、但消耗总流量低于 <b>{{ maxTraffic }} MB</b> 的账号，常用于揪出悄悄挂脚本的内鬼探测器。
+                    **定时测活模式**：自动排查 24 小时内有规律拉取订阅、且消耗总流量低于 <b>{{ maxTraffic }} MB</b> 的账号。
                 </span>
                 <span v-else>
-                    **分析全部低流量模式**：列出 24 小时内有订阅更新动作、且总流量小于 <b>{{ maxTraffic }} MB</b> 的所有有效用户。这适合您全局分析用户活跃轨迹、查询拉取客户端、解析 IP 分布等。
+                    **分析全部低流量模式**：列出 24 小时内有订阅更新动作、且总流量小于 <b>{{ maxTraffic }} MB</b> 的所有有效用户。
+                </span>
+                <span v-if="timeFilterEnable" class="text-indigo-400 font-medium">
+                    (已启用高级时段过滤：最近 5 次拉取明细中至少有一次发生在 <b>{{ timeTarget }}</b> 上下 <b>{{ timeRangeMin }}</b> 分钟内，即 <b>{{ getFormattedRange() }}</b> 之间。)
                 </span>
             </div>
         </section>
@@ -407,7 +472,7 @@ if ($action === 'reset') {
                     <div class="absolute inset-0 rounded-full border-4 border-indigo-500/20"></div>
                     <div class="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
                 </div>
-                <p class="text-sm text-slate-400">正在遍历并提取轨迹分析日志...</p>
+                <p class="text-sm text-slate-400">正在进行 24 小时时空轨迹数据关联分析...</p>
             </div>
 
             <!-- Empty State -->
@@ -418,7 +483,7 @@ if ($action === 'reset') {
                     </svg>
                 </div>
                 <h3 class="text-lg font-bold text-white mb-2">未发现匹配条件的订阅用户</h3>
-                <p class="text-sm text-slate-400 max-w-sm">调大流量阈值或切换检测模式以查看更多轨迹。</p>
+                <p class="text-sm text-slate-400 max-w-sm">调大流量阈值、切换检测模式或调整时段过滤条件以查看更多轨迹。</p>
             </div>
 
             <!-- Bot User Cards Grid -->
@@ -467,7 +532,7 @@ if ($action === 'reset') {
                                             {{ ua }}
                                         </span>
                                     </template>
-                                    <span v-else class="text-xs text-slate-500 italic">暂无记录</span>
+                                    <span v-else class="text-xs text-slate-500 italic font-mono">暂无记录</span>
                                 </div>
                             </div>
                         </div>
@@ -529,6 +594,11 @@ if ($action === 'reset') {
                 const maxTraffic = ref(50); // 流量判定限额，默认50MB
                 const mode = ref('detect'); // detect | all_low
                 const bypassWhitelist = ref(false); // 是否跳过白名单
+
+                // 高级时段过滤前端响应
+                const timeFilterEnable = ref(false);
+                const timeTarget = ref('08:00');
+                const timeRangeMin = ref(15);
                 
                 // 获取地址栏的安全 token
                 const urlParams = new URLSearchParams(window.location.search);
@@ -545,10 +615,34 @@ if ($action === 'reset') {
                     }, 3000);
                 };
 
+                const getFormattedRange = () => {
+                    if (!timeTarget.value) return '07:45 - 08:15';
+                    try {
+                        const [h, m] = timeTarget.value.split(':').map(Number);
+                        const range = Number(timeRangeMin.value || 15);
+                        
+                        let minDate = new Date();
+                        minDate.setHours(h, m - range, 0);
+                        
+                        let maxDate = new Date();
+                        maxDate.setHours(h, m + range, 0);
+                        
+                        const formatTime = (d) => {
+                            const hr = String(d.getHours()).padStart(2, '0');
+                            const mn = String(d.getMinutes()).padStart(2, '0');
+                            return `${hr}:${mn}`;
+                        };
+                        return `${formatTime(minDate)} 至 ${formatTime(maxDate)}`;
+                    } catch (e) {
+                        return '输入范围有误';
+                    }
+                };
+
                 const fetchData = async () => {
                     loading.value = true;
                     try {
-                        const response = await fetch(`tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}&mode=${mode.value}&bypass_whitelist=${bypassWhitelist.value}`);
+                        const query = `tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}&mode=${mode.value}&bypass_whitelist=${bypassWhitelist.value}&time_filter_enable=${timeFilterEnable.value}&time_target=${timeTarget.value}&time_range_min=${timeRangeMin.value}`;
+                        const response = await fetch(query);
                         const res = await response.json();
                         users.value = res.data;
                         showToast(`扫描完毕，共获取 ${users.value.length} 个分析样本`, 'success');
@@ -613,7 +707,11 @@ if ($action === 'reset') {
                     maxTraffic,
                     mode,
                     bypassWhitelist,
+                    timeFilterEnable,
+                    timeTarget,
+                    timeRangeMin,
                     toast,
+                    getFormattedRange,
                     fetchData,
                     handleBan,
                     handleReset,
