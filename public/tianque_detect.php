@@ -128,10 +128,10 @@ if ($action === 'fetch') {
     $timeTarget = $_GET['time_target'] ?? '08:00'; 
     $timeRangeMin = (int)($_GET['time_range_min'] ?? 15);
 
-    // 新增：显示已过期账号开关 (true | false)
-    $showExpired = ($_GET['show_expired'] ?? 'true') === 'true';
-    // 新增：显示已封禁账号开关 (true | false)
-    $showBanned = ($_GET['show_banned'] ?? 'true') === 'true';
+    // 新增：显示已过期账号开关 (true | false)，默认改为不显示已过期账号
+    $showExpired = ($_GET['show_expired'] ?? 'false') === 'true';
+    // 新增：显示已封禁账号开关 (true | false)，默认改为不显示已封禁账号
+    $showBanned = ($_GET['show_banned'] ?? 'false') === 'true';
     // 新增：仅查看异常UA开关 (true | false)，默认改为默认过滤只看异常
     $abnormalUaOnly = ($_GET['abnormal_ua_only'] ?? 'true') === 'true';
 
@@ -956,8 +956,8 @@ if ($action === 'toggle_honeypot') {
                 const timeRangeMin = ref(15);
 
                 // 进阶不正常UA、封禁与过期用户过滤
-                const showExpired = ref(true); // 是否显示过期，默认显示
-                const showBanned = ref(true); // 是否显示已封禁，默认显示
+                const showExpired = ref(false); // 默认不显示过期
+                const showBanned = ref(false); // 默认不显示已封禁
                 const abnormalUaOnly = ref(true); // 默认只看命令行异常UA (改为 true)
                 
                 // 新增：时效限制绑定变量，默认修改为 259200 (3天)
