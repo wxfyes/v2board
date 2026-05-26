@@ -386,7 +386,7 @@ function logTianqueAction($userId, $actionType, $detail = '') {
     @file_put_contents($logPath, $logMsg, FILE_APPEND);
 }
 
-// API: 一键封禁
+// API: 一键封禁 / 解除封禁
 if ($action === 'ban') {
     header('Content-Type: application/json; charset=utf-8');
     $userId = (int)($_POST['id'] ?? 0);
@@ -395,13 +395,30 @@ if ($action === 'ban') {
         exit;
     }
 
-    $stmt = $pdo->prepare("UPDATE v2_user SET banned = 1 WHERE id = :id");
-    $res = $stmt->execute(['id' => $userId]);
-    if ($res) {
-        logTianqueAction($userId, 'BAN_USER', '一键封禁该用户');
+    // 查询当前封禁状态，实现状态双向切换
+    $stmt = $pdo->prepare("SELECT banned FROM v2_user WHERE id = :id LIMIT 1");
+    $stmt->execute(['id' => $userId]);
+    $currentBanned = (int)($stmt->fetchColumn() ?? 0);
+
+    if ($currentBanned === 1) {
+        // 执行解封
+        $stmt = $pdo->prepare("UPDATE v2_user SET banned = 0 WHERE id = :id");
+        $res = $stmt->execute(['id' => $userId]);
+        if ($res) {
+            logTianqueAction($userId, 'UNBAN_USER', '一键解除该用户封禁');
+        }
+        $actionType = 'unbanned';
+    } else {
+        // 执行封禁
+        $stmt = $pdo->prepare("UPDATE v2_user SET banned = 1 WHERE id = :id");
+        $res = $stmt->execute(['id' => $userId]);
+        if ($res) {
+            logTianqueAction($userId, 'BAN_USER', '一键封禁该用户');
+        }
+        $actionType = 'banned';
     }
 
-    echo json_encode(['ok' => $res]);
+    echo json_encode(['ok' => $res, 'action' => $actionType]);
     exit;
 }
 
@@ -910,8 +927,8 @@ if ($action === 'toggle_honeypot') {
                         <button @click="handleToggleHoneypot(user)" :class="['flex-1 px-4 py-2 text-xs font-semibold rounded-xl transition-all border', user.is_honeypot ? 'bg-violet-600/30 hover:bg-violet-600/40 text-violet-300 border-violet-500/40' : 'bg-violet-500/10 hover:bg-violet-500/15 text-violet-400 border-violet-500/20']">
                             {{ user.is_honeypot ? '😇 移出灰名单' : '👻 一键无感灰名单' }}
                         </button>
-                        <button :disabled="user.is_banned" @click="handleBan(user)" :class="['flex-1 px-4 py-2 text-xs font-semibold rounded-xl transition-all border shadow-lg', user.is_banned ? 'bg-rose-500/10 text-rose-400/40 border-rose-500/10 shadow-none cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white border-transparent shadow-rose-600/10']">
-                            {{ user.is_banned ? '已是封禁状态' : '🚨 一键封禁 (Banned)' }}
+                        <button @click="handleBan(user)" :class="['flex-1 px-4 py-2 text-xs font-semibold rounded-xl transition-all border shadow-lg', user.is_banned ? 'bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : 'bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white border-transparent shadow-rose-600/10']">
+                            {{ user.is_banned ? '✅ 一键解封' : '🚨 一键封禁 (Banned)' }}
                         </button>
                     </div>
                 </div>
@@ -1064,7 +1081,11 @@ if ($action === 'toggle_honeypot') {
                 };
 
                 const handleBan = async (user) => {
-                    if (!confirm(`确定要封禁用户 ${user.email} 吗？\n该操作会立即封锁其全部服务。`)) return;
+                    const isBanning = !user.is_banned;
+                    const confirmMsg = isBanning
+                        ? `确定要封禁用户 ${user.email} 吗？\n该操作会立即封锁其全部服务。`
+                        : `确定要为用户 ${user.email} 解除封禁吗？`;
+                    if (!confirm(confirmMsg)) return;
                     try {
                         const formData = new FormData();
                         formData.append('id', user.id);
@@ -1074,10 +1095,10 @@ if ($action === 'toggle_honeypot') {
                         });
                         const res = await response.json();
                         if (res.ok) {
-                            showToast(`用户 ${user.email} 已封禁`, 'success');
+                            showToast(res.action === 'banned' ? `用户 ${user.email} 已封禁` : `用户 ${user.email} 已解除封禁`, 'success');
                             fetchData();
                         } else {
-                            showToast('封禁失败', 'error');
+                            showToast('操作失败', 'error');
                         }
                     } catch (err) {
                         showToast('网络请求失败', 'error');
