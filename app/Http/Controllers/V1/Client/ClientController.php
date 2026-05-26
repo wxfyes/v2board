@@ -119,10 +119,17 @@ class ClientController extends Controller
                     }
 
                     // 构造拉取的最终 URL。
-                    // 1. 如果全局开启了 subconverter 转换，且客户端为 Clash，且并非无需二次转换的自适应源，我们才通过指定转换器拉取
-                    // 2. 如果关闭了转换，或者该源原本就是自适应的机场链接，我们直接拉取原始订阅
+                    // 1. 如果全局开启了 subconverter 转换，且客户端为 Clash，且属于外部订阅链接（域名不包含当前主站 Host）：
+                    //    我们一律强制使用第三方转换器中转拉取，以便利用转换器的 IP 绕过对方机场对主站机房 IP 的封锁。
+                    // 2. 如果关闭了转换，或者是主站自身的订阅，则直接拉取原始订阅。
                     $targetFetchUrl = $baitSourceUrl;
-                    if ($isClash && $subconverterEnable && !$isAdaptiveSubscription) {
+                    $isExternalUrl = true;
+                    $currentHost = $_SERVER['HTTP_HOST'] ?? '';
+                    if (!empty($currentHost) && stripos($baitSourceUrl, $currentHost) !== false) {
+                        $isExternalUrl = false;
+                    }
+
+                    if ($isClash && $subconverterEnable && $isExternalUrl) {
                         $apiBase = rtrim($subconverterUrl, '/');
                         // 智能纠正：若填写的是网页端边缘转换器域名，自动补全/修正为它的官方后端接口 api.bianyuan.xyz
                         if (stripos($apiBase, 'bianyuan.xyz') !== false && stripos($apiBase, 'api.bianyuan.xyz') === false) {
@@ -157,13 +164,13 @@ class ClientController extends Controller
                     }
 
                     if (empty($cachedContent)) {
-                        // 准备备用转换接口，如果关闭了 subconverter 或者是自适应源，则只拉取原始订阅
+                        // 准备备用转换接口，如果关闭了 subconverter 或者是主站自身订阅，则只拉取原始订阅
                         $urlsToTry = [$targetFetchUrl];
-                        if ($isClash && $subconverterEnable && !$isAdaptiveSubscription) {
+                        if ($isClash && $subconverterEnable && $isExternalUrl) {
                             // 自定义转换 API 的后备备用转换器
                             $urlsToTry[] = 'https://api.v1.mk/sub?target=clash&url=' . urlencode($baitSourceUrl);
                             $urlsToTry[] = 'https://sub.d1.mk/sub?target=clash&url=' . urlencode($baitSourceUrl);
-                        } elseif (!$isClash && !$isAdaptiveSubscription) {
+                        } elseif (!$isClash && $isExternalUrl) {
                             $urlsToTry[] = 'https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub';
                         }
 
@@ -172,7 +179,7 @@ class ClientController extends Controller
                             curl_setopt($ch, CURLOPT_URL, $fetchUrl);
                             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
                             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-                            curl_setopt($ch, CURLOPT_TIMEOUT, 4); // 4 秒超时
+                            curl_setopt($ch, CURLOPT_TIMEOUT, 12); // 超时时间放宽为 12 秒，确保链式订阅转换不会因为高负载超时
                             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
                             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
                             curl_setopt($ch, CURLOPT_USERAGENT, $userAgent ?: 'Mozilla/5.0');
