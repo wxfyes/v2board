@@ -682,15 +682,38 @@ if ($action === 'toggle_honeypot') {
             background-image: 
                 radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.05) 0%, transparent 50%),
                 radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
-            color: #1f2937;
+            color: #1e293b !important;
         }
         html.light .glass-card {
-            background: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.08);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             transition: all 0.3s ease;
+            color: #334155 !important;
+        }
+        html.light h1, html.light h2, html.light h3, html.light h4, html.light h5, html.light h6 {
+            color: #0f172a !important;
+        }
+        html.light p, html.light label, html.light span, html.light summary {
+            color: #475569 !important;
+        }
+        html.light input[type="text"], 
+        html.light input[type="number"], 
+        html.light textarea, 
+        html.light select {
+            background-color: rgba(0, 0, 0, 0.03) !important;
+            border-color: rgba(0, 0, 0, 0.12) !important;
+            color: #0f172a !important;
+        }
+        html.light input[type="text"]::placeholder, 
+        html.light textarea::placeholder {
+            color: #94a3b8 !important;
+        }
+        html.light option {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
         }
     </style>
 </head>
