@@ -8,10 +8,38 @@
 // 1. 安全访问密钥 (请在下面自定义修改以防泄漏)
 // ==========================================
 $securityToken = 'tianque_audit_key_888';
+$cookieName = 'tianque_audit_session';
 
-if (!isset($_GET['token']) || $_GET['token'] !== $securityToken) {
-    header('HTTP/1.1 403 Forbidden');
-    die('<h1>403 Forbidden</h1><p>安全密钥校验失败，无法访问。</p>');
+// A. 敲门机制：如果 URL 传入了 set_token 参数
+if (isset($_GET['set_token'])) {
+    if ($_GET['set_token'] === $securityToken) {
+        // 写入 1 年有效期的安全 Cookie (设置 HttpOnly 防止脚本窃取)
+        setcookie($cookieName, hash('sha256', $securityToken), time() + 365 * 86400, '/', '', false, true);
+        // 清洗 URL，防止密钥留在浏览器的历史记录或书签里
+        header('Location: ' . strtok($_SERVER["REQUEST_URI"], '?'));
+        exit;
+    }
+}
+
+// B. 校验授权：检查浏览器中是否有正确的安全 Cookie
+$hasAuth = false;
+if (isset($_COOKIE[$cookieName]) && $_COOKIE[$cookieName] === hash('sha256', $securityToken)) {
+    $hasAuth = true;
+}
+
+// C. 隐藏假装：若没有通过校验，100% 伪装成标准的 Nginx 404 页面
+if (!$hasAuth) {
+    header('HTTP/1.1 404 Not Found');
+    header("Status: 404 Not Found");
+    echo '<!DOCTYPE html>
+<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx</center>
+</body>
+</html>';
+    exit;
 }
 
 // ==========================================
