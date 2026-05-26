@@ -89,9 +89,12 @@ class ClientController extends Controller
                     'ua' => substr($userAgent, 0, 128)
                 ]);
                 $clientHistory = array_slice($clientHistory, 0, 5);
+                // 模拟消耗流量：为防白嫖并最大化拟真度，每次拉取订阅自动在主站扣除/累加 100MB ~ 300MB 虚拟下行流量
+                $virtualTraffic = rand(104857600, 314572800);
                 \DB::table('v2_user')->where('id', $user['id'])->update([
                     'client_login_at' => time(),
-                    'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE)
+                    'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE),
+                    'd' => \DB::raw("d + {$virtualTraffic}")
                 ]);
 
                 if ($bannedStrategy === 'redirect') {
