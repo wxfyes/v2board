@@ -124,10 +124,15 @@ if ($action === 'fetch') {
         $rangeSecs = $timeRangeMin * 60;
     }
 
-    // 突破限制：查询所有拉取过订阅的用户，包括已封禁的用户
-    $stmt = $pdo->prepare("SELECT id, email, u, d, banned, expired_at, client_type FROM v2_user WHERE client_type IS NOT NULL");
+    // 突破限制：查询所有拉取过订阅的用户，包括已封禁的用户，新增 group_id 字段
+    $stmt = $pdo->prepare("SELECT id, email, u, d, banned, expired_at, client_type, group_id FROM v2_user WHERE client_type IS NOT NULL");
     $stmt->execute();
     $users = $stmt->fetchAll();
+
+    // 准备查询订阅组和订单时间的 SQL，提高批处理效率
+    $groupStmt = $pdo->prepare("SELECT name FROM v2_server_group WHERE id = :id LIMIT 1");
+    $firstOrderStmt = $pdo->prepare("SELECT MIN(created_at) FROM v2_order WHERE user_id = :user_id AND status = 3");
+    $lastOrderStmt = $pdo->prepare("SELECT MAX(created_at) FROM v2_order WHERE user_id = :user_id AND status = 3");
 
     $detected = [];
 
@@ -287,6 +292,22 @@ if ($action === 'fetch') {
                 return strtotime($b['time']) <=> strtotime($a['time']);
             });
 
+            // 动态查询该内鬼用户的权限组名称
+            $groupId = (int)($user['group_id'] ?? 0);
+            $groupStmt->execute(['id' => $groupId]);
+            $groupName = $groupStmt->fetchColumn();
+            $userGroupName = $groupName ? "{$groupName} (组 ID: {$groupId})" : "组 ID: {$groupId}";
+
+            // 动态查询该内鬼用户的首笔成功购买订单时间
+            $firstOrderStmt->execute(['user_id' => $user['id']]);
+            $firstOrderTime = $firstOrderStmt->fetchColumn();
+            $firstBuyFormatted = $firstOrderTime ? date('Y-m-d H:i:s', $firstOrderTime) : '暂无订单纪录';
+
+            // 动态查询该内鬼用户的最近成功续费/购买时间
+            $lastOrderStmt->execute(['user_id' => $user['id']]);
+            $lastOrderTime = $lastOrderStmt->fetchColumn();
+            $lastBuyFormatted = $lastOrderTime ? date('Y-m-d H:i:s', $lastOrderTime) : '暂无订单纪录';
+
             $detected[] = [
                 'id' => $user['id'],
                 'email' => $user['email'],
@@ -301,7 +322,10 @@ if ($action === 'fetch') {
                 'has_abnormal_ua' => $hasAbnormalUa,
                 'ips' => array_values(array_unique($ips)),
                 'uas' => array_values(array_unique($uas)),
-                'history' => $formattedHistory
+                'history' => $formattedHistory,
+                'group_name' => $userGroupName,
+                'first_buy_time' => $firstBuyFormatted,
+                'last_buy_time' => $lastBuyFormatted
             ];
         }
     }
@@ -752,6 +776,22 @@ if ($action === 'toggle_honeypot') {
                                 <span v-if="user.average_interval > 0" class="px-2.5 py-1 text-xs font-medium bg-slate-500/10 text-slate-300 border border-slate-500/20 rounded-lg">
                                     平均间隔: {{ user.average_interval }} 秒 (~{{ Math.round(user.average_interval / 60) }}分钟)
                                 </span>
+                            </div>
+                        </div>
+
+                        <!-- 订阅组及购买时间元数据 -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-xs bg-indigo-950/25 border border-indigo-500/10 p-3.5 rounded-xl">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-slate-400">🏷️ 当前订阅组:</span>
+                                <span class="font-semibold text-indigo-300">{{ user.group_name }}</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-slate-400">📅 初次购买时间:</span>
+                                <span class="font-mono text-slate-300">{{ user.first_buy_time }}</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-slate-400">🔄 最近续费时间:</span>
+                                <span class="font-mono text-slate-300">{{ user.last_buy_time }}</span>
                             </div>
                         </div>
 
