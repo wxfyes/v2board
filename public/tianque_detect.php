@@ -75,6 +75,16 @@ $action = $_GET['action'] ?? 'view';
 if ($action === 'fetch') {
     header('Content-Type: application/json; charset=utf-8');
     
+    $configPath = __DIR__ . '/../storage/tianque_config.json';
+    $honeypots = [];
+    if (file_exists($configPath)) {
+        $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+        if (is_array($tianqueConfig)) {
+            $honeypots = $tianqueConfig['honeypot_users'] ?? [];
+        }
+    }
+    $honeypots = array_map('intval', $honeypots);
+
     $targetInterval = (int)($_GET['interval'] ?? 300);
     $tolerance = (int)($_GET['tolerance'] ?? 30);
     $maxTrafficMb = (int)($_GET['max_traffic'] ?? 50);
@@ -287,6 +297,7 @@ if ($action === 'fetch') {
                 'is_expired' => $isExpired,
                 'expired_at_formatted' => $user['expired_at'] ? date('Y-m-d H:i:s', $user['expired_at']) : '长期有效',
                 'is_banned' => $isBanned,
+                'is_honeypot' => in_array((int)$user['id'], $honeypots, true),
                 'has_abnormal_ua' => $hasAbnormalUa,
                 'ips' => array_values(array_unique($ips)),
                 'uas' => array_values(array_unique($uas)),
@@ -346,6 +357,101 @@ if ($action === 'reset') {
     ]);
 
     echo json_encode(['ok' => $res]);
+    exit;
+}
+
+// API: 获取配置
+if ($action === 'get_config') {
+    header('Content-Type: application/json; charset=utf-8');
+    $configPath = __DIR__ . '/../storage/tianque_config.json';
+    $config = [
+        'banned_strategy' => 'bait',
+        'banned_redirect_url' => 'https://go.tianquege.top/api/v1/client/subscribe?token=bait_token',
+        'honeypot_users' => []
+    ];
+    if (file_exists($configPath)) {
+        $data = json_decode(@file_get_contents($configPath), true);
+        if (is_array($data)) {
+            $config = array_merge($config, $data);
+        }
+    } else {
+        // 创建默认配置文件
+        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    }
+    echo json_encode($config);
+    exit;
+}
+
+// API: 保存配置
+if ($action === 'save_config') {
+    header('Content-Type: application/json; charset=utf-8');
+    $configPath = __DIR__ . '/../storage/tianque_config.json';
+    
+    $strategy = $_POST['banned_strategy'] ?? 'bait';
+    $redirectUrl = $_POST['banned_redirect_url'] ?? '';
+    
+    $config = [
+        'banned_strategy' => 'bait',
+        'banned_redirect_url' => 'https://go.tianquege.top/api/v1/client/subscribe?token=bait_token',
+        'honeypot_users' => []
+    ];
+    if (file_exists($configPath)) {
+        $data = json_decode(@file_get_contents($configPath), true);
+        if (is_array($data)) {
+            $config = array_merge($config, $data);
+        }
+    }
+    
+    $config['banned_strategy'] = $strategy;
+    $config['banned_redirect_url'] = $redirectUrl;
+    
+    $res = @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    echo json_encode(['ok' => $res !== false]);
+    exit;
+}
+
+// API: 一键加入/移出灰名单
+if ($action === 'toggle_honeypot') {
+    header('Content-Type: application/json; charset=utf-8');
+    $userId = (int)($_POST['id'] ?? 0);
+    if ($userId <= 0) {
+        echo json_encode(['ok' => false, 'message' => '参数非法']);
+        exit;
+    }
+    
+    $configPath = __DIR__ . '/../storage/tianque_config.json';
+    $config = [
+        'banned_strategy' => 'bait',
+        'banned_redirect_url' => 'https://go.tianquege.top/api/v1/client/subscribe?token=bait_token',
+        'honeypot_users' => []
+    ];
+    if (file_exists($configPath)) {
+        $data = json_decode(@file_get_contents($configPath), true);
+        if (is_array($data)) {
+            $config = array_merge($config, $data);
+        }
+    }
+    
+    $honeypots = $config['honeypot_users'] ?? [];
+    // 强制转换为整型以防混合类型匹配失败
+    $honeypots = array_map('intval', $honeypots);
+    $userId = (int)$userId;
+
+    if (in_array($userId, $honeypots, true)) {
+        // 移出
+        $honeypots = array_values(array_filter($honeypots, function($id) use ($userId) {
+            return $id !== $userId;
+        }));
+        $actionType = 'removed';
+    } else {
+        // 加入
+        $honeypots[] = $userId;
+        $actionType = 'added';
+    }
+    $config['honeypot_users'] = $honeypots;
+    
+    $res = @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    echo json_encode(['ok' => $res !== false, 'action' => $actionType, 'honeypots' => $honeypots]);
     exit;
 }
 
@@ -435,6 +541,51 @@ if ($action === 'reset') {
                 </button>
             </div>
         </header>
+
+        <!-- 安全策略与蜜罐配置折叠卡片 -->
+        <details class="group glass-card rounded-2xl p-6 mb-8 animate-fade-in" open>
+            <summary class="text-sm font-bold text-indigo-400 cursor-pointer hover:text-indigo-300 transition-all flex items-center justify-between outline-none select-none">
+                <span class="flex items-center space-x-2">
+                    <span>🛡️ 天阙安全防线与无感掉包配置</span>
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 rounded-md">实时动态生效 (免重启)</span>
+                </span>
+                <svg class="w-4 h-4 transform group-open:rotate-180 transition-transform text-indigo-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>
+                </svg>
+            </summary>
+            
+            <div class="mt-5 border-t border-white/5 pt-5 grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div class="md:col-span-4 flex flex-col justify-start">
+                    <label class="text-xs text-slate-400 mb-2 font-medium">1. 拦截防御动作选择</label>
+                    <div class="flex flex-col space-y-3">
+                        <label class="flex items-center space-x-3 cursor-pointer text-xs text-slate-300">
+                            <input type="radio" name="banned_strategy" value="bait" v-model="config.banned_strategy" class="w-4 h-4 text-indigo-600 bg-white/5 border-white/10" />
+                            <span>👻 <b>下发蜜罐节点</b> (显示内鬼真实 IP，警示作用)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 cursor-pointer text-xs text-slate-300">
+                            <input type="radio" name="banned_strategy" value="redirect" v-model="config.banned_strategy" class="w-4 h-4 text-indigo-600 bg-white/5 border-white/10" />
+                            <span>🔄 <b>302 重定向</b> (自动引流至指定订阅链接)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 cursor-pointer text-xs text-slate-300">
+                            <input type="radio" name="banned_strategy" value="banned" v-model="config.banned_strategy" class="w-4 h-4 text-indigo-600 bg-white/5 border-white/10" />
+                            <span>🚫 <b>原生 403 阻断</b> (直接抛出账户封禁提示)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="md:col-span-6 flex flex-col justify-start">
+                    <label class="text-xs text-slate-400 mb-2 font-medium">2. 重定向目标订阅 URL (当选择 302 重定向时生效)</label>
+                    <input type="text" v-model="config.banned_redirect_url" class="px-4 py-2.5 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-indigo-500/50 w-full font-mono" placeholder="输入公益订阅地址，例如 https://free-sub.top/api/v1/client/subscribe?token=..." />
+                    <span class="text-[10px] text-slate-500 mt-2">※ 凡是 [已被封禁] 或是被放入 [无感灰名单] 的用户，拉取订阅时会自动掉包/重定向。</span>
+                </div>
+
+                <div class="md:col-span-2 flex items-end">
+                    <button @click="saveConfig" :disabled="isSavingConfig" class="px-5 py-2.5 text-xs font-bold rounded-xl bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white transition-all w-full shadow-lg shadow-violet-600/20 disabled:opacity-50">
+                        {{ isSavingConfig ? '正在保存...' : '💾 保存防御配置' }}
+                    </button>
+                </div>
+            </div>
+        </details>
 
         <!-- Configuration Bar -->
         <section class="glass-card rounded-2xl p-6 mb-8">
@@ -583,6 +734,9 @@ if ($action === 'reset') {
                             
                             <!-- Badges -->
                             <div class="flex flex-wrap gap-2">
+                                <span v-if="user.is_honeypot" class="px-2.5 py-1 text-xs font-bold bg-violet-600/30 text-violet-400 border border-violet-500/50 rounded-lg">
+                                    👻 灰名单蜜罐中
+                                </span>
                                 <span v-if="user.has_abnormal_ua" class="px-2.5 py-1 text-xs font-black bg-rose-600/30 text-rose-400 border border-rose-500/50 rounded-lg">
                                     ⚙️ 命令行探测 (curl等)
                                 </span>
@@ -664,7 +818,10 @@ if ($action === 'reset') {
                     <!-- Actions Footer -->
                     <div class="flex items-center space-x-3 pt-4 border-t border-white/5 mt-2">
                         <button @click="handleReset(user)" class="flex-1 px-4 py-2 text-xs font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/15 active:bg-amber-500/20 border border-amber-500/20 rounded-xl transition-all">
-                            🔄 重置订阅 Token (拉取失效)
+                            🔄 重置 Token (失效)
+                        </button>
+                        <button @click="handleToggleHoneypot(user)" :class="['flex-1 px-4 py-2 text-xs font-semibold rounded-xl transition-all border', user.is_honeypot ? 'bg-violet-600/30 hover:bg-violet-600/40 text-violet-300 border-violet-500/40' : 'bg-violet-500/10 hover:bg-violet-500/15 text-violet-400 border-violet-500/20']">
+                            {{ user.is_honeypot ? '😇 移出灰名单' : '👻 一键无感灰名单' }}
                         </button>
                         <button :disabled="user.is_banned" @click="handleBan(user)" :class="['flex-1 px-4 py-2 text-xs font-semibold rounded-xl transition-all border shadow-lg', user.is_banned ? 'bg-rose-500/10 text-rose-400/40 border-rose-500/10 shadow-none cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white border-transparent shadow-rose-600/10']">
                             {{ user.is_banned ? '已是封禁状态' : '🚨 一键封禁 (Banned)' }}
@@ -707,6 +864,10 @@ if ($action === 'reset') {
                 const token = urlParams.get('token') || '';
 
                 const toast = ref({ show: false, message: '', type: 'info' });
+                
+                // --- 🛡️ 天阙安全与蜜罐配置状态 ---
+                const config = ref({ banned_strategy: 'bait', banned_redirect_url: '', honeypot_users: [] });
+                const isSavingConfig = ref(false);
 
                 const showToast = (message, type = 'info') => {
                     toast.value.message = message;
@@ -737,6 +898,66 @@ if ($action === 'reset') {
                         return `${formatTime(minDate)} 至 ${formatTime(maxDate)}`;
                     } catch (e) {
                         return '输入范围有误';
+                    }
+                };
+
+                const fetchConfig = async () => {
+                    try {
+                        const response = await fetch(`tianque_detect.php?action=get_config&token=${token}`);
+                        const res = await response.json();
+                        config.value = res;
+                    } catch (err) {
+                        showToast('获取天阙防御配置失败', 'error');
+                    }
+                };
+
+                const saveConfig = async () => {
+                    isSavingConfig.value = true;
+                    try {
+                        const formData = new FormData();
+                        formData.append('banned_strategy', config.value.banned_strategy);
+                        formData.append('banned_redirect_url', config.value.banned_redirect_url);
+                        const response = await fetch(`tianque_detect.php?action=save_config&token=${token}`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const res = await response.json();
+                        if (res.ok) {
+                            showToast('天阙防御与蜜罐配置保存成功，实时生效！', 'success');
+                            fetchConfig();
+                        } else {
+                            showToast('保存失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('网络请求失败', 'error');
+                    } finally {
+                        isSavingConfig.value = false;
+                    }
+                };
+
+                const handleToggleHoneypot = async (user) => {
+                    const isAdding = !user.is_honeypot;
+                    const confirmMsg = isAdding
+                        ? `确定要把用户 ${user.email} (ID: ${user.id}) 加入【无感灰名单】吗？\n加入后，他拉取订阅会被自动掉包为蜜罐节点或重定向，但他账号登录保持正常。`
+                        : `确定要把用户 ${user.email} (ID: ${user.id}) 移出【无感灰名单】吗？`;
+                    if (!confirm(confirmMsg)) return;
+                    try {
+                        const formData = new FormData();
+                        formData.append('id', user.id);
+                        const response = await fetch(`tianque_detect.php?action=toggle_honeypot&token=${token}`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const res = await response.json();
+                        if (res.ok) {
+                            showToast(res.action === 'added' ? '已成功加入灰名单' : '已成功移出灰名单', 'success');
+                            fetchData();
+                            fetchConfig();
+                        } else {
+                            showToast('灰名单修改失败', 'error');
+                        }
+                    } catch (err) {
+                        showToast('网络请求失败', 'error');
                     }
                 };
 
@@ -799,6 +1020,7 @@ if ($action === 'reset') {
 
                 onMounted(() => {
                     fetchData();
+                    fetchConfig();
                 });
 
                 return {
@@ -817,8 +1039,13 @@ if ($action === 'reset') {
                     abnormalUaOnly,
                     timeLimit,
                     toast,
+                    config,
+                    isSavingConfig,
                     getFormattedRange,
                     fetchData,
+                    fetchConfig,
+                    saveConfig,
+                    handleToggleHoneypot,
                     handleBan,
                     handleReset,
                     showToast

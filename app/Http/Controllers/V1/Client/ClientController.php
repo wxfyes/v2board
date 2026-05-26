@@ -24,8 +24,39 @@ class ClientController extends Controller
         try {
             $userService = new UserService();
             $isBanned = (bool)($user['banned'] ?? 0);
-            if ($isBanned) {
-                // 同样记录被封禁账号的客户端拉取行为！以防内鬼残留探测漏抓
+            $isBannedBait = false;
+
+            // --- 🛡️ 订阅安全拦截：动态载入天阙配置 ---
+            $configPath = storage_path('tianque_config.json');
+            $honeypotUsers = [];
+            $bannedStrategy = 'bait';
+            $bannedRedirectUrl = 'https://go.tianquege.top/api/v1/client/subscribe?token=bait_token';
+
+            if (file_exists($configPath)) {
+                $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+                if (is_array($tianqueConfig)) {
+                    $honeypotUsers = $tianqueConfig['honeypot_users'] ?? [];
+                    $bannedStrategy = $tianqueConfig['banned_strategy'] ?? 'bait';
+                    $bannedRedirectUrl = $tianqueConfig['banned_redirect_url'] ?? '';
+                }
+            } 
+
+            // 判定是否在灰名单内
+            $isInHoneypot = false;
+            if (isset($user['id']) && isset($user['email'])) {
+                foreach ($honeypotUsers as $item) {
+                    if ($user['id'] == $item || strtolower($user['email']) === strtolower(trim($item))) {
+                        $isInHoneypot = true;
+                        break;
+                    }
+                }
+            }
+
+            // 只要被封禁或者身处灰名单，一律触发拦截与蜜罐防御
+            $triggerBlock = $isBanned || $isInHoneypot;
+
+            if ($triggerBlock) {
+                // 同样记录被封禁/灰名单账号的客户端拉取行为！以防内鬼残留探测漏抓
                 $userAgent = $request->header('User-Agent') ?? '';
                 $clientType = $this->parseClientType($userAgent);
                 $existingData = \DB::table('v2_user')->where('id', $user['id'])->value('client_type');
@@ -59,32 +90,81 @@ class ClientController extends Controller
                     'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE)
                 ]);
 
-                return response([
-                    'message' => 'Your account has been suspended'
-                ], 403);
+                if ($bannedStrategy === 'redirect') {
+                    return redirect($bannedRedirectUrl);
+                } elseif ($bannedStrategy === 'bait') {
+                    $servers = [
+                        [
+                            'id' => 99991,
+                            'name' => '⚠️ 系统检测到异常客户端探测行为',
+                            'type' => 'shadowsocks',
+                            'host' => '127.0.0.1',
+                            'port' => 10086,
+                            'server_port' => 10086,
+                            'cipher' => 'aes-128-gcm',
+                            'obfs' => null,
+                            'obfs_settings' => null,
+                            'tags' => [],
+                            'show' => 1,
+                        ],
+                        [
+                            'id' => 99992,
+                            'name' => '🚨 已锁定您的拉取 IP：' . ($realIp ?: '未知'),
+                            'type' => 'shadowsocks',
+                            'host' => '127.0.0.1',
+                            'port' => 10086,
+                            'server_port' => 10086,
+                            'cipher' => 'aes-128-gcm',
+                            'obfs' => null,
+                            'obfs_settings' => null,
+                            'tags' => [],
+                            'show' => 1,
+                        ],
+                        [
+                            'id' => 99993,
+                            'name' => '🔒 严禁使用第三方转换或未经授权的测活脚本',
+                            'type' => 'shadowsocks',
+                            'host' => '127.0.0.1',
+                            'port' => 10086,
+                            'server_port' => 10086,
+                            'cipher' => 'aes-128-gcm',
+                            'obfs' => null,
+                            'obfs_settings' => null,
+                            'tags' => [],
+                            'show' => 1,
+                        ]
+                    ];
+                    $isBannedBait = true;
+                } else {
+                    return response([
+                        'message' => 'Your account has been suspended'
+                    ], 403);
+                }
             }
 
-            $isAvailable = $userService->isAvailable($user);
-            if ($isAvailable) {
-                $serverService = new ServerService();
-                $servers = $serverService->getAvailableServers($user);
-            } else {
-                // 套餐过期或未购买，生成一个虚拟的“提示节点”，避免客户端转圈，并友好提示购买套餐
-                $servers = [
-                    [
-                        'id' => 99999,
-                        'name' => '⚠️ 请购买或续费套餐后使用',
-                        'type' => 'shadowsocks',
-                        'host' => '127.0.0.1',
-                        'port' => 10086,
-                        'server_port' => 10086,
-                        'cipher' => 'aes-128-gcm',
-                        'obfs' => null,
-                        'obfs_settings' => null,
-                        'tags' => [],
-                        'show' => 1,
-                    ]
-                ];
+            if (!$isBannedBait) {
+                $isAvailable = $userService->isAvailable($user);
+                if ($isAvailable) {
+                    $serverService = new ServerService();
+                    $servers = $serverService->getAvailableServers($user);
+                } else {
+                    // 套餐过期或未购买，生成一个虚拟的“提示节点”，避免客户端转圈，并友好提示购买套餐
+                    $servers = [
+                        [
+                            'id' => 99999,
+                            'name' => '⚠️ 请购买或续费套餐后使用',
+                            'type' => 'shadowsocks',
+                            'host' => '127.0.0.1',
+                            'port' => 10086,
+                            'server_port' => 10086,
+                            'cipher' => 'aes-128-gcm',
+                            'obfs' => null,
+                            'obfs_settings' => null,
+                            'tags' => [],
+                            'show' => 1,
+                        ]
+                    ];
+                }
             }
 
             // 记录客户端登录时间和类型（所有客户端都记录，保留历史）
