@@ -93,36 +93,64 @@ class ClientController extends Controller
                 if ($bannedStrategy === 'redirect') {
                     return redirect($bannedRedirectUrl);
                 } elseif ($bannedStrategy === 'bait') {
+                    $baitSourceUrl = $bannedRedirectUrl ?: 'https://proxy.v2gh.com/https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub';
+                    
+                    // 动态研判当前请求是否为 Clash 客户端
+                    $flag = $request->input('flag') ?? ($_GET['flag'] ?? null);
+                    $isClash = false;
+                    if ($flag && stripos($flag, 'clash') !== false) {
+                        $isClash = true;
+                    }
+                    if (stripos($userAgent, 'clash') !== false) {
+                        $isClash = true;
+                    }
+
+                    // 构造拉取的最终 URL，若为 Clash 客户端则通过订阅转换器拉取 YAML 格式配置，否则直接拉取 Base64 通用配置
+                    $targetFetchUrl = $baitSourceUrl;
+                    if ($isClash) {
+                        $targetFetchUrl = 'https://sub.xeton.dev/sub?target=clash&url=' . urlencode($baitSourceUrl);
+                    }
+
+                    // 缓存文件名，避免高并发频繁拉取 GitHub 慢导致卡死 PHP 进程
+                    $cacheFile = storage_path('logs/tianque_bait_' . md5($targetFetchUrl) . '.cache');
+                    $cachedContent = null;
+                    
+                    // 缓存 30 分钟 (1800 秒)
+                    if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 1800) {
+                        $cachedContent = @file_get_contents($cacheFile);
+                    }
+
+                    if (empty($cachedContent)) {
+                        $ch = curl_init();
+                        curl_setopt($ch, CURLOPT_URL, $targetFetchUrl);
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+                        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+                        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent ?: 'Mozilla/5.0');
+                        $responseContent = curl_exec($ch);
+                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        curl_close($ch);
+
+                        if ($httpCode === 200 && !empty($responseContent)) {
+                            $cachedContent = $responseContent;
+                            @file_put_contents($cacheFile, $responseContent);
+                        }
+                    }
+
+                    if (!empty($cachedContent)) {
+                        $contentType = $isClash ? 'application/yaml; charset=utf-8' : 'text/plain; charset=utf-8';
+                        return response($cachedContent)
+                            ->header('Content-Type', $contentType)
+                            ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+                    }
+
+                    // 若公益拉取超时或失败，降级为默认的警告虚拟节点，防止直接白给
                     $servers = [
                         [
                             'id' => 99991,
-                            'name' => '⚠️ 系统检测到异常客户端探测行为',
-                            'type' => 'shadowsocks',
-                            'host' => '127.0.0.1',
-                            'port' => 10086,
-                            'server_port' => 10086,
-                            'cipher' => 'aes-128-gcm',
-                            'obfs' => null,
-                            'obfs_settings' => null,
-                            'tags' => [],
-                            'show' => 1,
-                        ],
-                        [
-                            'id' => 99992,
-                            'name' => '🚨 已锁定您的拉取 IP：' . ($realIp ?: '未知'),
-                            'type' => 'shadowsocks',
-                            'host' => '127.0.0.1',
-                            'port' => 10086,
-                            'server_port' => 10086,
-                            'cipher' => 'aes-128-gcm',
-                            'obfs' => null,
-                            'obfs_settings' => null,
-                            'tags' => [],
-                            'show' => 1,
-                        ],
-                        [
-                            'id' => 99993,
-                            'name' => '🔒 严禁使用第三方转换或未经授权的测活脚本',
+                            'name' => '⚠️ 订阅拉取异常，请联系客服获取最新客户端',
                             'type' => 'shadowsocks',
                             'host' => '127.0.0.1',
                             'port' => 10086,
