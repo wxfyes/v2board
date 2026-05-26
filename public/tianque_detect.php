@@ -91,6 +91,8 @@ if ($action === 'fetch') {
 
     // 新增：显示已过期账号开关 (true | false)
     $showExpired = ($_GET['show_expired'] ?? 'true') === 'true';
+    // 新增：显示已封禁账号开关 (true | false)
+    $showBanned = ($_GET['show_banned'] ?? 'true') === 'true';
     // 新增：仅查看异常UA开关 (true | false)
     $abnormalUaOnly = ($_GET['abnormal_ua_only'] ?? 'false') === 'true';
 
@@ -109,8 +111,8 @@ if ($action === 'fetch') {
         $rangeSecs = $timeRangeMin * 60;
     }
 
-    // 查询未封禁且拉取过订阅的用户，额外带上 expired_at 字段
-    $stmt = $pdo->prepare("SELECT id, email, u, d, expired_at, client_type FROM v2_user WHERE banned = 0 AND client_type IS NOT NULL");
+    // 突破限制：查询所有拉取过订阅的用户，包括已封禁的用户 (去掉了 banned = 0)
+    $stmt = $pdo->prepare("SELECT id, email, u, d, banned, expired_at, client_type FROM v2_user WHERE client_type IS NOT NULL");
     $stmt->execute();
     $users = $stmt->fetchAll();
 
@@ -124,6 +126,12 @@ if ($action === 'fetch') {
 
         // 时效过滤放宽到 24 小时
         if ($now - $history[0]['time'] > 86400) {
+            continue;
+        }
+
+        // 判定是否封禁
+        $isBanned = (int)$user['banned'] === 1;
+        if (!$showBanned && $isBanned) {
             continue;
         }
 
@@ -217,7 +225,7 @@ if ($action === 'fetch') {
                     $diffs = [];
                     for ($i = 0; $i < count($history) - 1; $i++) {
                         $diffs[] = $history[$i]['time'] - $history[$i + 1]['time'];
-                        $diffs = array_filter($diffs); // 过滤异常差值
+                        $diffs = array_filter($diffs); 
                     }
 
                     if (count($diffs) > 0) {
@@ -272,6 +280,7 @@ if ($action === 'fetch') {
                 'total_traffic_formatted' => formatBytes($totalTrafficBytes),
                 'is_expired' => $isExpired,
                 'expired_at_formatted' => $user['expired_at'] ? date('Y-m-d H:i:s', $user['expired_at']) : '长期有效',
+                'is_banned' => $isBanned,
                 'has_abnormal_ua' => $hasAbnormalUa,
                 'ips' => array_values(array_unique($ips)),
                 'uas' => array_values(array_unique($uas)),
@@ -469,6 +478,11 @@ if ($action === 'reset') {
                             <input type="checkbox" v-model="showExpired" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500" />
                             <span class="text-xs text-slate-300 font-medium">显示套餐已过期账号 (抓过期测活)</span>
                         </label>
+
+                        <label class="flex items-center space-x-3 cursor-pointer select-none">
+                            <input type="checkbox" v-model="showBanned" @change="fetchData" class="w-4 h-4 rounded text-indigo-600 bg-white/5 border-white/10 focus:ring-indigo-500" />
+                            <span class="text-xs text-slate-300 font-medium">显示已封禁账号 (审计残留探测)</span>
+                        </label>
                         
                         <label class="flex items-center space-x-3 cursor-pointer select-none">
                             <input type="checkbox" v-model="abnormalUaOnly" @change="fetchData" class="w-4 h-4 rounded text-rose-600 bg-white/5 border-white/10 focus:ring-rose-500" />
@@ -502,8 +516,10 @@ if ($action === 'reset') {
             <div class="text-xs text-slate-400 leading-relaxed mt-5 bg-white/5 border border-white/5 p-4 rounded-xl">
                 📌 <span class="font-medium text-slate-300">过滤器状态：</span>
                 当前模式下，总流量高于 <b>{{ maxTraffic }} MB</b> 的用户已被隐藏过滤。
-                <span v-if="showExpired" class="text-amber-400">已启用过期账户探测（即便套餐过期仍显示其测活轨迹）；</span>
+                <span v-if="showExpired" class="text-amber-400">已启用过期账户探测；</span>
                 <span v-else>已隐藏过期账户；</span>
+                <span v-if="showBanned" class="text-rose-400">已包含被封禁账号；</span>
+                <span v-else>已隐藏封禁账号；</span>
                 <span v-if="abnormalUaOnly" class="text-rose-400 font-bold">已启用硬降维打击（仅检索含有 curl、python、requests 等命令行 UA 的连接记录）；</span>
                 <span v-if="timeFilterEnable" class="text-indigo-400">
                     (已启用高级时段过滤，限 <b>{{ getFormattedRange() }}</b> 之间。)
@@ -546,13 +562,16 @@ if ($action === 'reset') {
                             
                             <!-- Badges -->
                             <div class="flex flex-wrap gap-2">
-                                <span v-if="user.has_abnormal_ua" class="px-2.5 py-1 text-xs font-black bg-rose-600/30 text-rose-400 border border-rose-500/50 rounded-lg animate-pulse">
-                                    🚨 命令行探测UA (curl等)
+                                <span v-if="user.is_banned" class="px-2.5 py-1 text-xs font-black bg-rose-600/30 text-rose-400 border border-rose-500/50 rounded-lg animate-pulse">
+                                    🚨 账号已封禁 (Banned)
+                                </span>
+                                <span v-if="user.has_abnormal_ua" class="px-2.5 py-1 text-xs font-black bg-rose-600/30 text-rose-400 border border-rose-500/50 rounded-lg">
+                                    ⚙️ 命令行探测 (curl等)
                                 </span>
                                 <span v-if="user.is_expired" class="px-2.5 py-1 text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg">
                                     ⚠️ 订阅已过期 ({{ user.expired_at_formatted }})
                                 </span>
-                                <span v-else class="px-2.5 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg">
+                                <span v-else-if="!user.is_banned" class="px-2.5 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg">
                                     正常计费中
                                 </span>
                                 <span class="px-2.5 py-1 text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg">
@@ -629,8 +648,8 @@ if ($action === 'reset') {
                         <button @click="handleReset(user)" class="flex-1 px-4 py-2 text-xs font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/15 active:bg-amber-500/20 border border-amber-500/20 rounded-xl transition-all">
                             🔄 重置订阅 Token (拉取失效)
                         </button>
-                        <button @click="handleBan(user)" class="flex-1 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 active:bg-rose-700 rounded-xl transition-all shadow-lg shadow-rose-600/10">
-                            🚨 一键封禁 (Banned)
+                        <button :disabled="user.is_banned" @click="handleBan(user)" :class="['flex-1 px-4 py-2 text-xs font-semibold rounded-xl transition-all border shadow-lg', user.is_banned ? 'bg-rose-500/10 text-rose-400/40 border-rose-500/10 shadow-none cursor-not-allowed' : 'bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white border-transparent shadow-rose-600/10']">
+                            {{ user.is_banned ? '已是封禁状态' : '🚨 一键封禁 (Banned)' }}
                         </button>
                     </div>
                 </div>
@@ -657,8 +676,9 @@ if ($action === 'reset') {
                 const timeTarget = ref('08:00');
                 const timeRangeMin = ref(15);
 
-                // 进阶不正常UA与过期用户过滤
+                // 进阶不正常UA、封禁与过期用户过滤
                 const showExpired = ref(true); // 是否显示过期，默认显示
+                const showBanned = ref(true); // 是否显示已封禁，默认显示
                 const abnormalUaOnly = ref(false); // 是否只看命令行异常UA
                 
                 // 获取地址栏的安全 token
@@ -702,7 +722,7 @@ if ($action === 'reset') {
                 const fetchData = async () => {
                     loading.value = true;
                     try {
-                        const query = `tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}&mode=${mode.value}&bypass_whitelist=${bypassWhitelist.value}&time_filter_enable=${timeFilterEnable.value}&time_target=${timeTarget.value}&time_range_min=${timeRangeMin.value}&show_expired=${showExpired.value}&abnormal_ua_only=${abnormalUaOnly.value}`;
+                        const query = `tianque_detect.php?action=fetch&token=${token}&interval=${interval.value}&tolerance=${tolerance.value}&max_traffic=${maxTraffic.value}&mode=${mode.value}&bypass_whitelist=${bypassWhitelist.value}&time_filter_enable=${timeFilterEnable.value}&time_target=${timeTarget.value}&time_range_min=${timeRangeMin.value}&show_expired=${showExpired.value}&show_banned=${showBanned.value}&abnormal_ua_only=${abnormalUaOnly.value}`;
                         const response = await fetch(query);
                         const res = await response.json();
                         users.value = res.data;
@@ -772,6 +792,7 @@ if ($action === 'reset') {
                     timeTarget,
                     timeRangeMin,
                     showExpired,
+                    showBanned,
                     abnormalUaOnly,
                     toast,
                     getFormattedRange,
