@@ -137,6 +137,19 @@ class ClientController extends Controller
                     // 缓存 30 分钟 (1800 秒)
                     if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 1800) {
                         $cachedContent = @file_get_contents($cacheFile);
+                        if (!empty($cachedContent)) {
+                            $isDirty = false;
+                            if (stripos($cachedContent, '<html') !== false || stripos($cachedContent, '<!doctype') !== false) {
+                                $isDirty = true;
+                            }
+                            if ($isClash && stripos($cachedContent, 'proxies:') === false) {
+                                $isDirty = true;
+                            }
+                            if ($isDirty) {
+                                @unlink($cacheFile);
+                                $cachedContent = null;
+                            }
+                        }
                     }
 
                     if (empty($cachedContent)) {
@@ -163,8 +176,21 @@ class ClientController extends Controller
                             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                             curl_close($ch);
 
-                            // 排除常见的带有报错信息的返回值，确保获取的是合法的订阅内容。同时过滤 403 Forbidden 拦截
-                            if ($httpCode === 200 && !empty($responseContent) && stripos($responseContent, 'invalid') === false && stripos($responseContent, 'error') === false && stripos($responseContent, 'Forbidden') === false && stripos($responseContent, 'cloudflare') === false) {
+                            // 排除常见的带有报错信息的返回值，确保获取的是合法的订阅内容。同时过滤 403 拦截与 HTML 网页标记
+                            if (
+                                $httpCode === 200 
+                                && !empty($responseContent) 
+                                && stripos($responseContent, 'invalid') === false 
+                                && stripos($responseContent, 'error') === false 
+                                && stripos($responseContent, 'Forbidden') === false 
+                                && stripos($responseContent, 'cloudflare') === false
+                                && stripos($responseContent, '<html') === false
+                                && stripos($responseContent, '<!doctype') === false
+                            ) {
+                                // 如果是 Clash 客户端，要求必须拉到 proxies 字段才算合法的 YAML 订阅
+                                if ($isClash && stripos($responseContent, 'proxies:') === false) {
+                                    continue;
+                                }
                                 $cachedContent = $responseContent;
                                 @file_put_contents($cacheFile, $responseContent);
                                 break;
