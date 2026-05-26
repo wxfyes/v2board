@@ -105,6 +105,8 @@ class AdminRoute
             $router->post('/order/cancel', 'V1\\Admin\\OrderController@cancel');
             $router->post('/order/detail', 'V1\\Admin\\OrderController@detail');
             // User
+            $router->get ('/user/detectFrequentSubscribers', 'V1\\Admin\\UserController@detectFrequentSubscribers');
+            $router->get ('/user/detectView', 'V1\\Admin\\UserController@detectView');
             $router->get ('/user/fetch', 'V1\\Admin\\UserController@fetch');
             $router->post('/user/update', 'V1\\Admin\\UserController@update');
             $router->get ('/user/getUserInfoById', 'V1\\Admin\\UserController@getUserInfoById');
