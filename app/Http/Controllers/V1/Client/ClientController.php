@@ -124,6 +124,10 @@ class ClientController extends Controller
                     $targetFetchUrl = $baitSourceUrl;
                     if ($isClash && $subconverterEnable && !$isAdaptiveSubscription) {
                         $apiBase = rtrim($subconverterUrl, '/');
+                        // 智能纠正：若填写的是网页端边缘转换器域名，自动补全/修正为它的官方后端接口 api.bianyuan.xyz
+                        if (stripos($apiBase, 'bianyuan.xyz') !== false && stripos($apiBase, 'api.bianyuan.xyz') === false) {
+                            $apiBase = 'https://api.bianyuan.xyz';
+                        }
                         if (strpos($apiBase, 'sub') === false && strpos($apiBase, '?') === false) {
                             $apiBase .= '/sub';
                         }
