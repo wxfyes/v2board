@@ -104,9 +104,20 @@ class ClientController extends Controller
                         $isClash = true;
                     }
 
-                    // 构造拉取的最终 URL，若为 Clash 客户端则通过订阅转换器拉取 YAML 格式配置，否则直接拉取 Base64 通用配置
+                    // 研判诱导源是否已经是自适应的机场订阅链接（含 /api/v1/client/subscribe 或 token= 等特征）
+                    $isAdaptiveSubscription = false;
+                    if (
+                        stripos($baitSourceUrl, '/api/v1/client/subscribe') !== false 
+                        || stripos($baitSourceUrl, 'token=') !== false
+                        || stripos($baitSourceUrl, 'flag=') !== false
+                    ) {
+                        $isAdaptiveSubscription = true;
+                    }
+
+                    // 构造拉取的最终 URL。若是自适应订阅，我们直接透传 User-Agent，对方机场主站会自动转换，无需经过任何第三方二次转换，确保 0 字符错误；
+                    // 只有像 GitHub 这种静态文本源，且客户端为 Clash 时，才需要通过第三方转换器生成 YAML
                     $targetFetchUrl = $baitSourceUrl;
-                    if ($isClash) {
+                    if ($isClash && !$isAdaptiveSubscription) {
                         $targetFetchUrl = 'https://api.wcc.best/sub?target=clash&url=' . urlencode($baitSourceUrl);
                     }
 
@@ -120,12 +131,12 @@ class ClientController extends Controller
                     }
 
                     if (empty($cachedContent)) {
-                        // 准备备用转换接口，提高拉取成功率
+                        // 准备备用转换接口，如果是自适应源则无需备用转换，直接透传拉取
                         $urlsToTry = [$targetFetchUrl];
-                        if ($isClash) {
+                        if ($isClash && !$isAdaptiveSubscription) {
                             $urlsToTry[] = 'https://api.v1.mk/sub?target=clash&url=' . urlencode($baitSourceUrl);
                             $urlsToTry[] = 'https://sub.d1.mk/sub?target=clash&url=' . urlencode($baitSourceUrl);
-                        } else {
+                        } elseif (!$isClash && !$isAdaptiveSubscription) {
                             $urlsToTry[] = 'https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub';
                         }
 
