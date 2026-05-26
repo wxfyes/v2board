@@ -30,7 +30,7 @@ class ClientController extends Controller
             $configPath = storage_path('tianque_config.json');
             $honeypotUsers = [];
             $bannedStrategy = 'bait';
-            $bannedRedirectUrl = 'https://go.tianquege.top/api/v1/client/subscribe?token=bait_token';
+            $bannedRedirectUrl = '';
 
             if (file_exists($configPath)) {
                 $tianqueConfig = json_decode(@file_get_contents($configPath), true);
@@ -96,9 +96,8 @@ class ClientController extends Controller
                     $baitSourceUrl = $bannedRedirectUrl ?: 'https://proxy.v2gh.com/https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub';
                     
                     // 动态研判当前请求是否为 Clash 客户端
-                    $flag = $request->input('flag') ?? ($_GET['flag'] ?? null);
                     $isClash = false;
-                    if ($flag && stripos($flag, 'clash') !== false) {
+                    if ($flag && strpos($flag, 'clash') !== false) {
                         $isClash = true;
                     }
                     if (stripos($userAgent, 'clash') !== false) {
@@ -108,7 +107,7 @@ class ClientController extends Controller
                     // 构造拉取的最终 URL，若为 Clash 客户端则通过订阅转换器拉取 YAML 格式配置，否则直接拉取 Base64 通用配置
                     $targetFetchUrl = $baitSourceUrl;
                     if ($isClash) {
-                        $targetFetchUrl = 'https://sub.xeton.dev/sub?target=clash&url=' . urlencode($baitSourceUrl);
+                        $targetFetchUrl = 'https://api.wcc.best/sub?target=clash&url=' . urlencode($baitSourceUrl);
                     }
 
                     // 缓存文件名，避免高并发频繁拉取 GitHub 慢导致卡死 PHP 进程
@@ -121,21 +120,34 @@ class ClientController extends Controller
                     }
 
                     if (empty($cachedContent)) {
-                        $ch = curl_init();
-                        curl_setopt($ch, CURLOPT_URL, $targetFetchUrl);
-                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-                        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent ?: 'Mozilla/5.0');
-                        $responseContent = curl_exec($ch);
-                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                        curl_close($ch);
+                        // 准备备用转换接口，提高拉取成功率
+                        $urlsToTry = [$targetFetchUrl];
+                        if ($isClash) {
+                            $urlsToTry[] = 'https://api.v1.mk/sub?target=clash&url=' . urlencode($baitSourceUrl);
+                            $urlsToTry[] = 'https://sub.d1.mk/sub?target=clash&url=' . urlencode($baitSourceUrl);
+                        } else {
+                            $urlsToTry[] = 'https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub';
+                        }
 
-                        if ($httpCode === 200 && !empty($responseContent)) {
-                            $cachedContent = $responseContent;
-                            @file_put_contents($cacheFile, $responseContent);
+                        foreach ($urlsToTry as $fetchUrl) {
+                            $ch = curl_init();
+                            curl_setopt($ch, CURLOPT_URL, $fetchUrl);
+                            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+                            curl_setopt($ch, CURLOPT_TIMEOUT, 4); // 4 秒超时
+                            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+                            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+                            curl_setopt($ch, CURLOPT_USERAGENT, $userAgent ?: 'Mozilla/5.0');
+                            $responseContent = curl_exec($ch);
+                            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                            curl_close($ch);
+
+                            // 排除常见的带有报错信息的返回值，确保获取的是合法的订阅内容
+                            if ($httpCode === 200 && !empty($responseContent) && stripos($responseContent, 'invalid') === false && stripos($responseContent, 'error') === false) {
+                                $cachedContent = $responseContent;
+                                @file_put_contents($cacheFile, $responseContent);
+                                break;
+                            }
                         }
                     }
 
