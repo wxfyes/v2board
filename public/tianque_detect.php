@@ -204,16 +204,17 @@ if ($action === 'fetch') {
             continue;
         }
 
-        // 白名单过滤：只有在“不过滤白名单”时才跳过
+        // 白名单过滤：只有当该用户【所有的】拉取记录全部属于白名单客户端时，才判定为白名单用户并跳过
+        // 如果混用了其他普通客户端或异常 UA，则依然参与审计，防止内鬼伪装
         if (!$bypassWhitelist) {
-            $hasWhitelistClient = false;
+            $allWhitelist = true;
             foreach ($history as $item) {
-                if (in_array($item['type'], $whitelistClients)) {
-                    $hasWhitelistClient = true;
+                if (!in_array($item['type'], $whitelistClients)) {
+                    $allWhitelist = false;
                     break;
                 }
             }
-            if ($hasWhitelistClient) {
+            if ($allWhitelist) {
                 continue;
             }
         }
