@@ -67,6 +67,77 @@ class SecurityTelegramController extends Controller
                 } catch (\Exception $e) {
                     $this->sendMessage($botToken, $chatId, "❌ 扫描执行失败: " . $e->getMessage());
                 }
+            } elseif ($text === '/status' || $text === '/stat' || $text === '/dashboard') {
+                try {
+                    // 1. 在线人数 (10分钟内有交互的用户)
+                    $onlineUser = \App\Models\User::where('t', '>=', time() - 600)->count();
+
+                    // 2. 收入数据
+                    $dayIncome = \App\Models\Order::where('created_at', '>=', strtotime(date('Y-m-d')))
+                        ->where('created_at', '<', time())
+                        ->whereNotIn('status', [0, 2])
+                        ->sum('total_amount') / 100;
+
+                    $monthIncome = \App\Models\Order::where('created_at', '>=', strtotime(date('Y-m-1')))
+                        ->where('created_at', '<', time())
+                        ->whereNotIn('status', [0, 2])
+                        ->sum('total_amount') / 100;
+
+                    $lastMonthIncome = \App\Models\Order::where('created_at', '>=', strtotime('-1 month', strtotime(date('Y-m-1'))))
+                        ->where('created_at', '<', strtotime(date('Y-m-1')))
+                        ->whereNotIn('status', [0, 2])
+                        ->sum('total_amount') / 100;
+
+                    // 3. 注册人数
+                    $dayRegister = \App\Models\User::where('created_at', '>=', strtotime(date('Y-m-d')))
+                        ->where('created_at', '<', time())
+                        ->count();
+
+                    $monthRegister = \App\Models\User::where('created_at', '>=', strtotime(date('Y-m-1')))
+                        ->where('created_at', '<', time())
+                        ->count();
+
+                    // 4. 有效订阅
+                    $activeSubs = \App\Models\User::where('plan_id', '!=', NULL)
+                        ->where(function ($query) {
+                            $query->where('expired_at', '>', time())
+                                ->orWhere('expired_at', NULL);
+                        })
+                        ->count();
+
+                    // 5. 今日流量 (u + d)
+                    $dayTrafficBytes = \App\Models\StatServer::where('record_at', '>=', strtotime(date('Y-m-d')))
+                        ->where('record_type', 'd')
+                        ->sum(\DB::raw('u + d'));
+                    $dayTrafficGB = $dayTrafficBytes / (1024 * 1024 * 1024);
+
+                    // 6. 佣金支出
+                    $lastMonthCommission = \App\Models\CommissionLog::where('created_at', '>=', strtotime('-1 month', strtotime(date('Y-m-1'))))
+                        ->where('created_at', '<', strtotime(date('Y-m-1')))
+                        ->sum('get_amount') / 100;
+
+                    // 格式化 Telegram 信息
+                    $msg = "📊 *天阙管理员面板实时统计数据*\n";
+                    $msg .= "━━━━━━━━━━━━━━━━━━\n";
+                    $msg .= "👥 *在线人数：* `{$onlineUser}` 人 (10m)\n";
+                    $msg .= "👥 *有效订阅：* `{$activeSubs}` 人\n";
+                    $msg .= "━━━━━━━━━━━━━━━━━━\n";
+                    $msg .= "💰 *今日收入：* `" . number_format($dayIncome, 2) . "` CNY\n";
+                    $msg .= "💰 *本月收入：* `" . number_format($monthIncome, 2) . "` CNY\n";
+                    $msg .= "💰 *上月收入：* `" . number_format($lastMonthIncome, 2) . "` CNY\n";
+                    $msg .= "━━━━━━━━━━━━━━━━━━\n";
+                    $msg .= "👤 *今日注册：* `{$dayRegister}` 人\n";
+                    $msg .= "👤 *本月新增：* `{$monthRegister}` 人\n";
+                    $msg .= "━━━━━━━━━━━━━━━━━━\n";
+                    $msg .= "📡 *今日流量：* `" . number_format($dayTrafficGB, 2) . "` GB\n";
+                    $msg .= "💸 *上月佣金支出：* `" . number_format($lastMonthCommission, 2) . "` CNY\n";
+                    $msg .= "━━━━━━━━━━━━━━━━━━\n";
+                    $msg .= "🕒 统计时间: " . date('Y-m-d H:i:s');
+
+                    $this->sendMessage($botToken, $chatId, $msg);
+                } catch (\Exception $e) {
+                    $this->sendMessage($botToken, $chatId, "❌ 获取统计数据失败: " . $e->getMessage());
+                }
             } elseif (strpos($text, '/whitelist ') === 0) {
                 $param = trim(substr($text, 11));
                 if (empty($param)) {
