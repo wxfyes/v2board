@@ -119,19 +119,37 @@ class DetectFrequentSubscribers extends Command
         $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
         $abnormalKeywords = ['curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2'];
  
-        // 读取现有的天阙灰名单（蜜罐）用户，用于跳过已处置的用户，防止重复报警
+        // 读取现有的天阙灰名单（蜜罐）用户与白名单用户，用于跳过已处置或白名单用户，防止重复报警
         $configPath = storage_path('tianque_config.json');
         $honeypotUsers = [];
+        $whitelistUsers = [];
         if (file_exists($configPath)) {
             $tianqueConfig = json_decode(@file_get_contents($configPath), true);
-            if (is_array($tianqueConfig) && isset($tianqueConfig['honeypot_users'])) {
-                $honeypotUsers = array_map('intval', $tianqueConfig['honeypot_users']);
+            if (is_array($tianqueConfig)) {
+                if (isset($tianqueConfig['honeypot_users'])) {
+                    $honeypotUsers = array_map('intval', $tianqueConfig['honeypot_users']);
+                }
+                if (isset($tianqueConfig['whitelist_users'])) {
+                    $whitelistUsers = $tianqueConfig['whitelist_users'];
+                }
             }
         }
  
         foreach ($users as $user) {
             // 如果用户已经在天阙灰名单（蜜罐）中，则直接跳过，避免重复报警和重复处理
             if (in_array((int)$user->id, $honeypotUsers, true)) {
+                continue;
+            }
+
+            // 如果用户在白名单中，则直接跳过，不做任何审计预警
+            $isInWhitelist = false;
+            foreach ($whitelistUsers as $wlItem) {
+                if ($user->id == $wlItem || strtolower($user->email) === strtolower(trim($wlItem))) {
+                    $isInWhitelist = true;
+                    break;
+                }
+            }
+            if ($isInWhitelist) {
                 continue;
             }
  

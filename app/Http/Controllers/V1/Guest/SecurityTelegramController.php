@@ -67,6 +67,56 @@ class SecurityTelegramController extends Controller
                 } catch (\Exception $e) {
                     $this->sendMessage($botToken, $chatId, "❌ 扫描执行失败: " . $e->getMessage());
                 }
+            } elseif (strpos($text, '/whitelist ') === 0) {
+                $param = trim(substr($text, 11));
+                if (empty($param)) {
+                    $this->sendMessage($botToken, $chatId, "⚠️ 格式错误，请使用: `/whitelist <ID或邮箱>`");
+                    return response()->json(['status' => 'ok']);
+                }
+
+                $configPath = storage_path('tianque_config.json');
+                $config = [];
+                if (file_exists($configPath)) {
+                    $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                }
+                if (!isset($config['whitelist_users']) || !is_array($config['whitelist_users'])) {
+                    $config['whitelist_users'] = [];
+                }
+
+                $val = is_numeric($param) ? (int)$param : $param;
+                if (!in_array($val, $config['whitelist_users'], true)) {
+                    $config['whitelist_users'][] = $val;
+                    @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                    $this->sendMessage($botToken, $chatId, "✅ 已成功将 `{$param}` 加入白名单，后续扫描将完全跳过该用户。");
+                } else {
+                    $this->sendMessage($botToken, $chatId, "ℹ️ 用户 `{$param}` 已经在白名单中。");
+                }
+            } elseif (strpos($text, '/unwhitelist ') === 0) {
+                $param = trim(substr($text, 13));
+                if (empty($param)) {
+                    $this->sendMessage($botToken, $chatId, "⚠️ 格式错误，请使用: `/unwhitelist <ID或邮箱>`");
+                    return response()->json(['status' => 'ok']);
+                }
+
+                $configPath = storage_path('tianque_config.json');
+                $config = [];
+                if (file_exists($configPath)) {
+                    $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                }
+                if (isset($config['whitelist_users']) && is_array($config['whitelist_users'])) {
+                    $val = is_numeric($param) ? (int)$param : $param;
+                    $key = array_search($val, $config['whitelist_users'], true);
+                    if ($key !== false) {
+                        unset($config['whitelist_users'][$key]);
+                        $config['whitelist_users'] = array_values($config['whitelist_users']);
+                        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                        $this->sendMessage($botToken, $chatId, "✅ 已成功将 `{$param}` 从白名单中移除。");
+                    } else {
+                        $this->sendMessage($botToken, $chatId, "ℹ️ 白名单中未找到用户 `{$param}`。");
+                    }
+                } else {
+                    $this->sendMessage($botToken, $chatId, "ℹ️ 白名单中未找到用户 `{$param}`。");
+                }
             }
             return response()->json(['status' => 'ok']);
         }
