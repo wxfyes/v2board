@@ -112,7 +112,7 @@ class DetectFrequentSubscribers extends Command
         // 扫描未封禁且拥有订阅记录的用户
         $users = User::where('banned', 0)
             ->whereNotNull('client_type')
-            ->get(['id', 'email', 'client_type', 'group_id', 'token', 'uuid']);
+            ->get();
  
         $detectedCount = 0;
         $now = time();
@@ -288,10 +288,50 @@ class DetectFrequentSubscribers extends Command
                 }
  
                 // --------------------------------------------------
+                // 查询并提取用户详细信息
+                // --------------------------------------------------
+                $registerTime = $user->created_at ? date('Y-m-d H:i:s', $user->created_at) : '未知';
+                $expireTime = $user->expired_at ? date('Y-m-d H:i:s', $user->expired_at) : '长期有效';
+                $balanceStr = ($user->balance / 100) . ' 元';
+                $commissionStr = ($user->commission_balance / 100) . ' 元';
+                $lastOnline = $user->t > 0 ? date('Y-m-d H:i:s', $user->t) : '无在线记录';
+
+                // 获取最近一次续费时间
+                $lastOrder = \DB::table('v2_order')
+                    ->where('user_id', $user->id)
+                    ->where('status', 3)
+                    ->orderBy('id', 'desc')
+                    ->first();
+                $lastRenewTime = $lastOrder ? date('Y-m-d H:i:s', $lastOrder->created_at) : '无续费记录';
+
+                // 获取最近一次面板登录 IP 和登录时间
+                $authService = new \App\Services\AuthService($user);
+                $sessions = $authService->getSessions();
+                $lastLoginIp = '无登录记录';
+                $lastLoginTime = '无登录记录';
+                $lastLoginLocation = '';
+                if (!empty($sessions) && is_array($sessions)) {
+                    uasort($sessions, function($a, $b) {
+                        return ($b['login_at'] ?? 0) <=> ($a['login_at'] ?? 0);
+                    });
+                    $latestSession = reset($sessions);
+                    $lastLoginIp = $latestSession['ip'] ?? '未知';
+                    $lastLoginTime = isset($latestSession['login_at']) ? date('Y-m-d H:i:s', $latestSession['login_at']) : '未知';
+                    if ($lastLoginIp !== '未知' && $lastLoginIp !== '无登录记录') {
+                        $lastLoginLocation = " (" . $this->getIpLocation($lastLoginIp) . ")";
+                    }
+                }
+
+                // --------------------------------------------------
                 // 发送 Telegram 告警推送
                 // --------------------------------------------------
                 $historyDetails = collect($history)->map(function ($item) {
-                    $ipStr = isset($item['ip']) ? " [IP: {$item['ip']}]" : "";
+                    $ip = $item['ip'] ?? '';
+                    $ipStr = '';
+                    if (!empty($ip)) {
+                        $location = $this->getIpLocation($ip);
+                        $ipStr = " [IP: {$ip} ({$location})]";
+                    }
                     return date('m-d H:i:s', $item['time']) . " ({$item['type']}){$ipStr}";
                 })->join("\n        -> ");
  
@@ -299,11 +339,18 @@ class DetectFrequentSubscribers extends Command
                            . "发现异常订阅拉取用户！\n\n"
                            . "👤 用户邮箱: `{$user->email}`\n"
                            . "🆔 用户 ID: `{$user->id}`\n"
+                           . "💵 账户余额: `{$balanceStr}` | 推广佣金: `{$commissionStr}`\n"
+                           . "📅 注册时间: `{$registerTime}`\n"
+                           . "💳 续费时间: `{$lastRenewTime}`\n"
+                           . "⌛ 到期时间: `{$expireTime}`\n"
+                           . "📡 节点在线: `{$lastOnline}`\n"
+                           . "💻 登录记录: `{$lastLoginTime}`\n"
+                           . "🌐 登录 IP: `{$lastLoginIp}{$lastLoginLocation}`\n\n"
                            . "📊 触发规则:\n"
                            . "• " . implode("\n• ", $reasons) . "\n"
                            . "⚙️ 执行动作: {$actionTakenStr}\n"
-                           . "📅 时间: " . date('Y-m-d H:i:s') . "\n"
-                           . "📝 最近拉取记录:\n"
+                           . "📅 审计时间: " . date('Y-m-d H:i:s') . "\n"
+                           . "📝 最近订阅拉取记录:\n"
                            . "        -> " . $historyDetails;
  
                 $this->sendTelegramNotification($tgMessage, $user->id);
@@ -397,5 +444,43 @@ class DetectFrequentSubscribers extends Command
     {
         $guid = sprintf('%04X%04X-%04X-%04X-%04X-%04X%04X%04X', mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(16384, 20479), mt_rand(32768, 49151), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535));
         return $trim ? str_replace('-', '', strtolower($guid)) : strtolower($guid);
+    }
+
+    /**
+     * 获取 IP 的地理位置信息（缓存 24 小时）
+     */
+    private function getIpLocation($ip)
+    {
+        if (empty($ip) || $ip === '127.0.0.1' || !filter_var($ip, FILTER_VALIDATE_IP)) {
+            return '本地局域网';
+        }
+
+        $cacheKey = "ip_loc_" . md5($ip);
+        if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+            return \Illuminate\Support\Facades\Cache::get($cacheKey);
+        }
+
+        $url = "http://ip-api.com/json/{$ip}?lang=zh-CN";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+        $res = curl_exec($ch);
+        curl_close($ch);
+
+        if ($res) {
+            $data = json_decode($res, true);
+            if (isset($data['status']) && $data['status'] === 'success') {
+                $country = $data['country'] ?? '';
+                $region = $data['regionName'] ?? '';
+                $city = $data['city'] ?? '';
+                $isp = $data['isp'] ?? '';
+                $loc = "{$country} {$region} {$city}" . ($isp ? " ({$isp})" : "");
+                \Illuminate\Support\Facades\Cache::put($cacheKey, $loc, 86400); // 缓存一天
+                return $loc;
+            }
+        }
+
+        return '未知地区';
     }
 }
