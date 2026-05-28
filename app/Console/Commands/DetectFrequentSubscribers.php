@@ -15,7 +15,7 @@ class DetectFrequentSubscribers extends Command
      */
     protected $signature = 'v2board:detect-subscribers 
                             {--ban : 是否直接封禁检测到的异常用户} 
-                            {--honeypot= : 自动将用户组 ID 修改为指定的蜜罐组 ID，实行假节点无感掉包}
+                            {--honeypot : 自动将用户加入天阙灰名单（蜜罐），触发重定向/诱导策略}
                             {--reset-token : 自动重置用户订阅 Token 和 UUID}
                             {--interval=300 : 定时测活检测的目标间隔秒数，默认 300 秒} 
                             {--tolerance=30 : 时间波动的容差秒数，默认 30 秒}
@@ -48,7 +48,7 @@ class DetectFrequentSubscribers extends Command
     public function handle()
     {
         $ban = $this->option('ban');
-        $honeypotGroupId = $this->option('honeypot');
+        $honeypot = $this->option('honeypot');
         $resetToken = $this->option('reset-token');
         
         $targetInterval = (int) $this->option('interval');
@@ -191,9 +191,22 @@ class DetectFrequentSubscribers extends Command
                     $actions[] = "【封禁账户】";
                 }
                 
-                if ($honeypotGroupId !== null) {
-                    $user->group_id = (int)$honeypotGroupId;
-                    $actions[] = "【切至蜜罐组 (Group ID: {$honeypotGroupId})】";
+                if ($honeypot) {
+                    $configPath = storage_path('tianque_config.json');
+                    $config = [];
+                    if (file_exists($configPath)) {
+                        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                    }
+                    if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
+                        $config['honeypot_users'] = [];
+                    }
+                    $honeypots = array_map('intval', $config['honeypot_users']);
+                    if (!in_array((int)$user->id, $honeypots, true)) {
+                        $honeypots[] = (int)$user->id;
+                        $config['honeypot_users'] = $honeypots;
+                        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                    }
+                    $actions[] = "【加入天阙蜜罐灰名单】";
                 }
                 
                 if ($resetToken) {
