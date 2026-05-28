@@ -19,7 +19,7 @@ class DetectFrequentSubscribers extends Command
                             {--reset-token : 自动重置用户订阅 Token 和 UUID}
                             {--interval=300 : 定时测活检测的目标间隔秒数，默认 300 秒} 
                             {--tolerance=30 : 时间波动的容差秒数，默认 30 秒}
-                            {--ip-limit=3 : 24小时内拉取订阅的独立 IP 数阈值，达到此数值判定为多IP滥用}
+                            {--ip-limit=10 : 24小时内拉取订阅的独立 IP 数阈值，达到此数值判定为多IP滥用}
                             {--tg-chat= : 额外的 Telegram 接收 Chat ID（支持群组/频道/个人ID）}
                             {--tg-token= : 独立的 Telegram Bot Token（若不指定则自动调用系统内置 Bot）}';
  
