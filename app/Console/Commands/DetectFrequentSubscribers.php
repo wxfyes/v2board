@@ -258,8 +258,8 @@ class DetectFrequentSubscribers extends Command
      */
     private function sendTelegramNotification($message)
     {
-        $customToken = $this->option('tg-token');
-        $customChat = $this->option('tg-chat');
+        $customToken = $this->option('tg-token') ?: env('SECURITY_TG_TOKEN');
+        $customChat = $this->option('tg-chat') ?: env('SECURITY_TG_CHAT');
  
         // 优先使用命令传入的自定义 Bot/Chat
         if (!empty($customToken) && !empty($customChat)) {
