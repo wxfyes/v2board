@@ -71,7 +71,22 @@ class DetectFrequentSubscribers extends Command
         $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
         $abnormalKeywords = ['curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2'];
  
+        // 读取现有的天阙灰名单（蜜罐）用户，用于跳过已处置的用户，防止重复报警
+        $configPath = storage_path('tianque_config.json');
+        $honeypotUsers = [];
+        if (file_exists($configPath)) {
+            $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+            if (is_array($tianqueConfig) && isset($tianqueConfig['honeypot_users'])) {
+                $honeypotUsers = array_map('intval', $tianqueConfig['honeypot_users']);
+            }
+        }
+ 
         foreach ($users as $user) {
+            // 如果用户已经在天阙灰名单（蜜罐）中，则直接跳过，避免重复报警和重复处理
+            if (in_array((int)$user->id, $honeypotUsers, true)) {
+                continue;
+            }
+ 
             $history = json_decode($user->client_type, true);
             
             // 记录为空或过少跳过
@@ -192,7 +207,6 @@ class DetectFrequentSubscribers extends Command
                 }
                 
                 if ($honeypot) {
-                    $configPath = storage_path('tianque_config.json');
                     $config = [];
                     if (file_exists($configPath)) {
                         $config = json_decode(@file_get_contents($configPath), true) ?: [];
@@ -200,11 +214,13 @@ class DetectFrequentSubscribers extends Command
                     if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
                         $config['honeypot_users'] = [];
                     }
-                    $honeypots = array_map('intval', $config['honeypot_users']);
-                    if (!in_array((int)$user->id, $honeypots, true)) {
-                        $honeypots[] = (int)$user->id;
-                        $config['honeypot_users'] = $honeypots;
+                    $currentHoneypots = array_map('intval', $config['honeypot_users']);
+                    if (!in_array((int)$user->id, $currentHoneypots, true)) {
+                        $currentHoneypots[] = (int)$user->id;
+                        $config['honeypot_users'] = $currentHoneypots;
                         @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                        // 动态更新缓存，确保在后续运行中能被跳过
+                        $honeypotUsers[] = (int)$user->id;
                     }
                     $actions[] = "【加入天阙蜜罐灰名单】";
                 }
@@ -260,6 +276,22 @@ class DetectFrequentSubscribers extends Command
     {
         $customToken = $this->option('tg-token') ?: env('SECURITY_TG_TOKEN');
         $customChat = $this->option('tg-chat') ?: env('SECURITY_TG_CHAT');
+ 
+        // 兼容 Laravel 配置缓存导致 env() 拿不到值的情况，直接从硬盘解析 .env 文件
+        if (empty($customToken) || empty($customChat)) {
+            $envPath = base_path('.env');
+            if (file_exists($envPath)) {
+                $envContent = @file_get_contents($envPath);
+                if (!empty($envContent)) {
+                    if (empty($customToken) && preg_match('/^SECURITY_TG_TOKEN\s*=\s*(.*)$/m', $envContent, $matches)) {
+                        $customToken = trim($matches[1], "\"' ");
+                    }
+                    if (empty($customChat) && preg_match('/^SECURITY_TG_CHAT\s*=\s*(.*)$/m', $envContent, $matches)) {
+                        $customChat = trim($matches[1], "\"' ");
+                    }
+                }
+            }
+        }
  
         // 优先使用命令传入的自定义 Bot/Chat
         if (!empty($customToken) && !empty($customChat)) {
