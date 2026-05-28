@@ -86,10 +86,69 @@ class SecurityTelegramController extends Controller
                 $val = is_numeric($param) ? (int)$param : $param;
                 if (!in_array($val, $config['whitelist_users'], true)) {
                     $config['whitelist_users'][] = $val;
+                    
+                    // 自动从蜜罐名单 (honeypot_users) 中移除该用户
+                    if (isset($config['honeypot_users']) && is_array($config['honeypot_users'])) {
+                        $key = array_search($val, $config['honeypot_users'], true);
+                        if ($key !== false) {
+                            unset($config['honeypot_users'][$key]);
+                            $config['honeypot_users'] = array_values($config['honeypot_users']);
+                        }
+                    }
+                    if (isset($config['honeypot_times']) && is_array($config['honeypot_times'])) {
+                        if (isset($config['honeypot_times'][(string)$val])) {
+                            unset($config['honeypot_times'][(string)$val]);
+                        }
+                    }
+                    // 自动从重点观察名单 (flagged_users) 中移除该用户
+                    if (isset($config['flagged_users']) && is_array($config['flagged_users'])) {
+                        if (isset($config['flagged_users'][(string)$val])) {
+                            unset($config['flagged_users'][(string)$val]);
+                        }
+                    }
+
                     @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-                    $this->sendMessage($botToken, $chatId, "✅ 已成功将 `{$param}` 加入白名单，后续扫描将完全跳过该用户。");
+                    $this->sendMessage($botToken, $chatId, "✅ 已成功将 `{$param}` 加入白名单，后续扫描将完全跳过该用户。其历史蜜罐及观察状态已自动同步清除。");
                 } else {
                     $this->sendMessage($botToken, $chatId, "ℹ️ 用户 `{$param}` 已经在白名单中。");
+                }
+            } elseif (strpos($text, '/unhoneypot ') === 0) {
+                $param = trim(substr($text, 12));
+                if (empty($param)) {
+                    $this->sendMessage($botToken, $chatId, "⚠️ 格式错误，请使用: `/unhoneypot <ID或邮箱>`");
+                    return response()->json(['status' => 'ok']);
+                }
+
+                $configPath = storage_path('tianque_config.json');
+                $config = [];
+                if (file_exists($configPath)) {
+                    $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                }
+                
+                $removed = false;
+                $val = is_numeric($param) ? (int)$param : $param;
+                
+                if (isset($config['honeypot_users']) && is_array($config['honeypot_users'])) {
+                    $key = array_search($val, $config['honeypot_users'], true);
+                    if ($key !== false) {
+                        unset($config['honeypot_users'][$key]);
+                        $config['honeypot_users'] = array_values($config['honeypot_users']);
+                        $removed = true;
+                    }
+                }
+                
+                if (isset($config['honeypot_times']) && is_array($config['honeypot_times'])) {
+                    if (isset($config['honeypot_times'][(string)$val])) {
+                        unset($config['honeypot_times'][(string)$val]);
+                        $removed = true;
+                    }
+                }
+
+                if ($removed) {
+                    @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                    $this->sendMessage($botToken, $chatId, "✅ 已成功将 `{$param}` 从天阙蜜罐中移出，恢复为普通用户状态。");
+                } else {
+                    $this->sendMessage($botToken, $chatId, "ℹ️ 蜜罐名单中未找到用户 `{$param}`。");
                 }
             } elseif (strpos($text, '/unwhitelist ') === 0) {
                 $param = trim(substr($text, 13));
