@@ -165,6 +165,72 @@ class SecurityTelegramController extends Controller
 
                 $msg = "🛡️ **「天阙」当前白名单 (共 " . count($whitelistUsers) . " 人)**:\n\n" . $listStr;
                 $this->sendMessage($botToken, $chatId, $msg);
+            } elseif ($text === '/observed' || $text === '/flagged' || $text === '/flaggedlist') {
+                $configPath = storage_path('tianque_config.json');
+                $flaggedUsers = [];
+                if (file_exists($configPath)) {
+                    $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+                    if (is_array($tianqueConfig) && isset($tianqueConfig['flagged_users'])) {
+                        $flaggedUsers = $tianqueConfig['flagged_users'];
+                    }
+                }
+
+                if (empty($flaggedUsers)) {
+                    $this->sendMessage($botToken, $chatId, "📋 当前「重点观察名单」为空，无异常用户需要审查。");
+                    return response()->json(['status' => 'ok']);
+                }
+
+                $listStr = '';
+                foreach ($flaggedUsers as $uid => $info) {
+                    $email = $info['email'] ?? '未知邮箱';
+                    $flagTime = isset($info['time']) ? date('Y-m-d H:i:s', $info['time']) : '未知时间';
+                    $reasons = isset($info['reasons']) && is_array($info['reasons']) ? implode(' | ', $info['reasons']) : '未知触发规则';
+                    $listStr .= "• **ID**: `{$uid}`\n"
+                              . "  邮箱: `{$email}`\n"
+                              . "  标记时间: `{$flagTime}`\n"
+                              . "  触发规则: `{$reasons}`\n\n";
+                }
+
+                $msg = "📋 **「天阙」当前重点观察名单 (共 " . count($flaggedUsers) . " 人)**:\n\n"
+                     . $listStr
+                     . "💡 _您可以使用 `/whitelist <ID>` 放行他们，或使用 `/clearflag <ID>` 仅将其从观察名单移出。_";
+                $this->sendMessage($botToken, $chatId, $msg);
+            } elseif (strpos($text, '/clearflag ') === 0) {
+                $param = trim(substr($text, 11));
+                if (empty($param)) {
+                    $this->sendMessage($botToken, $chatId, "⚠️ 格式错误，请使用: `/clearflag <ID或邮箱>`");
+                    return response()->json(['status' => 'ok']);
+                }
+
+                $configPath = storage_path('tianque_config.json');
+                $config = [];
+                if (file_exists($configPath)) {
+                    $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                }
+                if (isset($config['flagged_users']) && is_array($config['flagged_users'])) {
+                    $found = false;
+                    if (isset($config['flagged_users'][(string)$param])) {
+                        unset($config['flagged_users'][(string)$param]);
+                        $found = true;
+                    } else {
+                        foreach ($config['flagged_users'] as $uid => $info) {
+                            if (strtolower($info['email'] ?? '') === strtolower($param)) {
+                                unset($config['flagged_users'][$uid]);
+                                $found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($found) {
+                        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                        $this->sendMessage($botToken, $chatId, "✅ 已成功将 `{$param}` 从重点观察名单中移出。");
+                    } else {
+                        $this->sendMessage($botToken, $chatId, "ℹ️ 观察名单中未找到用户 `{$param}`。");
+                    }
+                } else {
+                    $this->sendMessage($botToken, $chatId, "ℹ️ 观察名单中未找到用户 `{$param}`。");
+                }
             }
             return response()->json(['status' => 'ok']);
         }
@@ -269,6 +335,20 @@ class SecurityTelegramController extends Controller
             default:
                 $this->answerCallbackQuery($botToken, $callbackQueryId, "❌ 未知操作");
                 return response()->json(['status' => 'unknown_action']);
+        }
+
+        // --------------------------------------------------
+        // 从重点观察名单中移除已处置用户
+        // --------------------------------------------------
+        $configPath = storage_path('tianque_config.json');
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+            if (isset($config['flagged_users']) && is_array($config['flagged_users'])) {
+                if (isset($config['flagged_users'][(string)$userId])) {
+                    unset($config['flagged_users'][(string)$userId]);
+                    @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                }
+            }
         }
 
         // 提示管理员操作成功

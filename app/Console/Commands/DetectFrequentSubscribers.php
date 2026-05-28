@@ -297,7 +297,24 @@ class DetectFrequentSubscribers extends Command
                     $user->uuid = $this->generateGuid(false);
                     $actions[] = "【重置订阅 Token】";
                 }
- 
+
+                // --------------------------------------------------
+                // 记录到重点观察名单 (flagged_users)
+                // --------------------------------------------------
+                $config = [];
+                if (file_exists($configPath)) {
+                    $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                }
+                if (!isset($config['flagged_users']) || !is_array($config['flagged_users'])) {
+                    $config['flagged_users'] = [];
+                }
+                $config['flagged_users'][(string)$user->id] = [
+                    'email' => $user->email,
+                    'time' => time(),
+                    'reasons' => $reasons
+                ];
+                @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
                 $actionTakenStr = count($actions) > 0 ? implode(' + ', $actions) : "无（仅审计记录）";
                 
                 if (count($actions) > 0) {
