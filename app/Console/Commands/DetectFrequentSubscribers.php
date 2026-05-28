@@ -21,7 +21,8 @@ class DetectFrequentSubscribers extends Command
                             {--tolerance=30 : 时间波动的容差秒数，默认 30 秒}
                             {--ip-limit=10 : 24小时内拉取订阅的独立 IP 数阈值，达到此数值判定为多IP滥用}
                             {--tg-chat= : 额外的 Telegram 接收 Chat ID（支持群组/频道/个人ID）}
-                            {--tg-token= : 独立的 Telegram Bot Token（若不指定则自动调用系统内置 Bot）}';
+                            {--tg-token= : 独立的 Telegram Bot Token（若不指定则自动调用系统内置 Bot）}
+                            {--set-webhook : 自动向 Telegram 注册安全审计机器人的 Webhook 地址}';
  
     /**
      * The console command description.
@@ -54,6 +55,52 @@ class DetectFrequentSubscribers extends Command
         $targetInterval = (int) $this->option('interval');
         $tolerance = (int) $this->option('tolerance');
         $ipLimit = (int) $this->option('ip-limit');
+ 
+        // 执行 Webhook 注册动作
+        if ($this->option('set-webhook')) {
+            $botToken = $this->option('tg-token') ?: env('SECURITY_TG_TOKEN');
+            if (empty($botToken)) {
+                $envPath = base_path('.env');
+                if (file_exists($envPath)) {
+                    $envContent = @file_get_contents($envPath);
+                    if (preg_match('/^SECURITY_TG_TOKEN\s*=\s*(.*)$/m', $envContent, $matches)) {
+                        $botToken = trim($matches[1], "\"' ");
+                    }
+                }
+            }
+
+            if (empty($botToken)) {
+                $this->error("❌ 错误：请先在 .env 中配置 SECURITY_TG_TOKEN 机器人密钥，或使用 --tg-token 传参！");
+                return 1;
+            }
+
+            $appUrl = config('v2board.app_url');
+            if (empty($appUrl)) {
+                $this->error("❌ 错误：未能在配置中找到 app_url，请先确保后台设置了正确的站点域名！");
+                return 1;
+            }
+
+            $webhookUrl = rtrim($appUrl, '/') . '/api/v1/guest/security/webhook';
+            $this->info("ℹ️ 正在向 Telegram 注册 Webhook: {$webhookUrl}");
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, "https://api.telegram.org/bot{$botToken}/setWebhook");
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+                'url' => $webhookUrl
+            ]));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            $res = curl_exec($ch);
+            curl_close($ch);
+
+            $response = json_decode($res, true);
+            if (isset($response['ok']) && $response['ok'] === true) {
+                $this->info("✅ Webhook 注册成功！响应: " . ($response['description'] ?? ''));
+            } else {
+                $this->error("❌ Webhook 注册失败！错误: " . ($res ?: '网络连接超时'));
+            }
+            return 0;
+        }
  
         $this->info("==================================================================");
         $this->info("🔍 开始启动【天阙订阅安全审计扫描】...");
@@ -258,7 +305,7 @@ class DetectFrequentSubscribers extends Command
                            . "📝 最近拉取记录:\n"
                            . "        -> " . $historyDetails;
  
-                $this->sendTelegramNotification($tgMessage);
+                $this->sendTelegramNotification($tgMessage, $user->id);
             }
         }
  
@@ -272,7 +319,7 @@ class DetectFrequentSubscribers extends Command
     /**
      * 发送 Telegram 推送通知
      */
-    private function sendTelegramNotification($message)
+    private function sendTelegramNotification($message, $userId = null)
     {
         $customToken = $this->option('tg-token') ?: env('SECURITY_TG_TOKEN');
         $customChat = $this->option('tg-chat') ?: env('SECURITY_TG_CHAT');
@@ -297,15 +344,30 @@ class DetectFrequentSubscribers extends Command
         if (!empty($customToken) && !empty($customChat)) {
             try {
                 $url = "https://api.telegram.org/bot{$customToken}/sendMessage";
+                $postData = [
+                    'chat_id' => $customChat,
+                    'text' => $message,
+                    'parse_mode' => 'Markdown'
+                ];
+
+                // 如果提供了用户 ID，则下发操作按钮
+                if ($userId !== null) {
+                    $postData['reply_markup'] = json_encode([
+                        'inline_keyboard' => [
+                            [
+                                ['text' => '🛡️ 放入蜜罐', 'callback_data' => "honeypot:{$userId}"],
+                                ['text' => '🚫 封禁账号', 'callback_data' => "ban:{$userId}"],
+                                ['text' => '🔄 重置订阅', 'callback_data' => "reset:{$userId}"]
+                            ]
+                        ]
+                    ]);
+                }
+
                 $ch = curl_init();
                 curl_setopt($ch, CURLOPT_URL, $url);
                 curl_setopt($ch, CURLOPT_POST, 1);
                 curl_setopt_array($ch, [
-                    CURLOPT_POSTFIELDS => http_build_query([
-                        'chat_id' => $customChat,
-                        'text' => $message,
-                        'parse_mode' => 'Markdown'
-                    ]),
+                    CURLOPT_POSTFIELDS => http_build_query($postData),
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT => 5
                 ]);
