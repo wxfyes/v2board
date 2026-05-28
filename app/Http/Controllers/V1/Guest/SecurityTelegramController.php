@@ -72,11 +72,16 @@ class SecurityTelegramController extends Controller
                     // 1. 在线人数 (10分钟内有交互的用户)
                     $onlineUser = \App\Models\User::where('t', '>=', time() - 600)->count();
 
-                    // 2. 收入数据
+                    // 2. 收入数据与收款笔数
                     $dayIncome = \App\Models\Order::where('created_at', '>=', strtotime(date('Y-m-d')))
                         ->where('created_at', '<', time())
                         ->whereNotIn('status', [0, 2])
                         ->sum('total_amount') / 100;
+
+                    $dayOrderCount = \App\Models\Order::where('created_at', '>=', strtotime(date('Y-m-d')))
+                        ->where('created_at', '<', time())
+                        ->whereNotIn('status', [0, 2])
+                        ->count();
 
                     $monthIncome = \App\Models\Order::where('created_at', '>=', strtotime(date('Y-m-1')))
                         ->where('created_at', '<', time())
@@ -122,7 +127,7 @@ class SecurityTelegramController extends Controller
                     $msg .= "👥 *在线人数：* `{$onlineUser}` 人 (10m)\n";
                     $msg .= "👥 *有效订阅：* `{$activeSubs}` 人\n";
                     $msg .= "━━━━━━━━━━━━━━━━━━\n";
-                    $msg .= "💰 *今日收入：* `" . number_format($dayIncome, 2) . "` CNY\n";
+                    $msg .= "💰 *今日收入：* `" . number_format($dayIncome, 2) . "` CNY (`{$dayOrderCount}` 笔)\n";
                     $msg .= "💰 *本月收入：* `" . number_format($monthIncome, 2) . "` CNY\n";
                     $msg .= "💰 *上月收入：* `" . number_format($lastMonthIncome, 2) . "` CNY\n";
                     $msg .= "━━━━━━━━━━━━━━━━━━\n";
@@ -137,6 +142,133 @@ class SecurityTelegramController extends Controller
                     $this->sendMessage($botToken, $chatId, $msg);
                 } catch (\Exception $e) {
                     $this->sendMessage($botToken, $chatId, "❌ 获取统计数据失败: " . $e->getMessage());
+                }
+            } elseif ($text === '/rank' || $text === '/traffic') {
+                try {
+                    $startAt = strtotime(date('Y-m-d'));
+                    $endAt = time();
+
+                    // 1. 今日节点流量排行
+                    $servers = [
+                        'shadowsocks' => \App\Models\ServerShadowsocks::where('parent_id', null)->get()->toArray(),
+                        'v2ray' => \App\Models\ServerVmess::where('parent_id', null)->get()->toArray(),
+                        'trojan' => \App\Models\ServerTrojan::where('parent_id', null)->get()->toArray(),
+                        'vmess' => \App\Models\ServerVmess::where('parent_id', null)->get()->toArray(),
+                        'vless' => \App\Models\ServerVless::where('parent_id', null)->get()->toArray(),
+                        'tuic' => \App\Models\ServerTuic::where('parent_id', null)->get()->toArray(),
+                        'hysteria'=> \App\Models\ServerHysteria::where('parent_id', null)->get()->toArray(),
+                        'anytls' => \App\Models\ServerAnytls::where('parent_id', null)->get()->toArray(),
+                        'v2node' => \App\Models\ServerV2node::where('parent_id', null)->get()->toArray()
+                    ];
+
+                    $nodeStats = \App\Models\StatServer::select([
+                        'server_id',
+                        'server_type',
+                        'u',
+                        'd',
+                        \DB::raw('(u+d) as total')
+                    ])
+                        ->where('record_at', '>=', $startAt)
+                        ->where('record_at', '<', $endAt)
+                        ->where('record_type', 'd')
+                        ->limit(30)
+                        ->get()
+                        ->toArray();
+
+                    $nodeRanks = [];
+                    foreach ($nodeStats as $v) {
+                        $name = '未知节点';
+                        if (isset($servers[$v['server_type']])) {
+                            foreach ($servers[$v['server_type']] as $server) {
+                                if ($server['id'] === $v['server_id']) {
+                                    $name = $server['name'];
+                                    break;
+                                }
+                            }
+                        }
+                        $gb = $v['total'] / (1024 * 1024 * 1024);
+                        if (isset($nodeRanks[$name])) {
+                            $nodeRanks[$name] += $gb;
+                        } else {
+                            $nodeRanks[$name] = $gb;
+                        }
+                    }
+                    arsort($nodeRanks);
+                    $nodeRanks = array_slice($nodeRanks, 0, 10, true);
+
+                    // 2. 今日用户流量排行
+                    $userStats = \App\Models\StatUser::select([
+                        'user_id',
+                        'server_rate',
+                        'u',
+                        'd',
+                        \DB::raw('(u+d) as total')
+                    ])
+                        ->where('record_at', '>=', $startAt)
+                        ->where('record_at', '<', $endAt)
+                        ->where('record_type', 'd')
+                        ->limit(30)
+                        ->get()
+                        ->toArray();
+
+                    $userRanks = [];
+                    foreach ($userStats as $v) {
+                        $uid = $v['user_id'];
+                        $gb = ($v['total'] * $v['server_rate']) / (1024 * 1024 * 1024);
+                        if (isset($userRanks[$uid])) {
+                            $userRanks[$uid] += $gb;
+                        } else {
+                            $userRanks[$uid] = $gb;
+                        }
+                    }
+                    arsort($userRanks);
+                    $userRanks = array_slice($userRanks, 0, 10, true);
+
+                    // 获取前10的邮箱并 keyBy
+                    $topUserIds = array_keys($userRanks);
+                    $users = \App\Models\User::whereIn('id', $topUserIds)->get(['id', 'email'])->keyBy('id');
+
+                    // 3. 组装消息
+                    $msg = "📈 *今日流量使用排行 (Top 10)*\n";
+                    $msg .= "━━━━━━━━━━━━━━━━━━\n\n";
+
+                    $msg .= "🌐 *今日节点流量排行：*\n";
+                    if (empty($nodeRanks)) {
+                        $msg .= "暂无节点流量数据\n";
+                    } else {
+                        $idx = 1;
+                        foreach ($nodeRanks as $name => $gb) {
+                            $formattedGb = number_format($gb, 2);
+                            $msg .= "{$idx}. `{$name}` ➔ `{$formattedGb}` GB\n";
+                            $idx++;
+                        }
+                    }
+
+                    $msg .= "\n👤 *今日用户流量排行：*\n";
+                    if (empty($userRanks)) {
+                        $msg .= "暂无用户流量数据\n";
+                    } else {
+                        $idx = 1;
+                        foreach ($userRanks as $uid => $gb) {
+                            $email = isset($users[$uid]) ? $users[$uid]->email : "ID: {$uid}";
+                            if (strpos($email, '@') !== false) {
+                                $parts = explode('@', $email);
+                                $namePart = $parts[0];
+                                if (strlen($namePart) > 3) {
+                                    $email = substr($namePart, 0, 3) . '***@' . $parts[1];
+                                }
+                            }
+                            $formattedGb = number_format($gb, 2);
+                            $msg .= "{$idx}. `{$email}` ➔ `{$formattedGb}` GB\n";
+                            $idx++;
+                        }
+                    }
+                    $msg .= "\n━━━━━━━━━━━━━━━━━━\n";
+                    $msg .= "🕒 统计时间: " . date('Y-m-d H:i:s');
+
+                    $this->sendMessage($botToken, $chatId, $msg);
+                } catch (\Exception $e) {
+                    $this->sendMessage($botToken, $chatId, "❌ 获取排行数据失败: " . $e->getMessage());
                 }
             } elseif (strpos($text, '/whitelist ') === 0) {
                 $param = trim(substr($text, 11));
