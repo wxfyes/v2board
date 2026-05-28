@@ -280,10 +280,14 @@ class DetectFrequentSubscribers extends Command
                     if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
                         $config['honeypot_users'] = [];
                     }
+                    if (!isset($config['honeypot_times']) || !is_array($config['honeypot_times'])) {
+                        $config['honeypot_times'] = [];
+                    }
                     $currentHoneypots = array_map('intval', $config['honeypot_users']);
                     if (!in_array((int)$user->id, $currentHoneypots, true)) {
                         $currentHoneypots[] = (int)$user->id;
                         $config['honeypot_users'] = $currentHoneypots;
+                        $config['honeypot_times'][(string)$user->id] = time();
                         @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
                         // 动态更新缓存，确保在后续运行中能被跳过
                         $honeypotUsers[] = (int)$user->id;

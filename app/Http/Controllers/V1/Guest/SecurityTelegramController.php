@@ -120,8 +120,9 @@ class SecurityTelegramController extends Controller
             } elseif ($text === '/honeypots' || $text === '/honeypotlist') {
                 $configPath = storage_path('tianque_config.json');
                 $honeypotUsers = [];
+                $tianqueConfig = [];
                 if (file_exists($configPath)) {
-                    $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+                    $tianqueConfig = json_decode(@file_get_contents($configPath), true) ?: [];
                     if (is_array($tianqueConfig) && isset($tianqueConfig['honeypot_users'])) {
                         $honeypotUsers = array_map('intval', $tianqueConfig['honeypot_users']);
                     }
@@ -138,7 +139,14 @@ class SecurityTelegramController extends Controller
                 foreach ($honeypotUsers as $uid) {
                     $matchedUser = $users->firstWhere('id', $uid);
                     $email = $matchedUser ? $matchedUser->email : '未知邮箱或已被删除';
-                    $listStr .= "• ID: `{$uid}` | 邮箱: `{$email}`\n";
+                    
+                    $addedTimeStr = '未知时间';
+                    if (isset($tianqueConfig['honeypot_times']) && is_array($tianqueConfig['honeypot_times'])) {
+                        if (isset($tianqueConfig['honeypot_times'][(string)$uid])) {
+                            $addedTimeStr = date('Y-m-d H:i:s', $tianqueConfig['honeypot_times'][(string)$uid]);
+                        }
+                    }
+                    $listStr .= "• ID: `{$uid}` | 邮箱: `{$email}` | 加入时间: `{$addedTimeStr}`\n";
                 }
 
                 $msg = "🍯 **「天阙」当前蜜罐名单 (共 " . count($honeypotUsers) . " 人)**:\n\n" . $listStr;
@@ -286,10 +294,14 @@ class SecurityTelegramController extends Controller
                 if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
                     $config['honeypot_users'] = [];
                 }
+                if (!isset($config['honeypot_times']) || !is_array($config['honeypot_times'])) {
+                    $config['honeypot_times'] = [];
+                }
                 $currentHoneypots = array_map('intval', $config['honeypot_users']);
                 if (!in_array($userId, $currentHoneypots, true)) {
                     $currentHoneypots[] = $userId;
                     $config['honeypot_users'] = $currentHoneypots;
+                    $config['honeypot_times'][(string)$userId] = time();
                     @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
                 }
                 $actionResultStr = "【已移入天阙蜜罐】";
@@ -307,6 +319,9 @@ class SecurityTelegramController extends Controller
                     if ($key !== false) {
                         unset($currentHoneypots[$key]);
                         $config['honeypot_users'] = array_values($currentHoneypots);
+                        if (isset($config['honeypot_times']) && is_array($config['honeypot_times'])) {
+                            unset($config['honeypot_times'][(string)$userId]);
+                        }
                         @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
                     }
                 }
