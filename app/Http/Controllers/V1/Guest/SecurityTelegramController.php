@@ -11,17 +11,6 @@ class SecurityTelegramController extends Controller
     public function webhook(Request $request)
     {
         $data = $request->input();
-        if (!isset($data['callback_query'])) {
-            return response()->json(['status' => 'ok']);
-        }
-
-        $callbackQuery = $data['callback_query'];
-        $callbackQueryId = $callbackQuery['id'];
-        $callbackData = $callbackQuery['data'];
-        $chatId = $callbackQuery['message']['chat']['id'];
-        $messageId = $callbackQuery['message']['message_id'];
-        $fromId = $callbackQuery['from']['id'];
-        $originalText = $callbackQuery['message']['text'] ?? '';
 
         // 读取 .env 中的安全配置
         $adminChatId = env('SECURITY_TG_CHAT');
@@ -42,6 +31,45 @@ class SecurityTelegramController extends Controller
                 }
             }
         }
+
+        // 处理普通文本命令 (如: /check 或 /scan)
+        if (isset($data['message'])) {
+            $message = $data['message'];
+            $chatId = $message['chat']['id'];
+            $fromId = $message['from']['id'];
+            $text = trim($message['text'] ?? '');
+
+            // 安全校验：只有配置好的管理员才可以使用指令
+            if ((string)$fromId !== (string)$adminChatId) {
+                return response()->json(['status' => 'unauthorized']);
+            }
+
+            if ($text === '/check' || $text === '/scan' || $text === '/start') {
+                $this->sendMessage($botToken, $chatId, "🔍 正在为您启动【天阙订阅安全审计扫描】，请稍候...");
+                
+                try {
+                    // 调用 Artisan 命令行执行扫描
+                    \Illuminate\Support\Facades\Artisan::call('v2board:detect-subscribers');
+                    $this->sendMessage($botToken, $chatId, "✅ 审计扫描执行已结束！如有新捕获的异常用户，会在上方收到预警卡片。");
+                } catch (\Exception $e) {
+                    $this->sendMessage($botToken, $chatId, "❌ 扫描执行失败: " . $e->getMessage());
+                }
+            }
+            return response()->json(['status' => 'ok']);
+        }
+
+        // 处理按钮回调消息
+        if (!isset($data['callback_query'])) {
+            return response()->json(['status' => 'ok']);
+        }
+
+        $callbackQuery = $data['callback_query'];
+        $callbackQueryId = $callbackQuery['id'];
+        $callbackData = $callbackQuery['data'];
+        $chatId = $callbackQuery['message']['chat']['id'];
+        $messageId = $callbackQuery['message']['message_id'];
+        $fromId = $callbackQuery['from']['id'];
+        $originalText = $callbackQuery['message']['text'] ?? '';
 
         // 安全校验：只有配置好的管理员 ID 才可以点击操作
         if ((string)$fromId !== (string)$adminChatId) {
@@ -121,6 +149,24 @@ class SecurityTelegramController extends Controller
         return response()->json(['status' => 'ok']);
     }
 
+    private function sendMessage($botToken, $chatId, $text)
+    {
+        $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt_array($ch, [
+            CURLOPT_POSTFIELDS => http_build_query([
+                'chat_id' => $chatId,
+                'text' => $text,
+            ]),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 5
+        ]);
+        curl_exec($ch);
+        curl_close($ch);
+    }
+
     private function answerCallbackQuery($botToken, $callbackQueryId, $text)
     {
         $url = "https://api.telegram.org/bot{$botToken}/answerCallbackQuery";
@@ -157,7 +203,6 @@ class SecurityTelegramController extends Controller
         curl_exec($ch);
         curl_close($ch);
     }
-
     private function generateGuid($trim = true)
     {
         $guid = sprintf('%04X%04X-%04X-%04X-%04X-%04X%04X%04X', mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(16384, 20479), mt_rand(32768, 49151), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535));
