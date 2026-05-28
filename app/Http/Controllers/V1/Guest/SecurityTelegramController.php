@@ -5,12 +5,20 @@ namespace App\Http\Controllers\V1\Guest;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Artisan;
 
 class SecurityTelegramController extends Controller
 {
     public function webhook(Request $request)
     {
         $data = $request->input();
+
+        // 写入审计日志以供调试
+        Log::info('TianQue Security Webhook Payload:', [
+            'ip' => $request->ip(),
+            'data' => $data
+        ]);
 
         // 读取 .env 中的安全配置
         $adminChatId = env('SECURITY_TG_CHAT');
@@ -40,7 +48,12 @@ class SecurityTelegramController extends Controller
             $text = trim($message['text'] ?? '');
 
             // 安全校验：只有配置好的管理员才可以使用指令
-            if ((string)$fromId !== (string)$adminChatId) {
+            if (!$this->isUserAuthorized($botToken, $adminChatId, $fromId, $chatId)) {
+                Log::warning("TianQue Security Webhook: Unauthorized command access attempt.", [
+                    'from_id' => $fromId,
+                    'chat_id' => $chatId,
+                    'admin_chat_id' => $adminChatId
+                ]);
                 return response()->json(['status' => 'unauthorized']);
             }
 
@@ -49,7 +62,7 @@ class SecurityTelegramController extends Controller
                 
                 try {
                     // 调用 Artisan 命令行执行扫描
-                    \Illuminate\Support\Facades\Artisan::call('v2board:detect-subscribers');
+                    Artisan::call('v2board:detect-subscribers');
                     $this->sendMessage($botToken, $chatId, "✅ 审计扫描执行已结束！如有新捕获的异常用户，会在上方收到预警卡片。");
                 } catch (\Exception $e) {
                     $this->sendMessage($botToken, $chatId, "❌ 扫描执行失败: " . $e->getMessage());
@@ -72,7 +85,12 @@ class SecurityTelegramController extends Controller
         $originalText = $callbackQuery['message']['text'] ?? '';
 
         // 安全校验：只有配置好的管理员 ID 才可以点击操作
-        if ((string)$fromId !== (string)$adminChatId) {
+        if (!$this->isUserAuthorized($botToken, $adminChatId, $fromId, $chatId)) {
+            Log::warning("TianQue Security Webhook: Unauthorized callback action attempt.", [
+                'from_id' => $fromId,
+                'chat_id' => $chatId,
+                'admin_chat_id' => $adminChatId
+            ]);
             $this->answerCallbackQuery($botToken, $callbackQueryId, "⚠️ 越权警告：你不是该系统的授权管理员！");
             return response()->json(['status' => 'unauthorized']);
         }
@@ -96,7 +114,6 @@ class SecurityTelegramController extends Controller
         $actionResultStr = '';
         switch ($action) {
             case 'honeypot':
-                $configPath = storage_path('tianque_config.json');
                 $configPath = storage_path('tianque_config.json');
                 $config = [];
                 if (file_exists($configPath)) {
@@ -200,6 +217,51 @@ class SecurityTelegramController extends Controller
         return response()->json(['status' => 'ok']);
     }
 
+    /**
+     * 判断发起指令或点击按钮的用户是否已被授权
+     */
+    private function isUserAuthorized($botToken, $adminChatId, $fromId, $chatId)
+    {
+        // 1. 直连匹配：如果管理员 ID 就是用户的个人 Chat ID
+        if ((string)$fromId === (string)$adminChatId) {
+            return true;
+        }
+
+        // 2. 群组内匹配：如果在允许的群组里直接发送命令
+        if ((string)$chatId === (string)$adminChatId) {
+            return true;
+        }
+
+        // 3. 跨群验证：如果在私聊里说话，但管理员配置的是群组 ID
+        if (strpos((string)$adminChatId, '-') === 0) {
+            $url = "https://api.telegram.org/bot{$botToken}/getChatMember";
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt_array($ch, [
+                CURLOPT_POSTFIELDS => http_build_query([
+                    'chat_id' => $adminChatId,
+                    'user_id' => $fromId,
+                ]),
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 5
+            ]);
+            $res = curl_exec($ch);
+            curl_close($ch);
+
+            $response = json_decode($res, true);
+            if (isset($response['ok']) && $response['ok'] === true) {
+                $status = $response['result']['status'] ?? '';
+                // 只要是群主、管理员或群内成员，就允许在私聊中使用
+                if (in_array($status, ['creator', 'administrator', 'member'], true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function sendMessage($botToken, $chatId, $text)
     {
         $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
@@ -247,6 +309,7 @@ class SecurityTelegramController extends Controller
         if ($replyMarkup !== null) {
             $postData['reply_markup'] = json_encode($replyMarkup);
         }
+
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_POST, 1);
@@ -258,6 +321,7 @@ class SecurityTelegramController extends Controller
         curl_exec($ch);
         curl_close($ch);
     }
+
     private function generateGuid($trim = true)
     {
         $guid = sprintf('%04X%04X-%04X-%04X-%04X-%04X%04X%04X', mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(16384, 20479), mt_rand(32768, 49151), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535));
