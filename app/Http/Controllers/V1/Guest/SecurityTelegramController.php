@@ -297,6 +297,7 @@ class SecurityTelegramController extends Controller
                     }
                 } else {
                     $this->sendMessage($botToken, $chatId, "ℹ️ 观察名单中未找到用户 `{$param}`。");
+                }
             } elseif (strpos($text, '/user ') === 0 || strpos($text, '/query ') === 0) {
                 $pos = strpos($text, ' ');
                 $param = trim(substr($text, $pos + 1));
