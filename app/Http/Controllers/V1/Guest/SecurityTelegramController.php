@@ -297,7 +297,123 @@ class SecurityTelegramController extends Controller
                     }
                 } else {
                     $this->sendMessage($botToken, $chatId, "ℹ️ 观察名单中未找到用户 `{$param}`。");
+            } elseif (strpos($text, '/user ') === 0 || strpos($text, '/query ') === 0) {
+                $pos = strpos($text, ' ');
+                $param = trim(substr($text, $pos + 1));
+                if (empty($param)) {
+                    $this->sendMessage($botToken, $chatId, "⚠️ 格式错误，请使用: `/user <ID或邮箱>`");
+                    return response()->json(['status' => 'ok']);
                 }
+
+                // 1. 查询用户
+                $user = null;
+                if (is_numeric($param)) {
+                    $user = User::find((int)$param);
+                } else {
+                    $user = User::where('email', $param)->first();
+                }
+
+                if (!$user) {
+                    $this->sendMessage($botToken, $chatId, "ℹ️ 未找到用户 `{$param}`。");
+                    return response()->json(['status' => 'ok']);
+                }
+
+                // 2. 读取配置判断当前的安全状态
+                $configPath = storage_path('tianque_config.json');
+                $config = [];
+                if (file_exists($configPath)) {
+                    $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                }
+
+                $inHoneypot = false;
+                if (isset($config['honeypot_users']) && is_array($config['honeypot_users'])) {
+                    $inHoneypot = in_array((int)$user->id, array_map('intval', $config['honeypot_users']), true);
+                }
+
+                $inWhitelist = false;
+                if (isset($config['whitelist_users']) && is_array($config['whitelist_users'])) {
+                    $inWhitelist = in_array((int)$user->id, array_map('intval', $config['whitelist_users']), true) 
+                                || in_array($user->email, $config['whitelist_users'], true);
+                }
+
+                $inObserved = false;
+                if (isset($config['flagged_users']) && is_array($config['flagged_users'])) {
+                    $inObserved = isset($config['flagged_users'][(string)$user->id]);
+                }
+
+                $statusStr = '';
+                if ($user->banned) {
+                    $statusStr .= "🔴 已封禁账号";
+                } elseif ($inHoneypot) {
+                    $statusStr .= "🍯 蜜罐接管中";
+                } elseif ($inWhitelist) {
+                    $statusStr .= "🛡️ 白名单放行";
+                } elseif ($inObserved) {
+                    $statusStr .= "📋 重点观察中";
+                } else {
+                    $statusStr .= "🟢 正常";
+                }
+
+                // 3. 构建画像基本信息
+                $registerTime = $user->created_at ? date('Y-m-d H:i:s', $user->created_at) : '未知';
+                $expireTime = $user->expired_at ? date('Y-m-d H:i:s', $user->expired_at) : '长期有效';
+                $balanceStr = ($user->balance / 100) . ' 元';
+                $commissionStr = ($user->commission_balance / 100) . ' 元';
+                $lastOnline = $user->t > 0 ? date('Y-m-d H:i:s', $user->t) : '无在线记录';
+
+                $msg = "👤 **「天阙」用户安全画像**\n"
+                     . "====================\n"
+                     . "• **用户 ID**: `{$user->id}`\n"
+                     . "• **用户邮箱**: `{$user->email}`\n"
+                     . "• **当前状态**: **{$statusStr}**\n"
+                     . "• **注册时间**: `{$registerTime}`\n"
+                     . "• **过期时间**: `{$expireTime}`\n"
+                     . "• **账户余额**: `{$balanceStr}`\n"
+                     . "• **佣金余额**: `{$commissionStr}`\n"
+                     . "• **最后在线**: `{$lastOnline}`\n\n";
+
+                // 4. 读取解析历史拉取记录
+                $clientHistory = [];
+                if ($user->client_type) {
+                    $decoded = json_decode($user->client_type, true);
+                    if (is_array($decoded)) {
+                        $clientHistory = $decoded;
+                    }
+                }
+
+                $msg .= "📈 **最近 5 次订阅拉取历史**:\n";
+                if (empty($clientHistory)) {
+                    $msg .= "   _(当前无历史拉取数据)_\n";
+                } else {
+                    foreach ($clientHistory as $index => $item) {
+                        $num = $index + 1;
+                        $timeStr = isset($item['time']) ? date('Y-m-d H:i:s', $item['time']) : '未知';
+                        $ip = $item['ip'] ?? '未知IP';
+                        $type = $item['type'] ?? '未知';
+                        $ua = $item['ua'] ?? '未知UA';
+                        $msg .= "   {$num}. `{$timeStr}`\n"
+                              . "       IP: `{$ip}`\n"
+                              . "       工具: `{$type}`\n"
+                              . "       UA: `{$ua}`\n";
+                    }
+                }
+
+                // 5. 生成快捷管理动作按键
+                $keyboard = [
+                    'inline_keyboard' => [
+                        [
+                            $inHoneypot 
+                                ? ['text' => '↩️ 移出蜜罐', 'callback_data' => "unhoneypot:{$user->id}"]
+                                : ['text' => '🛡️ 放入蜜罐', 'callback_data' => "honeypot:{$user->id}"],
+                            $user->banned
+                                ? ['text' => '🟢 解除封禁', 'callback_data' => "unban:{$user->id}"]
+                                : ['text' => '🚫 封禁账号', 'callback_data' => "ban:{$user->id}"],
+                            ['text' => '🔄 重置订阅', 'callback_data' => "reset:{$user->id}"]
+                        ]
+                    ]
+                ];
+
+                $this->sendMessageWithKeyboard($botToken, $chatId, $msg, $keyboard);
             }
             return response()->json(['status' => 'ok']);
         }
@@ -514,7 +630,7 @@ class SecurityTelegramController extends Controller
         return false;
     }
 
-    private function sendMessage($botToken, $chatId, $text)
+    private function sendMessage($botToken, $chatId, $text, $parseMode = 'Markdown')
     {
         $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
         $ch = curl_init();
@@ -524,6 +640,27 @@ class SecurityTelegramController extends Controller
             CURLOPT_POSTFIELDS => http_build_query([
                 'chat_id' => $chatId,
                 'text' => $text,
+                'parse_mode' => $parseMode,
+            ]),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 5
+        ]);
+        curl_exec($ch);
+        curl_close($ch);
+    }
+
+    private function sendMessageWithKeyboard($botToken, $chatId, $text, $replyMarkup, $parseMode = 'Markdown')
+    {
+        $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt_array($ch, [
+            CURLOPT_POSTFIELDS => http_build_query([
+                'chat_id' => $chatId,
+                'text' => $text,
+                'parse_mode' => $parseMode,
+                'reply_markup' => json_encode($replyMarkup)
             ]),
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 5
