@@ -97,6 +97,7 @@ class SecurityTelegramController extends Controller
         switch ($action) {
             case 'honeypot':
                 $configPath = storage_path('tianque_config.json');
+                $configPath = storage_path('tianque_config.json');
                 $config = [];
                 if (file_exists($configPath)) {
                     $config = json_decode(@file_get_contents($configPath), true) ?: [];
@@ -110,13 +111,37 @@ class SecurityTelegramController extends Controller
                     $config['honeypot_users'] = $currentHoneypots;
                     @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
                 }
-                $actionResultStr = "【已成功移入天阙蜜罐】";
+                $actionResultStr = "【已移入天阙蜜罐】";
+                break;
+
+            case 'unhoneypot':
+                $configPath = storage_path('tianque_config.json');
+                $config = [];
+                if (file_exists($configPath)) {
+                    $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                }
+                if (isset($config['honeypot_users']) && is_array($config['honeypot_users'])) {
+                    $currentHoneypots = array_map('intval', $config['honeypot_users']);
+                    $key = array_search($userId, $currentHoneypots, true);
+                    if ($key !== false) {
+                        unset($currentHoneypots[$key]);
+                        $config['honeypot_users'] = array_values($currentHoneypots);
+                        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                    }
+                }
+                $actionResultStr = "【已从蜜罐中移出】";
                 break;
 
             case 'ban':
                 $user->banned = 1;
                 $user->save();
                 $actionResultStr = "【已封禁账号】";
+                break;
+
+            case 'unban':
+                $user->banned = 0;
+                $user->save();
+                $actionResultStr = "【已解除封禁】";
                 break;
 
             case 'reset':
@@ -144,7 +169,33 @@ class SecurityTelegramController extends Controller
             $newText .= "\n⚙️ 执行动作: {$actionResultStr} (管理员 via TG)";
         }
 
-        $this->editMessageText($botToken, $chatId, $messageId, $newText);
+        // 动态查询最新的用户状态，重新生成操作按钮以完成切换
+        $newInHoneypot = false;
+        $configPath = storage_path('tianque_config.json');
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+            $honeypots = array_map('intval', $config['honeypot_users'] ?? []);
+            if (in_array($userId, $honeypots, true)) {
+                $newInHoneypot = true;
+            }
+        }
+        $newIsBanned = (bool)$user->banned;
+
+        $newKeyboard = [
+            'inline_keyboard' => [
+                [
+                    $newInHoneypot 
+                        ? ['text' => '↩️ 移出蜜罐', 'callback_data' => "unhoneypot:{$userId}"]
+                        : ['text' => '🛡️ 放入蜜罐', 'callback_data' => "honeypot:{$userId}"],
+                    $newIsBanned
+                        ? ['text' => '🟢 解除封禁', 'callback_data' => "unban:{$userId}"]
+                        : ['text' => '🚫 封禁账号', 'callback_data' => "ban:{$userId}"],
+                    ['text' => '🔄 重置订阅', 'callback_data' => "reset:{$userId}"]
+                ]
+            ]
+        ];
+
+        $this->editMessageText($botToken, $chatId, $messageId, $newText, $newKeyboard);
 
         return response()->json(['status' => 'ok']);
     }
@@ -185,18 +236,22 @@ class SecurityTelegramController extends Controller
         curl_close($ch);
     }
 
-    private function editMessageText($botToken, $chatId, $messageId, $text)
+    private function editMessageText($botToken, $chatId, $messageId, $text, $replyMarkup = null)
     {
         $url = "https://api.telegram.org/bot{$botToken}/editMessageText";
+        $postData = [
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'text' => $text,
+        ];
+        if ($replyMarkup !== null) {
+            $postData['reply_markup'] = json_encode($replyMarkup);
+        }
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt_array($ch, [
-            CURLOPT_POSTFIELDS => http_build_query([
-                'chat_id' => $chatId,
-                'message_id' => $messageId,
-                'text' => $text,
-            ]),
+            CURLOPT_POSTFIELDS => http_build_query($postData),
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 5
         ]);
