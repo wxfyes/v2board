@@ -117,6 +117,54 @@ class SecurityTelegramController extends Controller
                 } else {
                     $this->sendMessage($botToken, $chatId, "ℹ️ 白名单中未找到用户 `{$param}`。");
                 }
+            } elseif ($text === '/honeypots' || $text === '/honeypotlist') {
+                $configPath = storage_path('tianque_config.json');
+                $honeypotUsers = [];
+                if (file_exists($configPath)) {
+                    $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+                    if (is_array($tianqueConfig) && isset($tianqueConfig['honeypot_users'])) {
+                        $honeypotUsers = array_map('intval', $tianqueConfig['honeypot_users']);
+                    }
+                }
+
+                if (empty($honeypotUsers)) {
+                    $this->sendMessage($botToken, $chatId, "🍯 当前天阙蜜罐名单为空。");
+                    return response()->json(['status' => 'ok']);
+                }
+
+                // 从数据库查询对应的用户信息
+                $users = User::whereIn('id', $honeypotUsers)->get(['id', 'email']);
+                $listStr = '';
+                foreach ($honeypotUsers as $uid) {
+                    $matchedUser = $users->firstWhere('id', $uid);
+                    $email = $matchedUser ? $matchedUser->email : '未知邮箱或已被删除';
+                    $listStr .= "• ID: `{$uid}` | 邮箱: `{$email}`\n";
+                }
+
+                $msg = "🍯 **「天阙」当前蜜罐名单 (共 " . count($honeypotUsers) . " 人)**:\n\n" . $listStr;
+                $this->sendMessage($botToken, $chatId, $msg);
+            } elseif ($text === '/whitelists' || $text === '/whitelistlist') {
+                $configPath = storage_path('tianque_config.json');
+                $whitelistUsers = [];
+                if (file_exists($configPath)) {
+                    $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+                    if (is_array($tianqueConfig) && isset($tianqueConfig['whitelist_users'])) {
+                        $whitelistUsers = $tianqueConfig['whitelist_users'];
+                    }
+                }
+
+                if (empty($whitelistUsers)) {
+                    $this->sendMessage($botToken, $chatId, "🛡️ 当前审计白名单为空。");
+                    return response()->json(['status' => 'ok']);
+                }
+
+                $listStr = '';
+                foreach ($whitelistUsers as $item) {
+                    $listStr .= "• `{$item}`\n";
+                }
+
+                $msg = "🛡️ **「天阙」当前白名单 (共 " . count($whitelistUsers) . " 人)**:\n\n" . $listStr;
+                $this->sendMessage($botToken, $chatId, $msg);
             }
             return response()->json(['status' => 'ok']);
         }
