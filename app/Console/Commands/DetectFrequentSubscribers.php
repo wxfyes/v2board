@@ -22,7 +22,8 @@ class DetectFrequentSubscribers extends Command
                             {--ip-limit=10 : 24小时内拉取订阅的独立 IP 数阈值，达到此数值判定为多IP滥用}
                             {--tg-chat= : 额外的 Telegram 接收 Chat ID（支持群组/频道/个人ID）}
                             {--tg-token= : 独立的 Telegram Bot Token（若不指定则自动调用系统内置 Bot）}
-                            {--set-webhook : 自动向 Telegram 注册安全审计机器人的 Webhook 地址}';
+                            {--set-webhook : 自动向 Telegram 注册安全审计机器人的 Webhook 地址}
+                            {--webhook-url= : 自定义 Webhook 的基准 URL（例如：https://tianquege.top），若不指定则默认使用 app_url}';
  
     /**
      * The console command description.
@@ -74,9 +75,9 @@ class DetectFrequentSubscribers extends Command
                 return 1;
             }
 
-            $appUrl = config('v2board.app_url');
+            $appUrl = $this->option('webhook-url') ?: config('v2board.app_url');
             if (empty($appUrl)) {
-                $this->error("❌ 错误：未能在配置中找到 app_url，请先确保后台设置了正确的站点域名！");
+                $this->error("❌ 错误：未能在配置中找到 app_url，请先确保后台设置了正确的站点域名，或使用 --webhook-url 传参！");
                 return 1;
             }
 
