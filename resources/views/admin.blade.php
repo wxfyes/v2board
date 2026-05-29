@@ -5,6 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
     <title>{{$title}}</title>
+    <script src="/config.js"></script>
     
     <?php
         $css_files = glob(public_path('assets/admin-new/assets/index-*.css'));
