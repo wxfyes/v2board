@@ -38,8 +38,9 @@ Route::get('/', function (Request $request) {
 });
 
 //TODO:: 兼容
-Route::get('/' . config('v2board.secure_path', config('v2board.frontend_admin_path', hash('crc32b', config('app.key')))), function () {
-    return view('admin', [
+Route::get('/' . config('v2board.secure_path', config('v2board.frontend_admin_path', hash('crc32b', config('app.key')))), function (Request $request) {
+    $view = $request->has('old') ? 'admin_old' : 'admin';
+    return view($view, [
         'title' => config('v2board.app_name', 'V2Board'),
         'theme_sidebar' => config('v2board.frontend_theme_sidebar', 'light'),
         'theme_header' => config('v2board.frontend_theme_header', 'dark'),

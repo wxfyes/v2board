@@ -2,21 +2,14 @@
 <html>
 
 <head>
+    <link rel="stylesheet" href="/assets/admin/components.chunk.css?v={{$version}}">
+    <link rel="stylesheet" href="/assets/admin/umi.css?v={{$version}}">
+    <link rel="stylesheet" href="/assets/admin/custom.css?v={{$version}}">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
     <title>{{$title}}</title>
-    
-    <?php
-        $css_files = glob(public_path('assets/admin-new/assets/index-*.css'));
-        $js_files = glob(public_path('assets/admin-new/assets/index-*.js'));
-        $css_url = count($css_files) > 0 ? '/assets/admin-new/assets/' . basename($css_files[0]) : '';
-        $js_url = count($js_files) > 0 ? '/assets/admin-new/assets/' . basename($js_files[0]) : '';
-    ?>
-    
-    @if($css_url)
-        <link rel="stylesheet" crossorigin href="{{$css_url}}?v={{$version}}">
-    @endif
-    
+    <!-- <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nunito+Sans:300,400,400i,600,700"> -->
+    <script>window.routerBase = "/";</script>
     <script>
         window.settings = {
             title: '{{$title}}',
@@ -34,11 +27,10 @@
 </head>
 
 <body>
-    <div id="app"></div>
-    
-    @if($js_url)
-        <script type="module" crossorigin src="{{$js_url}}?v={{$version}}"></script>
-    @endif
+<div id="root"></div>
+<script src="/assets/admin/vendors.async.js?v={{$version}}"></script>
+<script src="/assets/admin/components.async.js?v={{$version}}"></script>
+<script src="/assets/admin/umi.js?v={{$version}}"></script>
 </body>
 
 </html>
