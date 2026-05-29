@@ -1216,7 +1216,7 @@ to {
 /**
  * 全局样式变量
  */
-[data-v-829d0cae]:root {
+[data-v-51ab6eba]:root {
   --background-color: #f5f7fa;
   --card-background: #ffffff;
   --card-background-rgb: 255, 255, 255;
@@ -1242,7 +1242,7 @@ to {
   --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   --skeleton-bg: rgba(0, 0, 0, 0.05);
 }
-.dark-theme[data-v-829d0cae] {
+.dark-theme[data-v-51ab6eba] {
   --background-color: #171A1D;
   --card-background: #1e1e1e;
   --card-bg-color: #1e1e1e;
@@ -1256,7 +1256,7 @@ to {
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   --skeleton-bg: rgba(255, 255, 255, 0.05);
 }
-.customer-service-icon[data-v-829d0cae] {
+.customer-service-icon[data-v-51ab6eba] {
   position: fixed;
   display: flex;
   align-items: center;
@@ -1271,11 +1271,11 @@ to {
   z-index: 99;
   transition: all 0.3s ease;
 }
-.customer-service-icon[data-v-829d0cae]:hover {
+.customer-service-icon[data-v-51ab6eba]:hover {
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
-.customer-service-icon.is-mobile[data-v-829d0cae] {
+.customer-service-icon.is-mobile[data-v-51ab6eba] {
   width: 42px;
   height: 42px;
 }
@@ -1283,7 +1283,7 @@ to {
 /**
  * 全局样式变量
  */
-[data-v-474c7d5c]:root {
+[data-v-611660bc]:root {
   --background-color: #f5f7fa;
   --card-background: #ffffff;
   --card-background-rgb: 255, 255, 255;
@@ -1309,7 +1309,7 @@ to {
   --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   --skeleton-bg: rgba(0, 0, 0, 0.05);
 }
-.dark-theme[data-v-474c7d5c] {
+.dark-theme[data-v-611660bc] {
   --background-color: #171A1D;
   --card-background: #1e1e1e;
   --card-bg-color: #1e1e1e;
