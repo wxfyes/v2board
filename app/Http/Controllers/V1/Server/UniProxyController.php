@@ -224,30 +224,50 @@ class UniProxyController extends Controller
                 }
                 break;
             case 'vmess':
+                $networkSettings = $this->nodeInfo->networkSettings;
+                if (empty($networkSettings) || (is_array($networkSettings) && count($networkSettings) === 0)) {
+                    $networkSettings = null;
+                }
                 $response = [
                     'server_port' => $this->nodeInfo->server_port,
                     'network' => $this->nodeInfo->network,
-                    'networkSettings' => $this->nodeInfo->networkSettings,
+                    'networkSettings' => $networkSettings,
                     'tls' => $this->nodeInfo->tls
                 ];
                 break;
             case 'vless':
+                $networkSettings = $this->nodeInfo->network_settings;
+                if (empty($networkSettings) || (is_array($networkSettings) && count($networkSettings) === 0)) {
+                    $networkSettings = null;
+                }
+                $tlsSettings = $this->nodeInfo->tls_settings;
+                if (empty($tlsSettings) || (is_array($tlsSettings) && count($tlsSettings) === 0)) {
+                    $tlsSettings = null;
+                }
+                $encryptionSettings = $this->nodeInfo->encryption_settings;
+                if (empty($encryptionSettings) || (is_array($encryptionSettings) && count($encryptionSettings) === 0)) {
+                    $encryptionSettings = null;
+                }
                 $response = [
                     'server_port' => $this->nodeInfo->server_port,
                     'network' => $this->nodeInfo->network,
-                    'networkSettings' => $this->nodeInfo->network_settings,
+                    'networkSettings' => $networkSettings,
                     'tls' => $this->nodeInfo->tls,
                     'flow' => $this->nodeInfo->flow,
-                    'tls_settings' => $this->nodeInfo->tls_settings,
+                    'tls_settings' => $tlsSettings,
                     'encryption' => $this->nodeInfo->encryption,
-                    'encryption_settings' => $this->nodeInfo->encryption_settings
+                    'encryption_settings' => $encryptionSettings
                 ];
                 break;
             case 'trojan':
+                $networkSettings = $this->nodeInfo->network_settings;
+                if (empty($networkSettings) || (is_array($networkSettings) && count($networkSettings) === 0)) {
+                    $networkSettings = null;
+                }
                 $response = [
                     'host' => $this->nodeInfo->host,
                     'network' => $this->nodeInfo->network,
-                    'networkSettings' => $this->nodeInfo->network_settings,
+                    'networkSettings' => $networkSettings,
                     'server_port' => $this->nodeInfo->server_port,
                     'server_name' => $this->nodeInfo->server_name,
                 ];
