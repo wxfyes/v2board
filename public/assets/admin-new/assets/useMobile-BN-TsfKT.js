@@ -1,1 +1,0 @@
-import{_ as e,k as t,v as n}from"./index-DViVGWv_.js";function r(){let r=t(typeof window<`u`?window.innerWidth<=768:!1),i=()=>{r.value=window.innerWidth<=768};return n(()=>{window.addEventListener(`resize`,i)}),e(()=>{window.removeEventListener(`resize`,i)}),{isMobile:r}}export{r as t};
