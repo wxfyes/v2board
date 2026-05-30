@@ -28,10 +28,25 @@ class OrderController extends Controller
         }
         $order = $model->get();
         $plan = Plan::get();
+        $cardProducts = \App\Models\CardProduct::get();
         for ($i = 0; $i < count($order); $i++) {
-            for ($x = 0; $x < count($plan); $x++) {
-                if ($order[$i]['plan_id'] === $plan[$x]['id']) {
-                    $order[$i]['plan'] = $plan[$x];
+            if ($order[$i]['period'] === 'card') {
+                foreach ($cardProducts as $product) {
+                    if ($order[$i]['plan_id'] === $product->id) {
+                        $order[$i]['plan'] = [
+                            'id' => $product->id,
+                            'name' => $product->name,
+                            'card' => $product->price,
+                            'transfer_enable' => null
+                        ];
+                        break;
+                    }
+                }
+            } else {
+                for ($x = 0; $x < count($plan); $x++) {
+                    if ($order[$i]['plan_id'] === $plan[$x]['id']) {
+                        $order[$i]['plan'] = $plan[$x];
+                    }
                 }
             }
         }
@@ -56,6 +71,18 @@ class OrderController extends Controller
             $order->bounus = $this->getbounus($order->total_amount);
             $order->get_amount = $order->total_amount + $order->bounus;
 
+            return response([
+                'data' => $order
+            ]);
+        }
+        if ($order->period === 'card') {
+            $product = \App\Models\CardProduct::find($order->plan_id);
+            $order['plan'] = [
+                'id' => $product ? $product->id : 0,
+                'name' => $product ? $product->name : '未知商品',
+                'card' => $product ? $product->price : 0,
+                'transfer_enable' => null
+            ];
             return response([
                 'data' => $order
             ]);
