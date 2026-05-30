@@ -20,7 +20,8 @@ class CreateCardsTables extends Migration
             $table->integer('price')->comment('单价(分)');
             $table->tinyInteger('show')->default(1)->comment('是否上架: 0下架 1上架');
             $table->integer('sort')->default(0)->comment('排序');
-            $table->timestamps();
+            $table->integer('created_at');
+            $table->integer('updated_at');
         });
 
         Schema::create('v2_cards', function (Blueprint $table) {
@@ -30,7 +31,8 @@ class CreateCardsTables extends Migration
             $table->tinyInteger('status')->default(0)->comment('状态: 0未售 1已售');
             $table->integer('user_id')->nullable()->comment('购买者用户ID');
             $table->integer('order_id')->nullable()->comment('绑定的订单ID');
-            $table->timestamps();
+            $table->integer('created_at');
+            $table->integer('updated_at');
 
             $table->index('product_id', 'idx_product_id');
             $table->index('status', 'idx_status');
