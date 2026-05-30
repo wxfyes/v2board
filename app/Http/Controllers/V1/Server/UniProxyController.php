@@ -209,11 +209,15 @@ class UniProxyController extends Controller
     {
         switch ($this->nodeType) {
             case 'shadowsocks':
+                $obfsSettings = $this->nodeInfo->obfs_settings;
+                if (empty($obfsSettings) || (is_array($obfsSettings) && count($obfsSettings) === 0)) {
+                    $obfsSettings = null;
+                }
                 $response = [
                     'server_port' => $this->nodeInfo->server_port,
                     'cipher' => $this->nodeInfo->cipher,
                     'obfs' => $this->nodeInfo->obfs,
-                    'obfs_settings' => $this->nodeInfo->obfs_settings
+                    'obfs_settings' => $obfsSettings
                 ];
 
                 if ($this->nodeInfo->cipher === '2022-blake3-aes-128-gcm') {
@@ -302,10 +306,14 @@ class UniProxyController extends Controller
                 }
                 break;
             case 'anytls':
+                $paddingScheme = $this->nodeInfo->padding_scheme;
+                if (empty($paddingScheme) || (is_array($paddingScheme) && count($paddingScheme) === 0)) {
+                    $paddingScheme = null;
+                }
                 $response = [
                     'server_port' => $this->nodeInfo->server_port,
                     'server_name' => $this->nodeInfo->server_name,
-                    'padding_scheme' => $this->nodeInfo->padding_scheme
+                    'padding_scheme' => $paddingScheme
                 ];
                 break;
         }
