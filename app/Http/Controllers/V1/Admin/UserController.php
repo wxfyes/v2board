@@ -77,12 +77,21 @@ class UserController extends Controller
         $res = $userModel->forPage($current, $pageSize)
             ->get();
         $plan = Plan::get();
+        $configPath = storage_path('tianque_config.json');
+        $honeypotUsers = [];
+        if (file_exists($configPath)) {
+            $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+            if (is_array($tianqueConfig) && isset($tianqueConfig['honeypot_users'])) {
+                $honeypotUsers = array_map('intval', $tianqueConfig['honeypot_users']);
+            }
+        }
         for ($i = 0; $i < count($res); $i++) {
             for ($k = 0; $k < count($plan); $k++) {
                 if ($plan[$k]['id'] == $res[$i]['plan_id']) {
                     $res[$i]['plan_name'] = $plan[$k]['name'];
                 }
             }
+            $res[$i]['in_honeypot'] = in_array((int)$res[$i]['id'], $honeypotUsers, true) ? 1 : 0;
             //统计在线设备
             $countalive = 0;
             $ips = [];
@@ -385,6 +394,65 @@ class UserController extends Controller
 
         return response([
             'data' => true
+        ]);
+    }
+
+    public function toggleHoneypot(Request $request)
+    {
+        $userId = (int)$request->input('id');
+        $user = User::find($userId);
+        if (!$user) {
+            abort(500, '用户不存在');
+        }
+
+        $configPath = storage_path('tianque_config.json');
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        }
+
+        if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
+            $config['honeypot_users'] = [];
+        }
+        if (!isset($config['honeypot_times']) || !is_array($config['honeypot_times'])) {
+            $config['honeypot_times'] = [];
+        }
+
+        $currentHoneypots = array_map('intval', $config['honeypot_users']);
+        $inHoneypot = in_array($userId, $currentHoneypots, true);
+
+        if ($inHoneypot) {
+            // Remove
+            $key = array_search($userId, $currentHoneypots, true);
+            if ($key !== false) {
+                unset($currentHoneypots[$key]);
+            }
+            $config['honeypot_users'] = array_values($currentHoneypots);
+            if (isset($config['honeypot_times'][(string)$userId])) {
+                unset($config['honeypot_times'][(string)$userId]);
+            }
+            $status = 0;
+        } else {
+            // Add
+            $currentHoneypots[] = $userId;
+            $config['honeypot_users'] = $currentHoneypots;
+            $config['honeypot_times'][(string)$userId] = time();
+            
+            // Auto remove from flagged_users if exists
+            if (isset($config['flagged_users']) && is_array($config['flagged_users'])) {
+                if (isset($config['flagged_users'][(string)$userId])) {
+                    unset($config['flagged_users'][(string)$userId]);
+                }
+            }
+            $status = 1;
+        }
+
+        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        return response([
+            'data' => [
+                'status' => $status
+            ]
         ]);
     }
 }

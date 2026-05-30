@@ -112,6 +112,7 @@ class AdminRoute
             $router->post('/user/dumpCSV', 'V1\\Admin\\UserController@dumpCSV');
             $router->post('/user/sendMail', 'V1\\Admin\\UserController@sendMail');
             $router->post('/user/ban', 'V1\\Admin\\UserController@ban');
+            $router->post('/user/toggleHoneypot', 'V1\\Admin\\UserController@toggleHoneypot');
             $router->post('/user/resetSecret', 'V1\\Admin\\UserController@resetSecret');
             $router->post('/user/delUser', 'V1\\Admin\\UserController@delUser');
             $router->post('/user/allDel', 'V1\\Admin\\UserController@allDel');
@@ -127,6 +128,7 @@ class AdminRoute
             $router->get ('/stat/getStatUser', 'V1\\Admin\\StatController@getStatUser');
             $router->get ('/stat/getRanking', 'V1\\Admin\\StatController@getRanking');
             $router->get ('/stat/getStatRecord', 'V1\\Admin\\StatController@getStatRecord');
+            $router->get ('/stat/getSubscriptionAnomalies', 'V1\\Admin\\StatController@getSubscriptionAnomalies');
             // Notice
             $router->get ('/notice/fetch', 'V1\\Admin\\NoticeController@fetch');
             $router->post('/notice/save', 'V1\\Admin\\NoticeController@save');

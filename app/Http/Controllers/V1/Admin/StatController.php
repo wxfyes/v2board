@@ -301,5 +301,65 @@ class StatController extends Controller
         ];
     }
 
+    public function getSubscriptionAnomalies()
+    {
+        $configPath = storage_path('tianque_config.json');
+        if (!file_exists($configPath)) {
+            return [
+                'data' => []
+            ];
+        }
+
+        $config = json_decode(@file_get_contents($configPath), true);
+        if (!is_array($config) || !isset($config['flagged_users']) || !is_array($config['flagged_users'])) {
+            return [
+                'data' => []
+            ];
+        }
+
+        $flaggedUsers = $config['flagged_users'];
+        $userIds = array_keys($flaggedUsers);
+
+        $users = User::whereIn('id', $userIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
+
+        $honeypotUsers = [];
+        if (isset($config['honeypot_users'])) {
+            $honeypotUsers = array_map('intval', $config['honeypot_users']);
+        }
+
+        $data = [];
+        foreach ($flaggedUsers as $uid => $info) {
+            $user = $users->get($uid);
+            $email = $info['email'] ?? ($user ? $user->email : '未知用户');
+            $time = $info['time'] ?? time();
+            $reasons = $info['reasons'] ?? [];
+
+            $history = [];
+            if ($user && $user->client_type) {
+                $history = json_decode($user->client_type, true) ?: [];
+            }
+
+            $inHoneypot = in_array((int)$uid, $honeypotUsers, true) ? 1 : 0;
+            $banned = $user ? (int)$user->banned : 0;
+
+            $data[] = [
+                'user_id' => (int)$uid,
+                'email' => $email,
+                'flagged_at' => $time,
+                'reasons' => $reasons,
+                'in_honeypot' => $inHoneypot,
+                'banned' => $banned,
+                'history' => $history
+            ];
+        }
+
+        usort($data, function ($a, $b) {
+            return $b['flagged_at'] <=> $a['flagged_at'];
+        });
+
+        return [
+            'data' => $data
+        ];
+    }
 }
 
