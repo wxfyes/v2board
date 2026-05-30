@@ -177,6 +177,13 @@ class AdminRoute
             $router->get ('/theme/getThemes', 'V1\\Admin\\ThemeController@getThemes');
             $router->post('/theme/saveThemeConfig', 'V1\\Admin\\ThemeController@saveThemeConfig');
             $router->post('/theme/getThemeConfig', 'V1\\Admin\\ThemeController@getThemeConfig');
+            // Card
+            $router->get ('/card/product/fetch', 'V1\\Admin\\CardController@products');
+            $router->post('/card/product/save', 'V1\\Admin\\CardController@productSave');
+            $router->post('/card/product/drop', 'V1\\Admin\\CardController@productDrop');
+            $router->get ('/card/fetch', 'V1\\Admin\\CardController@fetch');
+            $router->post('/card/import', 'V1\\Admin\\CardController@import');
+            $router->post('/card/drop', 'V1\\Admin\\CardController@drop');
         });
     }
 }

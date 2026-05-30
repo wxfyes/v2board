@@ -47,6 +47,41 @@ class OrderService
             return;
         }
 
+        if ($order->period === 'card') {
+            DB::beginTransaction();
+            try {
+                $card = \App\Models\Card::where('product_id', $order->plan_id)
+                    ->where('status', 0)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$card) {
+                    DB::rollBack();
+                    return;
+                }
+
+                $card->status = 1;
+                $card->user_id = $order->user_id;
+                $card->order_id = $order->id;
+                if (!$card->save()) {
+                    DB::rollBack();
+                    abort(500, '发卡失败');
+                }
+
+                $order->status = 3;
+                if (!$order->save()) {
+                    DB::rollBack();
+                    abort(500, '订单更新失败');
+                }
+
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                abort(500, '发卡激活失败');
+            }
+            return;
+        }
+
         $plan = Plan::find($order->plan_id);
 
         if ($order->refund_amount) {

@@ -79,6 +79,69 @@ class OrderController extends Controller
         if ($userService->isNotCompleteOrderByUserId($request->user['id'])) {
             abort(500, __('You have an unpaid or pending order, please try again later or cancel it'));
         }
+        if ($request->input('period') === 'card') {
+            $product = \App\Models\CardProduct::find($request->input('plan_id'));
+            if (!$product || !$product->show) {
+                abort(500, '商品不存在或已下架');
+            }
+            $stock = \App\Models\Card::where('product_id', $product->id)->where('status', 0)->count();
+            if ($stock <= 0) {
+                abort(500, '该商品暂时缺货');
+            }
+
+            DB::beginTransaction();
+            $order = new Order();
+            $orderService = new OrderService($order);
+            $order->user_id = $request->user['id'];
+            $order->plan_id = $product->id;
+            $order->period = 'card';
+            $order->trade_no = Helper::generateOrderNo();
+            $order->total_amount = $product->price;
+            $order->type = 5;
+
+            if ($request->input('coupon_code')) {
+                $couponService = new CouponService($request->input('coupon_code'));
+                if (!$couponService->use($order)) {
+                    DB::rollBack();
+                    abort(500, __('Coupon failed'));
+                }
+                $order->coupon_id = $couponService->getId();
+            }
+
+            $user = User::find($request->user['id']);
+            if ($user->balance > 0 && $order->total_amount > 0) {
+                $remainingBalance = $user->balance - $order->total_amount;
+                $userService = new UserService();
+                if ($remainingBalance > 0) {
+                    if (!$userService->addBalance($order->user_id, - $order->total_amount)) {
+                        DB::rollBack();
+                        abort(500, __('Insufficient balance'));
+                    }
+                    $order->balance_amount = $order->total_amount;
+                    $order->total_amount = 0;
+                } else {
+                    if (!$userService->addBalance($order->user_id, - $user->balance)) {
+                        DB::rollBack();
+                        abort(500, __('Insufficient balance'));
+                    }
+                    $order->balance_amount = $user->balance;
+                    $order->total_amount -= $user->balance;
+                }
+            }
+
+            $orderService->setInvite($user);
+
+            if (!$order->save()) {
+                DB::rollback();
+                abort(500, __('Failed to create order'));
+            }
+
+            DB::commit();
+
+            return response([
+                'data' => $order->trade_no
+            ]);
+        }
         if ($request->input('plan_id') == 0) {
             $amount = $request->input('deposit_amount');
             if ($amount <= 0) {

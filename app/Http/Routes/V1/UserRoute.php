@@ -62,6 +62,9 @@ class UserRoute
             $router->get ('/knowledge/getCategory', 'V1\\User\\KnowledgeController@getCategory');
             // Stat
             $router->get ('/stat/getTrafficLog', 'V1\\User\\StatController@getTrafficLog');
+            // Card
+            $router->get ('/card/product/fetch', 'V1\\User\\CardController@products');
+            $router->get ('/card/fetchByOrder', 'V1\\User\\CardController@fetchByOrder');
         });
     }
 }
