@@ -129,6 +129,10 @@ class AdminRoute
             $router->get ('/stat/getRanking', 'V1\\Admin\\StatController@getRanking');
             $router->get ('/stat/getStatRecord', 'V1\\Admin\\StatController@getStatRecord');
             $router->get ('/stat/getSubscriptionAnomalies', 'V1\\Admin\\StatController@getSubscriptionAnomalies');
+            $router->post('/stat/ignoreAnomaly', 'V1\\Admin\\StatController@ignoreAnomaly');
+            $router->post('/stat/whitelistUser', 'V1\\Admin\\StatController@whitelistUser');
+            $router->post('/stat/removeWhitelistUser', 'V1\\Admin\\StatController@removeWhitelistUser');
+            $router->post('/stat/saveSubscriptionAuditSettings', 'V1\\Admin\\StatController@saveSubscriptionAuditSettings');
             // Notice
             $router->get ('/notice/fetch', 'V1\\Admin\\NoticeController@fetch');
             $router->post('/notice/save', 'V1\\Admin\\NoticeController@save');

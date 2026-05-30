@@ -119,10 +119,11 @@ class DetectFrequentSubscribers extends Command
         $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
         $abnormalKeywords = ['curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2'];
  
-        // 读取现有的天阙灰名单（蜜罐）用户与白名单用户，用于跳过已处置或白名单用户，防止重复报警
+        // 读取现有的天阙配置、灰名单（蜜罐）用户与白名单用户，用于跳过已处置或白名单用户，防止重复报警
         $configPath = storage_path('tianque_config.json');
         $honeypotUsers = [];
         $whitelistUsers = [];
+        $auditUaEnabled = true;
         if (file_exists($configPath)) {
             $tianqueConfig = json_decode(@file_get_contents($configPath), true);
             if (is_array($tianqueConfig)) {
@@ -131,6 +132,12 @@ class DetectFrequentSubscribers extends Command
                 }
                 if (isset($tianqueConfig['whitelist_users'])) {
                     $whitelistUsers = $tianqueConfig['whitelist_users'];
+                }
+                if (isset($tianqueConfig['ip_limit'])) {
+                    $ipLimit = (int)$tianqueConfig['ip_limit'];
+                }
+                if (isset($tianqueConfig['audit_ua_enabled'])) {
+                    $auditUaEnabled = (bool)$tianqueConfig['audit_ua_enabled'];
                 }
             }
         }
@@ -237,13 +244,15 @@ class DetectFrequentSubscribers extends Command
             // --------------------------------------------------
             $hasAbnormalUa = false;
             $abnormalUaName = '';
-            foreach ($history as $item) {
-                $uaLower = strtolower($item['ua'] ?? ($item['type'] ?? ''));
-                foreach ($abnormalKeywords as $kw) {
-                    if (strpos($uaLower, $kw) !== false) {
-                        $hasAbnormalUa = true;
-                        $abnormalUaName = $item['ua'] ?? $item['type'];
-                        break 2;
+            if ($auditUaEnabled) {
+                foreach ($history as $item) {
+                    $uaLower = strtolower($item['ua'] ?? ($item['type'] ?? ''));
+                    foreach ($abnormalKeywords as $kw) {
+                        if (strpos($uaLower, $kw) !== false) {
+                            $hasAbnormalUa = true;
+                            $abnormalUaName = $item['ua'] ?? $item['type'];
+                            break 2;
+                        }
                     }
                 }
             }

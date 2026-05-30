@@ -304,28 +304,17 @@ class StatController extends Controller
     public function getSubscriptionAnomalies()
     {
         $configPath = storage_path('tianque_config.json');
-        if (!file_exists($configPath)) {
-            return [
-                'data' => []
-            ];
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
         }
 
-        $config = json_decode(@file_get_contents($configPath), true);
-        if (!is_array($config) || !isset($config['flagged_users']) || !is_array($config['flagged_users'])) {
-            return [
-                'data' => []
-            ];
-        }
+        $flaggedUsers = $config['flagged_users'] ?? [];
+        $honeypotUsers = array_map('intval', $config['honeypot_users'] ?? []);
+        $whitelistUsers = $config['whitelist_users'] ?? [];
 
-        $flaggedUsers = $config['flagged_users'];
-        $userIds = array_keys($flaggedUsers);
-
-        $users = User::whereIn('id', $userIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
-
-        $honeypotUsers = [];
-        if (isset($config['honeypot_users'])) {
-            $honeypotUsers = array_map('intval', $config['honeypot_users']);
-        }
+        $flaggedIds = array_keys($flaggedUsers);
+        $users = User::whereIn('id', $flaggedIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
 
         $data = [];
         foreach ($flaggedUsers as $uid => $info) {
@@ -342,6 +331,18 @@ class StatController extends Controller
             $inHoneypot = in_array((int)$uid, $honeypotUsers, true) ? 1 : 0;
             $banned = $user ? (int)$user->banned : 0;
 
+            // Skip if in whitelist
+            $isInWhitelist = false;
+            foreach ($whitelistUsers as $wlItem) {
+                if ($uid == $wlItem || ($user && strtolower($user->email) === strtolower(trim($wlItem)))) {
+                    $isInWhitelist = true;
+                    break;
+                }
+            }
+            if ($isInWhitelist) {
+                continue;
+            }
+
             $data[] = [
                 'user_id' => (int)$uid,
                 'email' => $email,
@@ -349,7 +350,67 @@ class StatController extends Controller
                 'reasons' => $reasons,
                 'in_honeypot' => $inHoneypot,
                 'banned' => $banned,
-                'history' => $history
+                'history' => $history,
+                'type' => 'flagged',
+                'risk_level' => 'high'
+            ];
+        }
+
+        // Suspected Users
+        $abnormalKeywords = ['curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2'];
+        $query = User::where('banned', 0)
+            ->whereNotNull('client_type')
+            ->whereNotIn('id', $flaggedIds);
+        if (!empty($honeypotUsers)) {
+            $query->whereNotIn('id', $honeypotUsers);
+        }
+
+        $query->where(function($q) use ($abnormalKeywords) {
+            foreach ($abnormalKeywords as $kw) {
+                $q->orWhere('client_type', 'like', '%' . $kw . '%');
+            }
+        });
+
+        $suspectedList = $query->limit(30)->get(['id', 'email', 'client_type', 't', 'banned']);
+
+        foreach ($suspectedList as $user) {
+            $isInWhitelist = false;
+            foreach ($whitelistUsers as $wlItem) {
+                if ($user->id == $wlItem || strtolower($user->email) === strtolower(trim($wlItem))) {
+                    $isInWhitelist = true;
+                    break;
+                }
+            }
+            if ($isInWhitelist) {
+                continue;
+            }
+
+            $history = json_decode($user->client_type, true) ?: [];
+            $matchedKeywords = [];
+            foreach ($history as $hItem) {
+                $uaLower = strtolower($hItem['ua'] ?? '');
+                foreach ($abnormalKeywords as $kw) {
+                    if (strpos($uaLower, $kw) !== false) {
+                        $matchedKeywords[] = "拉取记录发现敏感 UA: " . ($hItem['ua'] ?? $kw);
+                    }
+                }
+            }
+            $matchedKeywords = array_values(array_unique($matchedKeywords));
+
+            if (empty($matchedKeywords)) {
+                continue;
+            }
+
+            $data[] = [
+                'user_id' => (int)$user->id,
+                'email' => $user->email,
+                'flagged_at' => $user->t ?: time(),
+                'reasons' => $matchedKeywords,
+                'in_honeypot' => 0,
+                'banned' => (int)$user->banned,
+                'history' => $history,
+                'type' => 'suspected',
+                'risk_level' => 'low'
             ];
         }
 
@@ -358,8 +419,134 @@ class StatController extends Controller
         });
 
         return [
-            'data' => $data
+            'data' => [
+                'list' => $data,
+                'whitelist' => array_values($whitelistUsers),
+                'config' => [
+                    'ip_limit' => isset($config['ip_limit']) ? (int)$config['ip_limit'] : 10,
+                    'audit_ua_enabled' => isset($config['audit_ua_enabled']) ? (bool)$config['audit_ua_enabled'] : true
+                ]
+            ]
         ];
+    }
+
+    public function ignoreAnomaly(Request $request)
+    {
+        $userId = (string)$request->input('id');
+        $configPath = storage_path('tianque_config.json');
+        if (!file_exists($configPath)) {
+            abort(500, '配置文件不存在');
+        }
+
+        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        if (isset($config['flagged_users'][$userId])) {
+            unset($config['flagged_users'][$userId]);
+            @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        }
+
+        return response([
+            'data' => true
+        ]);
+    }
+
+    public function whitelistUser(Request $request)
+    {
+        $userId = $request->input('id');
+        $identity = trim($request->input('identity'));
+
+        $configPath = storage_path('tianque_config.json');
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        }
+
+        if (!isset($config['whitelist_users']) || !is_array($config['whitelist_users'])) {
+            $config['whitelist_users'] = [];
+        }
+
+        if ($userId) {
+            $user = User::find((int)$userId);
+            $wlIdentity = $user ? $user->email : (string)$userId;
+            
+            // Add to whitelist
+            if (!in_array($wlIdentity, $config['whitelist_users'])) {
+                $config['whitelist_users'][] = $wlIdentity;
+            }
+
+            // Remove from flagged_users
+            if (isset($config['flagged_users'][(string)$userId])) {
+                unset($config['flagged_users'][(string)$userId]);
+            }
+        } elseif ($identity) {
+            // Check if it matches any user ID to clean flagged_users
+            $user = null;
+            if (is_numeric($identity)) {
+                $user = User::find((int)$identity);
+                $userIdStr = (string)$identity;
+            } else {
+                $user = User::where('email', $identity)->first();
+                $userIdStr = $user ? (string)$user->id : null;
+            }
+
+            $wlIdentity = $identity;
+            if (!in_array($wlIdentity, $config['whitelist_users'])) {
+                $config['whitelist_users'][] = $wlIdentity;
+            }
+
+            if ($userIdStr && isset($config['flagged_users'][$userIdStr])) {
+                unset($config['flagged_users'][$userIdStr]);
+            }
+        }
+
+        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        return response([
+            'data' => true
+        ]);
+    }
+
+    public function removeWhitelistUser(Request $request)
+    {
+        $identity = trim($request->input('identity'));
+        $configPath = storage_path('tianque_config.json');
+        if (!file_exists($configPath)) {
+            abort(500, '配置文件不存在');
+        }
+
+        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        if (isset($config['whitelist_users']) && is_array($config['whitelist_users'])) {
+            $key = array_search($identity, $config['whitelist_users']);
+            if ($key !== false) {
+                unset($config['whitelist_users'][$key]);
+                $config['whitelist_users'] = array_values($config['whitelist_users']);
+                @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            }
+        }
+
+        return response([
+            'data' => true
+        ]);
+    }
+
+    public function saveSubscriptionAuditSettings(Request $request)
+    {
+        $ipLimit = (int)$request->input('ip_limit', 10);
+        $auditUaEnabled = (bool)$request->input('audit_ua_enabled', true);
+
+        $configPath = storage_path('tianque_config.json');
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        }
+
+        $config['ip_limit'] = $ipLimit;
+        $config['audit_ua_enabled'] = $auditUaEnabled;
+
+        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        return response([
+            'data' => true
+        ]);
     }
 }
 
