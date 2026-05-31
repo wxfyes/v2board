@@ -148,6 +148,7 @@ class OrderService
             if (!(int)config('v2board.plan_change_enable', 1)) abort(500, '目前不允许更改订阅，请联系客服或提交工单操作');
             $order->type = 3;
             if ((int)config('v2board.surplus_enable', 1)) $this->getSurplusValue($user, $order);
+            $order->surplus_amount = (int)($order->surplus_amount ?? 0);
             if ($order->surplus_amount >= $order->total_amount) {
                 $order->refund_amount = $order->surplus_amount - $order->total_amount;
                 $order->total_amount = 0;
@@ -242,6 +243,7 @@ class OrderService
             ->where('period', '!=', 'reset_price')
             ->where('period', '!=', 'onetime_price')
             ->where('period', '!=', 'deposit')
+            ->where('period', '!=', 'card')
             ->where('status', 3)
             ->get()
             ->toArray();
@@ -250,12 +252,13 @@ class OrderService
         $orderMonthSum = 0;
         $lastValidateAt = null;
         foreach ($orders as $item) {
+            if (!isset(self::STR_TO_TIME[$item['period']])) continue;
             $period = self::STR_TO_TIME[$item['period']];
             $orderEndTime = strtotime("+{$period} month", $item['created_at']);
             if ($orderEndTime < time()) continue;
             $lastValidateAt = $item['created_at'] > $lastValidateAt ? $item['created_at'] : $lastValidateAt;
             $orderMonthSum += $period;
-            $orderAmountSum += $item['total_amount'] + $item['balance_amount'] + $item['surplus_amount'] - $item['refund_amount'];
+            $orderAmountSum += $item['total_amount'] + $item['balance_amount'] + (int)($item['surplus_amount'] ?? 0) - (int)($item['refund_amount'] ?? 0);
         }
         if ($lastValidateAt === null) return;
     
