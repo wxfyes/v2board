@@ -149,8 +149,8 @@ class OrderService
             $order->type = 3;
             if ((int)config('v2board.surplus_enable', 1)) $this->getSurplusValue($user, $order);
             $order->surplus_amount = (int)($order->surplus_amount ?? 0);
+            $order->refund_amount = 0;
             if ($order->surplus_amount >= $order->total_amount) {
-                $order->refund_amount = 0;
                 $order->total_amount = 0;
             } else {
                 $order->total_amount = $order->total_amount - $order->surplus_amount;
@@ -256,7 +256,7 @@ class OrderService
             if ($orderEndTime < time()) continue;
             $lastValidateAt = $item['created_at'] > $lastValidateAt ? $item['created_at'] : $lastValidateAt;
             $orderMonthSum += $period;
-            $orderAmountSum += $item['total_amount'] + $item['balance_amount'] + $item['surplus_amount'] - $item['refund_amount'];
+            $orderAmountSum += $item['total_amount'] + $item['balance_amount'] + (int)($item['surplus_amount'] ?? 0) - (int)($item['refund_amount'] ?? 0);
         }
         if ($lastValidateAt === null) return;
     
