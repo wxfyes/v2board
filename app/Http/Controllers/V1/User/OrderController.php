@@ -293,6 +293,8 @@ class OrderController extends Controller
             return response([
                 'data' => $order->trade_no
             ]);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             abort(500, 'Order save error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
         }
