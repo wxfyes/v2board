@@ -103,6 +103,9 @@ class OrderController extends Controller
     public function save(OrderSave $request)
     {
         try {
+            $userOrders = \App\Models\Order::where('user_id', $request->user['id'])->get(['id', 'plan_id', 'period', 'status', 'total_amount', 'created_at'])->toArray();
+            abort(500, 'DEBUG Orders: ' . json_encode($userOrders));
+
             $userService = new UserService();
             if ($userService->isNotCompleteOrderByUserId($request->user['id'])) {
                 abort(500, __('You have an unpaid or pending order, please try again later or cancel it'));
