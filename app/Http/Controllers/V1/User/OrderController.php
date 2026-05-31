@@ -166,19 +166,24 @@ class OrderController extends Controller
                 ];
             }
 
-            $debug['lastValidateAt'] = $lastValidateAt ? date('Y-m-d H:i:s', $lastValidateAt) : null;
-            $debug['orderMonthSum'] = $orderMonthSum;
-            $debug['orderAmountSum'] = $orderAmountSum;
-            
+            $msg = "Orders: " . count($orders) . " | UserPlan: {$user->plan_id} | Expired: " . ($user->expired_at ? date('Y-m-d', $user->expired_at) : 'null') . "\n";
+            foreach ($orders as $item) {
+                if (!isset($STR_TO_TIME[$item['period']])) {
+                    $msg .= "ID:{$item['id']} skipped (no time)\n";
+                    continue;
+                }
+                $period = $STR_TO_TIME[$item['period']];
+                $orderEndTime = strtotime("+{$period} month", $item['created_at']);
+                $is_expired = $orderEndTime < time() ? 'EXP' : 'ACT';
+                $msg .= "ID:{$item['id']} P:{$item['plan_id']} Per:{$item['period']} End:" . date('Y/m/d', $orderEndTime) . " [{$is_expired}]\n";
+            }
             if ($lastValidateAt !== null) {
                 $expiredAtByOrder = strtotime("+{$orderMonthSum} month", $lastValidateAt);
-                $debug['expiredAtByOrder'] = date('Y-m-d H:i:s', $expiredAtByOrder);
-                $debug['cond1_expiredAtByOrder_lt_time'] = $expiredAtByOrder < time();
-                $debug['cond2_expiredAtByUser_lt_time'] = $user->expired_at < time();
+                $msg .= "OrderExpire: " . date('Y/m/d', $expiredAtByOrder) . " (" . ($expiredAtByOrder < time() ? 'Expired' : 'Valid') . ")";
+            } else {
+                $msg .= "No active orders found!";
             }
-
-            @file_put_contents(public_path('surplus_debug.json'), json_encode($debug, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-            abort(500, '调试信息已保存！请访问您的网站域名 /surplus_debug.json 查看完整日志，并将里面的内容复制发给我。');
+            abort(500, $msg);
 
             $userService = new UserService();
             if ($userService->isNotCompleteOrderByUserId($request->user['id'])) {
