@@ -177,7 +177,8 @@ class OrderController extends Controller
                 $debug['cond2_expiredAtByUser_lt_time'] = $user->expired_at < time();
             }
 
-            abort(500, 'DEBUG Surplus Calc: ' . json_encode($debug));
+            @file_put_contents(public_path('surplus_debug.json'), json_encode($debug, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            abort(500, '调试信息已保存！请访问您的网站域名 /surplus_debug.json 查看完整日志，并将里面的内容复制发给我。');
 
             $userService = new UserService();
             if ($userService->isNotCompleteOrderByUserId($request->user['id'])) {
