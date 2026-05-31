@@ -103,8 +103,81 @@ class OrderController extends Controller
     public function save(OrderSave $request)
     {
         try {
-            $userOrders = \App\Models\Order::where('user_id', $request->user['id'])->get(['id', 'plan_id', 'period', 'status', 'total_amount', 'created_at'])->toArray();
-            abort(500, 'DEBUG Orders: ' . json_encode($userOrders));
+            $user = User::find($request->user['id']);
+            $orders = Order::where('user_id', $user->id)
+                ->where('period', '!=', 'reset_price')
+                ->where('period', '!=', 'onetime_price')
+                ->where('period', '!=', 'deposit')
+                ->where('period', '!=', 'card')
+                ->where('status', 3)
+                ->get()
+                ->toArray();
+            
+            $debug = [
+                'user_plan_id' => $user->plan_id,
+                'user_expired_at' => $user->expired_at ? date('Y-m-d H:i:s', $user->expired_at) : null,
+                'current_time' => date('Y-m-d H:i:s'),
+                'orders_found' => count($orders),
+                'order_details' => []
+            ];
+
+            $orderAmountSum = 0;
+            $orderMonthSum = 0;
+            $lastValidateAt = null;
+            $STR_TO_TIME = [
+                'month_price' => 1,
+                'quarter_price' => 3,
+                'half_year_price' => 6,
+                'year_price' => 12,
+                'two_year_price' => 24,
+                'three_year_price' => 36
+            ];
+
+            foreach ($orders as $item) {
+                if (!isset($STR_TO_TIME[$item['period']])) {
+                    $debug['order_details'][] = [
+                        'id' => $item['id'],
+                        'period' => $item['period'],
+                        'status' => 'skipped (not in STR_TO_TIME)'
+                    ];
+                    continue;
+                }
+                $period = $STR_TO_TIME[$item['period']];
+                $orderEndTime = strtotime("+{$period} month", $item['created_at']);
+                $is_expired = $orderEndTime < time();
+                
+                if (!$is_expired) {
+                    $lastValidateAt = $item['created_at'] > $lastValidateAt ? $item['created_at'] : $lastValidateAt;
+                    $orderMonthSum += $period;
+                    $orderAmountSum += $item['total_amount'] + $item['balance_amount'] + (int)($item['surplus_amount'] ?? 0) - (int)($item['refund_amount'] ?? 0);
+                }
+
+                $debug['order_details'][] = [
+                    'id' => $item['id'],
+                    'plan_id' => $item['plan_id'],
+                    'period' => $item['period'],
+                    'created_at' => date('Y-m-d H:i:s', $item['created_at']),
+                    'end_time' => date('Y-m-d H:i:s', $orderEndTime),
+                    'total_amount' => $item['total_amount'],
+                    'balance_amount' => $item['balance_amount'],
+                    'surplus_amount' => $item['surplus_amount'],
+                    'refund_amount' => $item['refund_amount'],
+                    'skipped' => $is_expired
+                ];
+            }
+
+            $debug['lastValidateAt'] = $lastValidateAt ? date('Y-m-d H:i:s', $lastValidateAt) : null;
+            $debug['orderMonthSum'] = $orderMonthSum;
+            $debug['orderAmountSum'] = $orderAmountSum;
+            
+            if ($lastValidateAt !== null) {
+                $expiredAtByOrder = strtotime("+{$orderMonthSum} month", $lastValidateAt);
+                $debug['expiredAtByOrder'] = date('Y-m-d H:i:s', $expiredAtByOrder);
+                $debug['cond1_expiredAtByOrder_lt_time'] = $expiredAtByOrder < time();
+                $debug['cond2_expiredAtByUser_lt_time'] = $user->expired_at < time();
+            }
+
+            abort(500, 'DEBUG Surplus Calc: ' . json_encode($debug));
 
             $userService = new UserService();
             if ($userService->isNotCompleteOrderByUserId($request->user['id'])) {
