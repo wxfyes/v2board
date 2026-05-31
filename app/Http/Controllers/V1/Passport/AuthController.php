@@ -354,6 +354,7 @@ class AuthController extends Controller
                     $user = new User();
                     $user->email = $email;
                     $user->password = password_hash(Helper::guid(16), PASSWORD_DEFAULT);
+                    $user->password_salt = 'social';
                     $user->uuid = Helper::guid(true);
                     $user->token = Helper::guid();
 

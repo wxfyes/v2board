@@ -149,7 +149,7 @@ class OrderService
             $order->type = 3;
             if ((int)config('v2board.surplus_enable', 1)) $this->getSurplusValue($user, $order);
             if ($order->surplus_amount >= $order->total_amount) {
-                $order->refund_amount = $order->surplus_amount - $order->total_amount;
+                $order->refund_amount = 0;
                 $order->total_amount = 0;
             } else {
                 $order->total_amount = $order->total_amount - $order->surplus_amount;

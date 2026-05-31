@@ -290,13 +290,16 @@ class UserController extends Controller
                 'discount',
                 'commission_rate',
                 'telegram_id',
-                'uuid'
+                'uuid',
+                'password_salt'
             ])
             ->first();
         if (!$user) {
             abort(500, __('The user does not exist'));
         }
         $user['avatar_url'] = 'https://cravatar.cn/avatar/' . md5($user->email) . '?s=64&d=identicon';
+        $user['need_set_password'] = ($user->password_salt === 'social');
+        unset($user['password_salt']);
         return response([
             'data' => $user
         ]);
