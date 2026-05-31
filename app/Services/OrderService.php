@@ -146,6 +146,13 @@ class OrderService
             $order->type = 4;
         } else if ($user->plan_id !== NULL && $order->plan_id !== $user->plan_id && ($user->expired_at > time() || $user->expired_at === NULL)) {
             if (!(int)config('v2board.plan_change_enable', 1)) abort(500, '目前不允许更改订阅，请联系客服或提交工单操作');
+            
+            $remainingTraffic = $user->transfer_enable - ($user->u + $user->d);
+            $threshold = min(2 * 1073741824, $user->transfer_enable * 0.05);
+            if ($remainingTraffic <= $threshold || $remainingTraffic <= 0) {
+                abort(500, '您的剩余流量已不足，无法进行更换套餐操作。您可以选择“重置流量”或“提前开启下期流量”来获取流量。');
+            }
+
             $order->type = 3;
             if ((int)config('v2board.surplus_enable', 1)) $this->getSurplusValue($user, $order);
             $order->surplus_amount = (int)($order->surplus_amount ?? 0);
