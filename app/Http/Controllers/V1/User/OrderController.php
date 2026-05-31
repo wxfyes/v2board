@@ -102,29 +102,152 @@ class OrderController extends Controller
 
     public function save(OrderSave $request)
     {
-        $userService = new UserService();
-        if ($userService->isNotCompleteOrderByUserId($request->user['id'])) {
-            abort(500, __('You have an unpaid or pending order, please try again later or cancel it'));
-        }
-        if ($request->input('period') === 'card') {
-            $product = \App\Models\CardProduct::find($request->input('plan_id'));
-            if (!$product || !$product->show) {
-                abort(500, '商品不存在或已下架');
+        try {
+            $userService = new UserService();
+            if ($userService->isNotCompleteOrderByUserId($request->user['id'])) {
+                abort(500, __('You have an unpaid or pending order, please try again later or cancel it'));
             }
-            $stock = \App\Models\Card::where('product_id', $product->id)->where('status', 0)->count();
-            if ($stock <= 0) {
-                abort(500, '该商品暂时缺货');
+            if ($request->input('period') === 'card') {
+                $product = \App\Models\CardProduct::find($request->input('plan_id'));
+                if (!$product || !$product->show) {
+                    abort(500, '商品不存在或已下架');
+                }
+                $stock = \App\Models\Card::where('product_id', $product->id)->where('status', 0)->count();
+                if ($stock <= 0) {
+                    abort(500, '该商品暂时缺货');
+                }
+
+                DB::beginTransaction();
+                $order = new Order();
+                $orderService = new OrderService($order);
+                $order->user_id = $request->user['id'];
+                $order->plan_id = $product->id;
+                $order->period = 'card';
+                $order->trade_no = Helper::generateOrderNo();
+                $order->total_amount = $product->price;
+                $order->type = 5;
+
+                if ($request->input('coupon_code')) {
+                    $couponService = new CouponService($request->input('coupon_code'));
+                    if (!$couponService->use($order)) {
+                        DB::rollBack();
+                        abort(500, __('Coupon failed'));
+                    }
+                    $order->coupon_id = $couponService->getId();
+                }
+
+                $user = User::find($request->user['id']);
+                if ($user->balance > 0 && $order->total_amount > 0) {
+                    $remainingBalance = $user->balance - $order->total_amount;
+                    $userService = new UserService();
+                    if ($remainingBalance > 0) {
+                        if (!$userService->addBalance($order->user_id, - $order->total_amount)) {
+                            DB::rollBack();
+                            abort(500, __('Insufficient balance'));
+                        }
+                        $order->balance_amount = $order->total_amount;
+                        $order->total_amount = 0;
+                    } else {
+                        if (!$userService->addBalance($order->user_id, - $user->balance)) {
+                            DB::rollBack();
+                            abort(500, __('Insufficient balance'));
+                        }
+                        $order->balance_amount = $user->balance;
+                        $order->total_amount -= $user->balance;
+                    }
+                }
+
+                $orderService->setInvite($user);
+
+                if (!$order->save()) {
+                    DB::rollback();
+                    abort(500, __('Failed to create order'));
+                }
+
+                DB::commit();
+
+                return response([
+                    'data' => $order->trade_no
+                ]);
+            }
+            if ($request->input('plan_id') == 0) {
+                $amount = $request->input('deposit_amount');
+                if ($amount <= 0) {
+                    abort(500, __('Failed to create order, deposit amount must be greater than 0'));
+                }
+                if ($amount >= 9999999 ) {
+                    abort(500, __('Deposit amount too large, please contact the administrator'));
+                }
+                $user = User::find($request->user['id']);
+                DB::beginTransaction();
+                $order = new Order();
+                $orderService = new OrderService($order);
+                $order->user_id = $request->user['id'];
+                $order->plan_id = $request->input('plan_id');
+                $order->period = 'deposit';
+                $order->trade_no = Helper::generateOrderNo();
+                $order->total_amount = $amount;
+                
+                $orderService->setOrderType($user);
+                $orderService->setInvite($user);
+
+                if (!$order->save()) {
+                    DB::rollback();
+                    abort(500, __('Failed to create order'));
+                }
+        
+                DB::commit();
+        
+                return response([
+                    'data' => $order->trade_no
+                ]);
+            }
+            $planService = new PlanService($request->input('plan_id'));
+
+            $plan = $planService->plan;
+            $user = User::find($request->user['id']);
+
+            if (!$plan) {
+                abort(500, __('Subscription plan does not exist'));
+            }
+
+            if ($user->plan_id !== $plan->id && !$planService->haveCapacity() && $request->input('period') !== 'reset_price') {
+                abort(500, __('Current product is sold out'));
+            }
+
+            if ($plan[$request->input('period')] === NULL) {
+                abort(500, __('This payment period cannot be purchased, please choose another period'));
+            }
+
+            if ($request->input('period') === 'reset_price') {
+                if (!$userService->isAvailable($user) || $plan->id !== $user->plan_id) {
+                    abort(500, __('Subscription has expired or no active subscription, unable to purchase Data Reset Package'));
+                }
+            }
+
+            if ((!$plan->show && !$plan->renew) || (!$plan->show && $user->plan_id !== $plan->id)) {
+                if ($request->input('period') !== 'reset_price') {
+                    abort(500, __('This subscription has been sold out, please choose another subscription'));
+                }
+            }
+
+            if (!$plan->renew && $user->plan_id == $plan->id && $request->input('period') !== 'reset_price') {
+                abort(500, __('This subscription cannot be renewed, please change to another subscription'));
+            }
+
+
+            if (!$plan->show && $plan->renew && !$userService->isAvailable($user)) {
+                abort(500, __('This subscription has expired, please change to another subscription'));
             }
 
             DB::beginTransaction();
             $order = new Order();
             $orderService = new OrderService($order);
             $order->user_id = $request->user['id'];
-            $order->plan_id = $product->id;
-            $order->period = 'card';
+            $order->plan_id = $plan->id;
+            $order->period = $request->input('period');
             $order->trade_no = Helper::generateOrderNo();
-            $order->total_amount = $product->price;
-            $order->type = 5;
+            $order->total_amount = $plan[$request->input('period')];
 
             if ($request->input('coupon_code')) {
                 $couponService = new CouponService($request->input('coupon_code'));
@@ -135,7 +258,9 @@ class OrderController extends Controller
                 $order->coupon_id = $couponService->getId();
             }
 
-            $user = User::find($request->user['id']);
+            $orderService->setVipDiscount($user);
+            $orderService->setOrderType($user);
+
             if ($user->balance > 0 && $order->total_amount > 0) {
                 $remainingBalance = $user->balance - $order->total_amount;
                 $userService = new UserService();
@@ -168,130 +293,9 @@ class OrderController extends Controller
             return response([
                 'data' => $order->trade_no
             ]);
+        } catch (\Throwable $e) {
+            abort(500, 'Order save error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
         }
-        if ($request->input('plan_id') == 0) {
-            $amount = $request->input('deposit_amount');
-            if ($amount <= 0) {
-                abort(500, __('Failed to create order, deposit amount must be greater than 0'));
-            }
-            if ($amount >= 9999999 ) {
-                abort(500, __('Deposit amount too large, please contact the administrator'));
-            }
-            $user = User::find($request->user['id']);
-            DB::beginTransaction();
-            $order = new Order();
-            $orderService = new OrderService($order);
-            $order->user_id = $request->user['id'];
-            $order->plan_id = $request->input('plan_id');
-            $order->period = 'deposit';
-            $order->trade_no = Helper::generateOrderNo();
-            $order->total_amount = $amount;
-            
-            $orderService->setOrderType($user);
-            $orderService->setInvite($user);
-
-            if (!$order->save()) {
-                DB::rollback();
-                abort(500, __('Failed to create order'));
-            }
-    
-            DB::commit();
-    
-            return response([
-                'data' => $order->trade_no
-            ]);
-        }
-        $planService = new PlanService($request->input('plan_id'));
-
-        $plan = $planService->plan;
-        $user = User::find($request->user['id']);
-
-        if (!$plan) {
-            abort(500, __('Subscription plan does not exist'));
-        }
-
-        if ($user->plan_id !== $plan->id && !$planService->haveCapacity() && $request->input('period') !== 'reset_price') {
-            abort(500, __('Current product is sold out'));
-        }
-
-        if ($plan[$request->input('period')] === NULL) {
-            abort(500, __('This payment period cannot be purchased, please choose another period'));
-        }
-
-        if ($request->input('period') === 'reset_price') {
-            if (!$userService->isAvailable($user) || $plan->id !== $user->plan_id) {
-                abort(500, __('Subscription has expired or no active subscription, unable to purchase Data Reset Package'));
-            }
-        }
-
-        if ((!$plan->show && !$plan->renew) || (!$plan->show && $user->plan_id !== $plan->id)) {
-            if ($request->input('period') !== 'reset_price') {
-                abort(500, __('This subscription has been sold out, please choose another subscription'));
-            }
-        }
-
-        if (!$plan->renew && $user->plan_id == $plan->id && $request->input('period') !== 'reset_price') {
-            abort(500, __('This subscription cannot be renewed, please change to another subscription'));
-        }
-
-
-        if (!$plan->show && $plan->renew && !$userService->isAvailable($user)) {
-            abort(500, __('This subscription has expired, please change to another subscription'));
-        }
-
-        DB::beginTransaction();
-        $order = new Order();
-        $orderService = new OrderService($order);
-        $order->user_id = $request->user['id'];
-        $order->plan_id = $plan->id;
-        $order->period = $request->input('period');
-        $order->trade_no = Helper::generateOrderNo();
-        $order->total_amount = $plan[$request->input('period')];
-
-        if ($request->input('coupon_code')) {
-            $couponService = new CouponService($request->input('coupon_code'));
-            if (!$couponService->use($order)) {
-                DB::rollBack();
-                abort(500, __('Coupon failed'));
-            }
-            $order->coupon_id = $couponService->getId();
-        }
-
-        $orderService->setVipDiscount($user);
-        $orderService->setOrderType($user);
-
-        if ($user->balance > 0 && $order->total_amount > 0) {
-            $remainingBalance = $user->balance - $order->total_amount;
-            $userService = new UserService();
-            if ($remainingBalance > 0) {
-                if (!$userService->addBalance($order->user_id, - $order->total_amount)) {
-                    DB::rollBack();
-                    abort(500, __('Insufficient balance'));
-                }
-                $order->balance_amount = $order->total_amount;
-                $order->total_amount = 0;
-            } else {
-                if (!$userService->addBalance($order->user_id, - $user->balance)) {
-                    DB::rollBack();
-                    abort(500, __('Insufficient balance'));
-                }
-                $order->balance_amount = $user->balance;
-                $order->total_amount -= $user->balance;
-            }
-        }
-
-        $orderService->setInvite($user);
-
-        if (!$order->save()) {
-            DB::rollback();
-            abort(500, __('Failed to create order'));
-        }
-
-        DB::commit();
-
-        return response([
-            'data' => $order->trade_no
-        ]);
     }
 
     public function checkout(Request $request)
