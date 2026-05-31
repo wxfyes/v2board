@@ -77,6 +77,19 @@ class ClashMeta
         }
 
         $config['proxies'] = array_merge($config['proxies'] ? $config['proxies'] : [], $proxy);
+        if (empty($proxies)) {
+            $dummy = [
+                'name' => '⚠️ 当前节点不支持老旧客户端，请更新最新版或天阙专用客户端',
+                'type' => 'ss',
+                'server' => '127.0.0.1',
+                'port' => 10086,
+                'cipher' => 'aes-128-gcm',
+                'password' => $user['uuid'],
+                'udp' => true
+            ];
+            $config['proxies'][] = $dummy;
+            $proxies[] = $dummy['name'];
+        }
         foreach ($config['proxy-groups'] as $k => $v) {
             if (!is_array($config['proxy-groups'][$k]['proxies'])) $config['proxy-groups'][$k]['proxies'] = [];
             $isFilter = false;

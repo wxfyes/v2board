@@ -155,6 +155,32 @@ class OrderService
                 ->where('status', 3)
                 ->orderBy('id', 'DESC')
                 ->first();
+
+            // 降级拦截逻辑
+            if ($lastActiveOrder) {
+                // 1. 周期长度降级限制 (例如年付/季付降级为月付)
+                $currentPeriodMonths = self::STR_TO_TIME[$lastActiveOrder->period] ?? null;
+                $newPeriodMonths = self::STR_TO_TIME[$order->period] ?? null;
+                if ($currentPeriodMonths && $newPeriodMonths && $newPeriodMonths < $currentPeriodMonths) {
+                    abort(500, '抱歉，您的当前订阅为长期套餐，不支持直接更换为更短周期的套餐。');
+                }
+
+                // 2. 套餐等效月单价降级限制 (防止高价套餐变更为低价套餐)
+                $lastActivePlan = Plan::find($lastActiveOrder->plan_id);
+                $newPlan = Plan::find($order->plan_id);
+                if ($lastActivePlan && $newPlan) {
+                    $oldPrice = $lastActivePlan[$lastActiveOrder->period] ?? null;
+                    $newPrice = $newPlan[$order->period] ?? null;
+                    if ($currentPeriodMonths && $newPeriodMonths && $oldPrice !== null && $newPrice !== null) {
+                        $oldMonthlyPrice = $oldPrice / $currentPeriodMonths;
+                        $newMonthlyPrice = $newPrice / $newPeriodMonths;
+                        if ($newMonthlyPrice < $oldMonthlyPrice) {
+                            abort(500, '抱歉，当前套餐不支持直接降级更换为低价套餐。');
+                        }
+                    }
+                }
+            }
+
             if ($lastActiveOrder && $lastActiveOrder->period !== 'month_price') {
                 $remainingTraffic = $user->transfer_enable - ($user->u + $user->d);
                 $threshold = min(2 * 1073741824, $user->transfer_enable * 0.05);
