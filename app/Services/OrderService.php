@@ -158,14 +158,10 @@ class OrderService
 
             // 降级拦截逻辑
             if ($lastActiveOrder) {
-                // 1. 周期长度降级限制 (例如年付/季付降级为月付)
                 $currentPeriodMonths = self::STR_TO_TIME[$lastActiveOrder->period] ?? null;
                 $newPeriodMonths = self::STR_TO_TIME[$order->period] ?? null;
-                if ($currentPeriodMonths && $newPeriodMonths && $newPeriodMonths < $currentPeriodMonths) {
-                    abort(500, '抱歉，您的当前订阅为长期套餐，不支持直接更换为更短周期的套餐。');
-                }
 
-                // 2. 套餐等效月单价降级限制 (防止高价套餐变更为低价套餐)
+                // 套餐等效月单价降级限制 (防止高价套餐变更为低价套餐)
                 $lastActivePlan = Plan::find($lastActiveOrder->plan_id);
                 $newPlan = Plan::find($order->plan_id);
                 if ($lastActivePlan && $newPlan) {
@@ -192,6 +188,16 @@ class OrderService
             $order->type = 3;
             if ((int)config('v2board.surplus_enable', 1)) $this->getSurplusValue($user, $order);
             $order->surplus_amount = (int)($order->surplus_amount ?? 0);
+
+            // 如果是长周期换短周期，余额不退，折抵金额最多不能超过新订单的支付总额
+            if ($lastActiveOrder) {
+                $currentPeriodMonths = self::STR_TO_TIME[$lastActiveOrder->period] ?? null;
+                $newPeriodMonths = self::STR_TO_TIME[$order->period] ?? null;
+                if ($currentPeriodMonths && $newPeriodMonths && $newPeriodMonths < $currentPeriodMonths) {
+                    $order->surplus_amount = min($order->surplus_amount, $order->total_amount);
+                }
+            }
+
             if ($order->surplus_amount >= $order->total_amount) {
                 $order->refund_amount = $order->surplus_amount - $order->total_amount;
                 $order->total_amount = 0;
