@@ -148,6 +148,7 @@ class OrderService
             if (!(int)config('v2board.plan_change_enable', 1)) abort(500, '目前不允许更改订阅，请联系客服或提交工单操作');
             $order->type = 3;
             if ((int)config('v2board.surplus_enable', 1)) $this->getSurplusValue($user, $order);
+            $order->surplus_amount = (int)($order->surplus_amount ?? 0);
             if ($order->surplus_amount >= $order->total_amount) {
                 $order->refund_amount = 0;
                 $order->total_amount = 0;
