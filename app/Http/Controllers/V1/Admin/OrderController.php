@@ -23,7 +23,7 @@ class OrderController extends Controller
         if ($request->input('filter')) {
             foreach ($request->input('filter') as $filter) {
                 if ($filter['key'] === 'email') {
-                    $user = User::where('email', "%{$filter['value']}%")->first();
+                    $user = User::where('email', 'like', "%{$filter['value']}%")->first();
                     if (!$user) continue;
                     $builder->where('user_id', $user->id);
                     continue;
