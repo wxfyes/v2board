@@ -19,6 +19,9 @@ class Shadowrocket
     public function handle()
     {
         $user = $this->user;
+        
+        // 设置标准订阅信息头部，让小火箭或 Deno 代理能正确识别和转发流量信息
+        header("subscription-userinfo: upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}");
 
         $uri = '';
         //display remaining traffic and expire date
