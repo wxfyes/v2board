@@ -171,7 +171,7 @@ class OrderService
                     if ($currentPeriodMonths && $newPeriodMonths && $oldPrice !== null && $newPrice !== null) {
                         $oldMonthlyPrice = $oldPrice / $currentPeriodMonths;
                         $newMonthlyPrice = $newPrice / $newPeriodMonths;
-                        if ($newMonthlyPrice < $oldMonthlyPrice) {
+                        if ($lastActiveOrder->period !== 'month_price' && $newMonthlyPrice < $oldMonthlyPrice) {
                             abort(500, '抱歉，当前套餐不支持直接降级更换为低价套餐。');
                         }
                         if ($newMonthlyPrice >= $oldMonthlyPrice) {
