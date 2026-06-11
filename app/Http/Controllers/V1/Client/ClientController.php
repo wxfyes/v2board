@@ -25,8 +25,9 @@ class ClientController extends Controller
         // 检测是否是通过小火箭专属订阅域名拉取，或者是 Deno 代理中转
         $isShadowrocketRoute = false;
         
-        // 1. 检查 User-Agent 是否含有 deno
-        if (stripos($request->header('User-Agent') ?? '', 'deno') !== false) {
+        // 1. 检查 User-Agent 是否含有 deno，或者 cdn-loop 头部是否含有 deno
+        if (stripos($request->header('User-Agent') ?? '', 'deno') !== false
+            || stripos($request->header('cdn-loop') ?? '', 'deno') !== false) {
             $isShadowrocketRoute = true;
         }
         
