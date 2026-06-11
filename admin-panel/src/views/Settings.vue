@@ -25,6 +25,9 @@
             <el-form-item label="自定义订阅地址">
               <el-input v-model="configData.site.subscribe_url" placeholder="留空默认使用站点URL，多域名用英文逗号分隔" />
             </el-form-item>
+            <el-form-item label="小火箭订阅地址">
+              <el-input v-model="configData.site.subscribe_url_shadowrocket" placeholder="留空默认使用上述自定义订阅地址，专门提供给 iOS/小火箭等客户端" />
+            </el-form-item>
             <el-form-item label="LOGO 图片 URL">
               <el-input v-model="configData.site.logo" placeholder="站点 Logo 的网络地址" />
             </el-form-item>
@@ -255,6 +258,7 @@ const configData = reactive({
     app_description: '',
     app_url: '',
     subscribe_url: '',
+    subscribe_url_shadowrocket: '',
     logo: '',
     force_https: 0,
     stop_register: 0,
