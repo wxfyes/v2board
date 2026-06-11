@@ -47,8 +47,11 @@ class ClientController extends Controller
             }
             
             if (!empty($shadowrocketHosts)) {
-                $currentHost = strtolower($request->header('Host') ?? '');
-                $forwardedHost = strtolower($request->header('X-Forwarded-Host') ?? '');
+                $currentHost = strtolower($request->getHost());
+                $forwardedHost = $request->header('X-Forwarded-Host') ?? '';
+                if (!empty($forwardedHost)) {
+                    $forwardedHost = strtolower(explode(':', $forwardedHost)[0]);
+                }
                 
                 foreach ($shadowrocketHosts as $srHost) {
                     if ($currentHost === $srHost || $forwardedHost === $srHost) {
