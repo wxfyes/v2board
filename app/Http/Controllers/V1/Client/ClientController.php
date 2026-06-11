@@ -17,7 +17,8 @@ class ClientController extends Controller
     public function subscribe(Request $request)
     {
         $flag = $request->input('flag')
-            ?? ($_SERVER['HTTP_USER_AGENT'] ?? '');
+            ?? $request->header('User-Agent')
+            ?? '';
         $flag = strtolower($flag);
         $user = $request->user;
 
@@ -25,7 +26,7 @@ class ClientController extends Controller
         $isShadowrocketRoute = false;
         
         // 1. 检查 User-Agent 是否含有 deno
-        if (stripos($_SERVER['HTTP_USER_AGENT'] ?? '', 'deno') !== false) {
+        if (stripos($request->header('User-Agent') ?? '', 'deno') !== false) {
             $isShadowrocketRoute = true;
         }
         
