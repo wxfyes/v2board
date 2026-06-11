@@ -14,12 +14,17 @@
             @keyup.enter="handleSearch"
           />
           
-          <el-select v-model="filterStatus" placeholder="订单状态" clearable style="width: 140px" @change="handleSearch">
+          <el-select v-model="filterStatus" placeholder="订单状态" clearable style="width: 120px" @change="handleSearch">
             <el-option label="所有状态" value="" />
             <el-option label="待支付" value="0" />
             <el-option label="已完成" value="3" />
             <el-option label="已取消" value="2" />
             <el-option label="已折抵" value="4" />
+          </el-select>
+
+          <el-select v-model="filterCommission" placeholder="订单分类" style="width: 120px" @change="handleSearch">
+            <el-option label="所有订单" value="all" />
+            <el-option label="仅返佣订单" value="commission" />
           </el-select>
 
           <el-button type="primary" @click="handleSearch">筛选</el-button>
@@ -28,6 +33,22 @@
         <div class="filter-right">
           <el-button type="success" icon="Plus" @click="openAssignDialog">手动分配订单</el-button>
         </div>
+      </div>
+    </el-card>
+
+    <!-- Filter Indicator for User/Inviter -->
+    <el-card v-if="routeFilterEmail || routeFilterInviteId" class="filter-indicator-card mt-20" shadow="never">
+      <div class="flex-between">
+        <div class="flex-center" style="gap: 8px;">
+          <el-icon><InfoFilled /></el-icon>
+          <span v-if="routeFilterEmail">
+            正在查看用户 <strong style="color: var(--el-color-primary);">{{ routeFilterEmail }}</strong> 的订单列表
+          </span>
+          <span v-else-if="routeFilterInviteId">
+            正在查看用户 <strong style="color: var(--el-color-primary);">{{ routeFilterInviteEmail || routeFilterInviteId }}</strong> 的邀请人返利订单
+          </span>
+        </div>
+        <el-button type="danger" size="small" icon="Close" @click="clearRouteFilter">清除过滤</el-button>
       </div>
     </el-card>
 
@@ -72,6 +93,36 @@
           </template>
         </el-table-column>
 
+        <el-table-column prop="commission_balance" label="返佣金额" width="110" align="right">
+          <template #default="scope">
+            <span v-if="scope.row.commission_balance" class="amount-text" style="color: var(--el-color-danger)">{{ formatPrice(scope.row.commission_balance) }}</span>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="commission_status" label="佣金状态" width="150" align="center">
+          <template #default="scope">
+            <template v-if="scope.row.invite_user_id && scope.row.commission_balance > 0">
+              <el-dropdown trigger="click" @command="(cmd) => handleUpdateCommissionStatus(scope.row, cmd)" :disabled="scope.row.commission_status === 2">
+                <span class="el-dropdown-link" style="cursor: pointer;" :style="{ cursor: scope.row.commission_status === 2 ? 'not-allowed' : 'pointer' }">
+                  <el-tag :type="getCommissionStatusTag(scope.row.commission_status)" size="small">
+                    {{ getCommissionStatusText(scope.row.commission_status) }}
+                    <el-icon v-if="scope.row.commission_status !== 2" class="el-icon--right"><ArrowDown /></el-icon>
+                  </el-tag>
+                </span>
+                <template #dropdown v-if="scope.row.commission_status !== 2">
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="0" :disabled="scope.row.commission_status === 0">待确认</el-dropdown-item>
+                    <el-dropdown-item command="1" :disabled="scope.row.commission_status === 1">有效 (待发放)</el-dropdown-item>
+                    <el-dropdown-item command="3" :disabled="scope.row.commission_status === 3">无效</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="created_at" label="创建时间" width="160">
           <template #default="scope">
             {{ formatTime(scope.row.created_at) }}
@@ -113,8 +164,8 @@
     </el-card>
 
     <!-- Assign Order Dialog -->
-    <el-dialog v-model="assignVisible" title="手动分配订阅订单" width="550px">
-      <el-form :model="assignForm" :rules="assignRules" ref="assignFormRef" label-width="100px">
+    <el-dialog v-model="assignVisible" title="手动分配订阅订单" :width="isMobile ? '95%' : '550px'" :top="isMobile ? '2vh' : '8vh'">
+      <el-form :model="assignForm" :rules="assignRules" ref="assignFormRef" :label-position="isMobile ? 'top' : 'right'" :label-width="isMobile ? undefined : '100px'">
         <el-form-item label="用户邮箱" prop="email">
           <el-input v-model="assignForm.email" placeholder="请输入绑定的用户邮箱" />
         </el-form-item>
@@ -154,10 +205,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { getSecurePath } from '../api';
 import api from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { useMobile } from '../utils/useMobile';
+
+const { isMobile } = useMobile();
+const route = useRoute();
 
 const loading = ref(false);
 const submitLoading = ref(false);
@@ -168,7 +224,20 @@ const pageSize = ref(10);
 
 const searchQuery = ref('');
 const filterStatus = ref('');
+const filterCommission = ref('all');
 const plans = ref([]);
+
+const routeFilterEmail = ref('');
+const routeFilterInviteId = ref('');
+const routeFilterInviteEmail = ref('');
+
+const clearRouteFilter = () => {
+  routeFilterEmail.value = '';
+  routeFilterInviteId.value = '';
+  routeFilterInviteEmail.value = '';
+  currentPage.value = 1;
+  fetchOrders();
+};
 
 const assignVisible = ref(false);
 const assignFormRef = ref(null);
@@ -238,7 +307,11 @@ const fetchOrders = async () => {
   try {
     const securePath = getSecurePath();
     const filter = [];
-    if (searchQuery.value) {
+    if (routeFilterEmail.value) {
+      filter.push({ key: 'email', condition: '=', value: routeFilterEmail.value });
+    } else if (routeFilterInviteId.value) {
+      filter.push({ key: 'invite_user_id', condition: '=', value: routeFilterInviteId.value });
+    } else if (searchQuery.value) {
       // Check if it's an email or trade number
       if (searchQuery.value.includes('@')) {
         filter.push({ key: 'email', condition: '=', value: searchQuery.value });
@@ -250,12 +323,18 @@ const fetchOrders = async () => {
       filter.push({ key: 'status', condition: '=', value: filterStatus.value });
     }
 
+    const params = {
+      current: currentPage.value,
+      pageSize: pageSize.value,
+      filter: filter,
+    };
+
+    if (filterCommission.value === 'commission' || routeFilterInviteId.value) {
+      params.is_commission = 1;
+    }
+
     const res = await api.get(`/${securePath}/order/fetch`, {
-      params: {
-        current: currentPage.value,
-        pageSize: pageSize.value,
-        filter: filter,
-      }
+      params: params
     });
 
     if (res.data) {
@@ -359,10 +438,71 @@ const handleAssignSubmit = async () => {
   });
 };
 
+const getCommissionStatusText = (status) => {
+  const map = { 0: '待确认', 1: '有效 (待发放)', 2: '已发放', 3: '无效' };
+  return map[status] ?? '未知';
+};
+
+const getCommissionStatusTag = (status) => {
+  const map = { 0: 'warning', 1: 'primary', 2: 'success', 3: 'danger' };
+  return map[status] ?? 'info';
+};
+
+const handleUpdateCommissionStatus = async (row, newStatus) => {
+  try {
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/order/update`, {
+      trade_no: row.trade_no,
+      commission_status: parseInt(newStatus)
+    });
+    ElMessage.success('更新佣金状态成功！');
+    fetchOrders();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 onMounted(() => {
+  if (route.query.is_commission === '1') {
+    filterCommission.value = 'commission';
+  }
+  
+  if (route.query.email) {
+    routeFilterEmail.value = route.query.email;
+  }
+  if (route.query.invite_user_id) {
+    routeFilterInviteId.value = route.query.invite_user_id;
+    filterCommission.value = 'commission';
+  }
+  if (route.query.invite_user_email) {
+    routeFilterInviteEmail.value = route.query.invite_user_email;
+  }
+
   fetchPlans();
   fetchOrders();
 });
+
+watch(
+  () => route.query,
+  (newQuery) => {
+    if (newQuery.email) {
+      routeFilterEmail.value = newQuery.email;
+      routeFilterInviteId.value = '';
+      routeFilterInviteEmail.value = '';
+    } else if (newQuery.invite_user_id) {
+      routeFilterInviteId.value = newQuery.invite_user_id;
+      routeFilterInviteEmail.value = newQuery.invite_user_email || '';
+      routeFilterEmail.value = '';
+      filterCommission.value = 'commission';
+    } else {
+      routeFilterEmail.value = '';
+      routeFilterInviteId.value = '';
+      routeFilterInviteEmail.value = '';
+    }
+    currentPage.value = 1;
+    fetchOrders();
+  }
+);
 </script>
 
 <style scoped>
@@ -395,5 +535,12 @@ onMounted(() => {
 
 .gap-10 {
   gap: 10px;
+}
+
+.filter-indicator-card {
+  border-radius: 16px;
+  border: 1px solid var(--el-color-primary-light-8);
+  background-color: var(--el-color-primary-light-9);
+  padding: 0px 10px;
 }
 </style>

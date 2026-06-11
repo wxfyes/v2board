@@ -5,4 +5,8 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   base: '/assets/admin-new/',
   plugins: [vue()],
+  build: {
+    outDir: '../public/assets/admin-new',
+    emptyOutDir: true
+  }
 })

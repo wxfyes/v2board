@@ -1,16 +1,17 @@
 <template>
   <el-container class="layout-container">
     <!-- Sidebar -->
-    <el-aside :width="isCollapse ? '64px' : '220px'" class="aside">
+    <el-aside v-if="!isMobile" :width="isCollapse ? '64px' : '220px'" class="aside">
       <div class="brand-logo flex-center" :class="{ 'logo-collapsed': isCollapse }">
         <el-icon class="brand-icon"><Platform /></el-icon>
-        <span v-show="!isCollapse" class="brand-name">天阙管理</span>
+        <span v-show="!isCollapse" class="brand-name">{{ systemName }}</span>
       </div>
       
       <el-menu
         :default-active="activeMenu"
         class="el-menu-vertical"
         :collapse="isCollapse"
+        :default-openeds="['server-group', 'finance-group', 'user-group']"
         router
       >
         <el-menu-item index="/dashboard">
@@ -18,34 +19,100 @@
           <template #title>仪表盘</template>
         </el-menu-item>
         
-        <el-menu-item index="/users">
-          <el-icon><User /></el-icon>
-          <template #title>用户管理</template>
-        </el-menu-item>
+        <el-sub-menu index="server-group">
+          <template #title>
+            <el-icon><Connection /></el-icon>
+            <span>节点网络</span>
+          </template>
+          <el-menu-item index="/servers">
+            <el-icon><Link /></el-icon>
+            <span>节点管理</span>
+          </el-menu-item>
+          <el-menu-item index="/groups">
+            <el-icon><HelpFilled /></el-icon>
+            <span>权限组管理</span>
+          </el-menu-item>
+          <el-menu-item index="/routes">
+            <el-icon><Share /></el-icon>
+            <span>路由管理</span>
+          </el-menu-item>
+        </el-sub-menu>
         
-        <el-menu-item index="/plans">
-          <el-icon><Tickets /></el-icon>
-          <template #title>订阅管理</template>
-        </el-menu-item>
+        <el-sub-menu index="finance-group">
+          <template #title>
+            <el-icon><Goods /></el-icon>
+            <span>财务销售</span>
+          </template>
+          <el-menu-item index="/plans">
+            <el-icon><Tickets /></el-icon>
+            <span>订阅管理</span>
+          </el-menu-item>
+          <el-menu-item index="/cards">
+            <el-icon><Goods /></el-icon>
+            <span>发卡管理</span>
+          </el-menu-item>
+          <el-menu-item index="/orders">
+            <el-icon><Document /></el-icon>
+            <span>订单管理</span>
+          </el-menu-item>
+          <el-menu-item index="/coupons">
+            <el-icon><PriceTag /></el-icon>
+            <span>优惠券管理</span>
+          </el-menu-item>
+          <el-menu-item index="/giftcards">
+            <el-icon><CreditCard /></el-icon>
+            <span>礼品卡管理</span>
+          </el-menu-item>
+        </el-sub-menu>
         
-        <el-menu-item index="/servers">
-          <el-icon><Connection /></el-icon>
-          <template #title>节点管理</template>
-        </el-menu-item>
+        <el-sub-menu index="user-group">
+          <template #title>
+            <el-icon><User /></el-icon>
+            <span>用户与支持</span>
+          </template>
+          <el-menu-item index="/users">
+            <el-icon><Avatar /></el-icon>
+            <span>用户管理</span>
+          </el-menu-item>
+          <el-menu-item index="/notices">
+            <el-icon><Notification /></el-icon>
+            <span>公告管理</span>
+          </el-menu-item>
+          <el-menu-item index="/tickets">
+            <el-icon><ChatLineSquare /></el-icon>
+            <span>工单管理</span>
+          </el-menu-item>
+          <el-menu-item index="/knowledges">
+            <el-icon><Notebook /></el-icon>
+            <span>知识库管理</span>
+          </el-menu-item>
+          <el-menu-item index="/security-audit">
+            <el-icon><Lock /></el-icon>
+            <span>安全审计</span>
+          </el-menu-item>
+        </el-sub-menu>
         
-        <el-menu-item index="/orders">
-          <el-icon><Document /></el-icon>
-          <template #title>订单管理</template>
-        </el-menu-item>
-        
-        <el-menu-item index="/notices">
-          <el-icon><Notification /></el-icon>
-          <template #title>公告管理</template>
-        </el-menu-item>
-        
-        <el-menu-item index="/settings">
-          <el-icon><Setting /></el-icon>
-          <template #title>系统设置</template>
+        <el-sub-menu index="settings-group">
+          <template #title>
+            <el-icon><Setting /></el-icon>
+            <span>设置</span>
+          </template>
+          <el-menu-item index="/settings">
+            <el-icon><Operation /></el-icon>
+            <span>系统配置</span>
+          </el-menu-item>
+          <el-menu-item index="/payments">
+            <el-icon><CreditCard /></el-icon>
+            <span>支付配置</span>
+          </el-menu-item>
+          <el-menu-item index="/themes">
+            <el-icon><Brush /></el-icon>
+            <span>主题配置</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-menu-item index="/queues">
+          <el-icon><Cpu /></el-icon>
+          <template #title>队列监控</template>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -55,8 +122,9 @@
       <!-- Header -->
       <el-header class="header flex-between">
         <div class="header-left flex-center">
-          <el-icon class="toggle-icon" @click="isCollapse = !isCollapse">
-            <Fold v-if="!isCollapse" />
+          <el-icon class="toggle-icon" @click="isMobile ? (drawerVisible = true) : (isCollapse = !isCollapse)">
+            <Menu v-if="isMobile" />
+            <Fold v-else-if="!isCollapse" />
             <Expand v-else />
           </el-icon>
           <span class="page-title">{{ route.meta.title || '管理后台' }}</span>
@@ -73,7 +141,7 @@
           <el-dropdown trigger="click" @command="handleCommand">
             <span class="user-profile flex-center">
               <el-avatar :size="30" class="user-avatar">AD</el-avatar>
-              <span class="username">管理员</span>
+              <span class="username" v-show="!isMobile">管理员</span>
               <el-icon class="el-icon--right"><arrow-down /></el-icon>
             </span>
             <template #dropdown>
@@ -94,11 +162,135 @@
         </el-scrollbar>
       </el-main>
     </el-container>
+
+    <!-- Mobile Drawer Menu -->
+    <el-drawer
+      v-if="isMobile"
+      v-model="drawerVisible"
+      direction="ltr"
+      size="240px"
+      :with-header="false"
+      class="mobile-menu-drawer"
+    >
+      <div class="brand-logo flex-center" style="height: 60px; border-bottom: 1px solid var(--el-border-color-extra-light);">
+        <el-icon class="brand-icon"><Platform /></el-icon>
+        <span class="brand-name">{{ systemName }}</span>
+      </div>
+      
+      <el-menu
+        :default-active="activeMenu"
+        class="el-menu-vertical"
+        :default-openeds="['server-group', 'finance-group', 'user-group']"
+        router
+        @select="drawerVisible = false"
+      >
+        <el-menu-item index="/dashboard">
+          <el-icon><Odometer /></el-icon>
+          <template #title>仪表盘</template>
+        </el-menu-item>
+        
+        <el-sub-menu index="server-group">
+          <template #title>
+            <el-icon><Connection /></el-icon>
+            <span>节点网络</span>
+          </template>
+          <el-menu-item index="/servers">
+            <el-icon><Link /></el-icon>
+            <span>节点管理</span>
+          </el-menu-item>
+          <el-menu-item index="/groups">
+            <el-icon><HelpFilled /></el-icon>
+            <span>权限组管理</span>
+          </el-menu-item>
+          <el-menu-item index="/routes">
+            <el-icon><Share /></el-icon>
+            <span>路由管理</span>
+          </el-menu-item>
+        </el-sub-menu>
+        
+        <el-sub-menu index="finance-group">
+          <template #title>
+            <el-icon><Goods /></el-icon>
+            <span>财务销售</span>
+          </template>
+          <el-menu-item index="/plans">
+            <el-icon><Tickets /></el-icon>
+            <span>订阅管理</span>
+          </el-menu-item>
+          <el-menu-item index="/cards">
+            <el-icon><Goods /></el-icon>
+            <span>发卡管理</span>
+          </el-menu-item>
+          <el-menu-item index="/orders">
+            <el-icon><Document /></el-icon>
+            <span>订单管理</span>
+          </el-menu-item>
+          <el-menu-item index="/coupons">
+            <el-icon><PriceTag /></el-icon>
+            <span>优惠券管理</span>
+          </el-menu-item>
+          <el-menu-item index="/giftcards">
+            <el-icon><CreditCard /></el-icon>
+            <span>礼品卡管理</span>
+          </el-menu-item>
+        </el-sub-menu>
+        
+        <el-sub-menu index="user-group">
+          <template #title>
+            <el-icon><User /></el-icon>
+            <span>用户与支持</span>
+          </template>
+          <el-menu-item index="/users">
+            <el-icon><Avatar /></el-icon>
+            <span>用户管理</span>
+          </el-menu-item>
+          <el-menu-item index="/notices">
+            <el-icon><Notification /></el-icon>
+            <span>公告管理</span>
+          </el-menu-item>
+          <el-menu-item index="/tickets">
+            <el-icon><ChatLineSquare /></el-icon>
+            <span>工单管理</span>
+          </el-menu-item>
+          <el-menu-item index="/knowledges">
+            <el-icon><Notebook /></el-icon>
+            <span>知识库管理</span>
+          </el-menu-item>
+          <el-menu-item index="/security-audit">
+            <el-icon><Lock /></el-icon>
+            <span>安全审计</span>
+          </el-menu-item>
+        </el-sub-menu>
+        
+        <el-sub-menu index="settings-group">
+          <template #title>
+            <el-icon><Setting /></el-icon>
+            <span>设置</span>
+          </template>
+          <el-menu-item index="/settings">
+            <el-icon><Operation /></el-icon>
+            <span>系统配置</span>
+          </el-menu-item>
+          <el-menu-item index="/payments">
+            <el-icon><CreditCard /></el-icon>
+            <span>支付配置</span>
+          </el-menu-item>
+          <el-menu-item index="/themes">
+            <el-icon><Brush /></el-icon>
+            <span>主题配置</span>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-menu-item index="/queues">
+          <el-icon><Cpu /></el-icon>
+          <template #title>队列监控</template>
+        </el-menu-item>
+      </el-menu>
+    </el-drawer>
   </el-container>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessageBox, ElMessage } from 'element-plus';
 
@@ -106,8 +298,17 @@ const route = useRoute();
 const router = useRouter();
 const isCollapse = ref(false);
 const isDark = ref(false);
+const isMobile = ref(false);
+const drawerVisible = ref(false);
 
 const activeMenu = computed(() => route.path);
+const systemName = computed(() => {
+  return window.settings?.title || '管理系统';
+});
+
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768;
+};
 
 const toggleTheme = () => {
   isDark.value = !isDark.value;
@@ -127,7 +328,7 @@ const handleCommand = (command) => {
       cancelButtonText: '取消',
       type: 'warning',
     }).then(() => {
-      localStorage.removeItem('admin_token');
+      localStorage.removeItem('authorization');
       ElMessage.success('已退出登录');
       router.push('/login');
     }).catch(() => {});
@@ -135,7 +336,13 @@ const handleCommand = (command) => {
 };
 
 onMounted(() => {
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
   isDark.value = document.documentElement.classList.contains('dark');
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', checkMobile);
 });
 </script>
 
@@ -182,6 +389,8 @@ onMounted(() => {
 .el-menu-vertical {
   border-right: none;
   flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .el-menu-vertical:not(.el-menu--collapse) {
@@ -278,7 +487,23 @@ onMounted(() => {
 
 .view-wrapper {
   padding: 24px;
-  max-width: 1300px;
-  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Mobile responsive fixes */
+.mobile-menu-drawer :deep(.el-drawer__body) {
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .view-wrapper {
+    padding: 12px;
+  }
+  .header {
+    padding: 0 12px;
+  }
 }
 </style>

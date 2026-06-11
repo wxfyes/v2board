@@ -18,7 +18,7 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('admin_token');
+    const token = localStorage.getItem('authorization');
     if (token) {
       config.headers['Authorization'] = token;
     }
@@ -39,7 +39,7 @@ api.interceptors.response.use(
     const message = error.response?.data?.message || '请求失败，请稍后重试';
     
     if (status === 403) {
-      localStorage.removeItem('admin_token');
+      localStorage.removeItem('authorization');
       ElMessage.error('登录已过期，请重新登录');
       if (!window.location.hash.includes('/login')) {
         window.location.hash = '#/login';

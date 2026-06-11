@@ -11,40 +11,13 @@
     <!-- Plans List / Table -->
     <el-card class="table-card mt-20" shadow="hover">
       <el-table :data="plans" v-loading="loading" stripe style="width: 100%">
-        <el-table-column prop="sort" label="排序" width="60" align="center" />
-        <el-table-column prop="name" label="计划名称" min-width="150" />
+        <el-table-column prop="sort" label="排序" width="55" align="center">
+          <template #default>
+            <el-icon style="cursor: move; color: #909399;"><Grid /></el-icon>
+          </template>
+        </el-table-column>
         
-        <el-table-column prop="transfer_enable" label="流量额度" width="120">
-          <template #default="scope">
-            <el-tag type="info" effect="plain">{{ scope.row.transfer_enable }} GB</el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="month_price" label="月付价格" width="110" align="right">
-          <template #default="scope">
-            {{ formatPrice(scope.row.month_price) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="year_price" label="年付价格" width="110" align="right">
-          <template #default="scope">
-            {{ formatPrice(scope.row.year_price) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="onetime_price" label="一次性价格" width="110" align="right">
-          <template #default="scope">
-            {{ formatPrice(scope.row.onetime_price) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="count" label="活动用户数" width="110" align="center">
-          <template #default="scope">
-            <el-tag type="success" size="small">{{ scope.row.count }} 人</el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="show" label="销售状态" width="100" align="center">
+        <el-table-column prop="show" label="销售状态" width="80" align="center">
           <template #default="scope">
             <el-switch
               v-model="scope.row.show"
@@ -55,7 +28,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="renew" label="允许续费" width="100" align="center">
+        <el-table-column prop="renew" label="续费" width="80" align="center">
           <template #default="scope">
             <el-switch
               v-model="scope.row.renew"
@@ -66,44 +39,166 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="180" align="right">
+        <el-table-column prop="name" label="名称" min-width="120" />
+
+        <el-table-column prop="count" label="统计" width="75" align="center">
           <template #default="scope">
-            <el-button type="primary" link @click="openEditDialog(scope.row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(scope.row)">删除</el-button>
+            <span class="flex-align justify-center" style="gap: 4px">
+              <el-icon><User /></el-icon>
+              <span>{{ scope.row.count }}</span>
+            </span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="transfer_enable" label="流量" width="95">
+          <template #default="scope">
+            <span>{{ scope.row.transfer_enable }} GB</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="device_limit" label="设备数限制" width="90" align="center">
+          <template #default="scope">
+            <span>{{ scope.row.device_limit || '-' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="month_price" label="月付" width="80" align="right">
+          <template #default="scope">
+            <span>{{ formatPriceSimple(scope.row.month_price) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="quarter_price" label="季付" width="80" align="right">
+          <template #default="scope">
+            <span>{{ formatPriceSimple(scope.row.quarter_price) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="half_year_price" label="半年付" width="80" align="right">
+          <template #default="scope">
+            <span>{{ formatPriceSimple(scope.row.half_year_price) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="year_price" label="年付" width="80" align="right">
+          <template #default="scope">
+            <span>{{ formatPriceSimple(scope.row.year_price) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="two_year_price" label="两年付" width="80" align="right">
+          <template #default="scope">
+            <span>{{ formatPriceSimple(scope.row.two_year_price) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="three_year_price" label="三年付" width="80" align="right">
+          <template #default="scope">
+            <span>{{ formatPriceSimple(scope.row.three_year_price) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="onetime_price" label="一次性" width="80" align="right">
+          <template #default="scope">
+            <span>{{ formatPriceSimple(scope.row.onetime_price) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="reset_price" label="重置包" width="80" align="right">
+          <template #default="scope">
+            <span>{{ formatPriceSimple(scope.row.reset_price) }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="group_id" label="权限组" width="110" align="center">
+          <template #default="scope">
+            <el-tag size="small" type="success">{{ getGroupName(scope.row.group_id) }}</el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="操作" width="100" align="center" fixed="right">
+          <template #default="scope">
+            <el-dropdown trigger="click">
+              <el-button type="primary" link>
+                操作<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="openEditDialog(scope.row)">编辑</el-dropdown-item>
+                  <el-dropdown-item @click="handleDelete(scope.row)" style="color: var(--el-color-danger)">删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
 
     <!-- Plan Dialog (Create/Edit) -->
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑订阅计划' : '创建订阅计划'" width="700px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑订阅计划' : '创建订阅计划'" :width="isMobile ? '95%' : '700px'" :top="isMobile ? '2vh' : '6vh'">
+      <el-form :model="form" :rules="rules" ref="formRef" :label-position="isMobile ? 'top' : 'right'" :label-width="isMobile ? undefined : '120px'">
         <el-tabs v-model="activeTab">
           <el-tab-pane label="基本设置" name="basic">
             <el-form-item label="计划名称" prop="name">
               <el-input v-model="form.name" placeholder="请输入订阅名称" />
             </el-form-item>
             
-            <el-form-item label="流量额度 (GB)" prop="transfer_enable">
-              <el-input-number v-model="form.transfer_enable" :min="1" style="width: 180px" />
-            </el-form-item>
+            <el-row :gutter="20">
+              <el-col :xs="24" :sm="12">
+                <el-form-item label="流量额度 (GB)" prop="transfer_enable">
+                  <el-input-number v-model="form.transfer_enable" :min="1" style="width: 100%" />
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="12">
+                <el-form-item label="权限组" prop="group_id">
+                  <div class="flex-align" style="gap: 10px; width: 100%">
+                    <el-select v-model="form.group_id" style="flex: 1" placeholder="请选择权限组">
+                      <el-option label="默认权限组 (0)" :value="0" />
+                      <el-option 
+                        v-for="g in groups" 
+                        :key="g.id" 
+                        :label="g.name" 
+                        :value="g.id" 
+                      />
+                    </el-select>
+                    <el-button type="primary" link @click="$router.push('/groups')">添加权限组</el-button>
+                  </div>
+                  <div class="form-tip">只有该权限组的用户能连接对应组的节点</div>
+                </el-form-item>
+              </el-col>
+            </el-row>
 
-            <el-form-item label="分配节点组" prop="group_id">
-              <el-input-number v-model="form.group_id" :min="0" style="width: 180px" />
-              <div class="form-tip">只有该节点组的用户能连接对应组的节点</div>
-            </el-form-item>
+            <el-row :gutter="20">
+              <el-col :xs="24" :sm="12">
+                <el-form-item label="流量重置方式">
+                  <el-select v-model="form.reset_traffic_method" style="width: 100%">
+                    <el-option label="跟随系统设置" :value="0" />
+                    <el-option label="每月1号重置" :value="1" />
+                    <el-option label="按注册日周期重置" :value="2" />
+                    <el-option label="不重置" :value="3" />
+                    <el-option label="每年1号重置" :value="4" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="12">
+                <el-form-item label="最大容纳用户">
+                  <el-input-number v-model="form.capacity_limit" :min="0" placeholder="留空或0不限制" style="width: 100%" />
+                  <div class="form-tip">限制购买此套餐的最大用户数量，0为不限制</div>
+                </el-form-item>
+              </el-col>
+            </el-row>
 
             <el-form-item label="计划描述" prop="content">
               <el-input 
                 v-model="form.content" 
                 type="textarea" 
-                :rows="4" 
+                :rows="3" 
                 placeholder="一行一个特性，用于在用户前台展示购买卡片" 
               />
             </el-form-item>
 
-            <el-row>
-              <el-col :span="12">
+            <el-row :gutter="20">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="销售状态">
                   <el-radio-group v-model="form.show">
                     <el-radio :label="1">上架销售</el-radio>
@@ -111,7 +206,7 @@
                   </el-radio-group>
                 </el-form-item>
               </el-col>
-              <el-col :span="12">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="允许续费">
                   <el-radio-group v-model="form.renew">
                     <el-radio :label="1">允许</el-radio>
@@ -125,12 +220,12 @@
           <el-tab-pane label="定价体系 (元)" name="pricing">
             <div class="pricing-tip">留空或0表示不提供该周期的购买方式</div>
             <el-row :gutter="20">
-              <el-col :span="12">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="月付">
                   <el-input-number v-model="form.month_price" :precision="2" :min="0" style="width: 100%" />
                 </el-form-item>
               </el-col>
-              <el-col :span="12">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="季付">
                   <el-input-number v-model="form.quarter_price" :precision="2" :min="0" style="width: 100%" />
                 </el-form-item>
@@ -138,12 +233,12 @@
             </el-row>
 
             <el-row :gutter="20">
-              <el-col :span="12">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="半年付">
                   <el-input-number v-model="form.half_year_price" :precision="2" :min="0" style="width: 100%" />
                 </el-form-item>
               </el-col>
-              <el-col :span="12">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="年付">
                   <el-input-number v-model="form.year_price" :precision="2" :min="0" style="width: 100%" />
                 </el-form-item>
@@ -151,12 +246,12 @@
             </el-row>
 
             <el-row :gutter="20">
-              <el-col :span="12">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="两年付">
                   <el-input-number v-model="form.two_year_price" :precision="2" :min="0" style="width: 100%" />
                 </el-form-item>
               </el-col>
-              <el-col :span="12">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="三年付">
                   <el-input-number v-model="form.three_year_price" :precision="2" :min="0" style="width: 100%" />
                 </el-form-item>
@@ -164,12 +259,12 @@
             </el-row>
 
             <el-row :gutter="20">
-              <el-col :span="12">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="一次性">
                   <el-input-number v-model="form.onetime_price" :precision="2" :min="0" style="width: 100%" />
                 </el-form-item>
               </el-col>
-              <el-col :span="12">
+              <el-col :xs="24" :sm="12">
                 <el-form-item label="重置流量费">
                   <el-input-number v-model="form.reset_price" :precision="2" :min="0" style="width: 100%" />
                 </el-form-item>
@@ -211,10 +306,14 @@ import { ref, reactive, onMounted } from 'vue';
 import { getSecurePath } from '../api';
 import api from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { useMobile } from '../utils/useMobile';
+
+const { isMobile } = useMobile();
 
 const loading = ref(false);
 const submitLoading = ref(false);
 const plans = ref([]);
+const groups = ref([]);
 
 const dialogVisible = ref(false);
 const isEdit = ref(false);
@@ -226,6 +325,8 @@ const form = reactive({
   name: '',
   transfer_enable: 100,
   group_id: 0,
+  reset_traffic_method: 0,
+  capacity_limit: null,
   content: '',
   show: 1,
   renew: 1,
@@ -245,12 +346,12 @@ const form = reactive({
 const rules = {
   name: [{ required: true, message: '请输入计划名称', trigger: 'blur' }],
   transfer_enable: [{ required: true, message: '请输入流量额度', trigger: 'blur' }],
-  group_id: [{ required: true, message: '请输入节点组ID', trigger: 'blur' }],
+  group_id: [{ required: true, message: '请选择权限组', trigger: 'change' }],
 };
 
-const formatPrice = (price) => {
-  if (price === null || price === undefined || price === 0) return '未提供';
-  return '¥' + (price / 100).toFixed(2);
+const formatPriceSimple = (price) => {
+  if (price === null || price === undefined || price === 0) return '-';
+  return (price / 100).toFixed(2);
 };
 
 const fetchPlans = async () => {
@@ -266,6 +367,23 @@ const fetchPlans = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const fetchGroups = async () => {
+  try {
+    const securePath = getSecurePath();
+    const res = await api.get(`/${securePath}/server/group/fetch`);
+    if (res.data) {
+      groups.value = res.data;
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const getGroupName = (groupId) => {
+  const group = groups.value.find(g => g.id === groupId);
+  return group ? group.name : `组 ${groupId}`;
 };
 
 const handleToggleStatus = async (row, field, val) => {
@@ -291,6 +409,8 @@ const openCreateDialog = () => {
   form.name = '';
   form.transfer_enable = 100;
   form.group_id = 0;
+  form.reset_traffic_method = 0;
+  form.capacity_limit = null;
   form.content = '';
   form.show = 1;
   form.renew = 1;
@@ -318,6 +438,8 @@ const openEditDialog = (row) => {
   form.name = row.name;
   form.transfer_enable = row.transfer_enable;
   form.group_id = row.group_id;
+  form.reset_traffic_method = row.reset_traffic_method !== undefined && row.reset_traffic_method !== null ? Number(row.reset_traffic_method) : 0;
+  form.capacity_limit = row.capacity_limit || null;
   form.content = row.content || '';
   form.show = row.show;
   form.renew = row.renew;
@@ -348,6 +470,8 @@ const handleSubmit = async () => {
         name: form.name,
         transfer_enable: form.transfer_enable,
         group_id: form.group_id,
+        reset_traffic_method: form.reset_traffic_method,
+        capacity_limit: form.capacity_limit || null,
         content: form.content,
         show: form.show,
         renew: form.renew,
@@ -395,6 +519,7 @@ const handleDelete = (row) => {
 
 onMounted(() => {
   fetchPlans();
+  fetchGroups();
 });
 </script>
 
@@ -437,5 +562,10 @@ onMounted(() => {
 
 .mt-20 {
   margin-top: 20px;
+}
+
+.flex-align {
+  display: flex;
+  align-items: center;
 }
 </style>
