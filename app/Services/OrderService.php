@@ -156,7 +156,8 @@ class OrderService
                 ->orderBy('id', 'DESC')
                 ->first();
 
-            // 降级拦截逻辑
+            // 降级拦截逻辑与升级判定
+            $isUpgradeOrSamePrice = false;
             if ($lastActiveOrder) {
                 $currentPeriodMonths = self::STR_TO_TIME[$lastActiveOrder->period] ?? null;
                 $newPeriodMonths = self::STR_TO_TIME[$order->period] ?? null;
@@ -173,11 +174,14 @@ class OrderService
                         if ($newMonthlyPrice < $oldMonthlyPrice) {
                             abort(500, '抱歉，当前套餐不支持直接降级更换为低价套餐。');
                         }
+                        if ($newMonthlyPrice >= $oldMonthlyPrice) {
+                            $isUpgradeOrSamePrice = true;
+                        }
                     }
                 }
             }
 
-            if ($lastActiveOrder && $lastActiveOrder->period !== 'month_price') {
+            if (!$isUpgradeOrSamePrice && $lastActiveOrder && $lastActiveOrder->period !== 'month_price') {
                 $remainingTraffic = $user->transfer_enable - ($user->u + $user->d);
                 $threshold = min(2 * 1073741824, $user->transfer_enable * 0.05);
                 if ($remainingTraffic <= $threshold || $remainingTraffic <= 0) {
