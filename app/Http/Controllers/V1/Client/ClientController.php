@@ -442,7 +442,20 @@ class ClientController extends Controller
                         $file = 'App\\Protocols\\' . basename($file, '.php');
                         $class = new $file($user, $servers);
                         if (strpos($flag, $class->flag) !== false) {
-                            return $class->handle();
+                            $res = $class->handle();
+                            $decodedRes = @base64_decode($res) ?: $res;
+                            @file_put_contents(
+                                storage_path('logs/subscribe_debug.log'),
+                                json_encode([
+                                    'time' => date('Y-m-d H:i:s'),
+                                    'action' => 'response_sent',
+                                    'flag' => $flag,
+                                    'class' => $file,
+                                    'preview' => substr($decodedRes, 0, 200)
+                                ], JSON_UNESCAPED_UNICODE) . "\n",
+                                FILE_APPEND
+                            );
+                            return $res;
                         }
                     }
                 }
