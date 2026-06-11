@@ -110,16 +110,19 @@ class Helper
         }
         $isApple = preg_match('/(iPhone|iPad|iPod|Macintosh)/i', $ua);
 
+        $isShadowrocketUrl = false;
         $shadowrocketUrlSetting = config('v2board.subscribe_url_shadowrocket');
         if ($isApple && !empty($shadowrocketUrlSetting)) {
             $subscribeUrls = explode(',', $shadowrocketUrlSetting);
+            $isShadowrocketUrl = true;
         } else {
             $subscribeUrls = explode(',', config('v2board.subscribe_url'));
         }
         $subscribeUrl = $subscribeUrls[rand(0, count($subscribeUrls) - 1)];
+        $flagSuffix = $isShadowrocketUrl ? '&flag=shadowrocket' : '';
         switch ($submethod) {
             case 0:
-                $path = "{$path}?token={$token}";
+                $path = "{$path}?token={$token}{$flagSuffix}";
                 if ($subscribeUrl) return $subscribeUrl . $path;
                 return url($path);
                 break;
@@ -134,7 +137,7 @@ class Helper
                         $newtoken = Cache::get("otp_{$token}");
                     }
                 }
-                $path = "{$path}?token={$newtoken}";
+                $path = "{$path}?token={$newtoken}{$flagSuffix}";
                 if ($subscribeUrl) return $subscribeUrl . $path;
                 return url($path);
                 break;
@@ -143,10 +146,10 @@ class Helper
                 $counter = floor(time() / $timestep);
                 $counterBytes = pack('N*', 0) . pack('N*', $counter);
                 $hash = hash_hmac('sha1', $counterBytes, $token, false);
-                $user = User::where('token', $token)->select('id')->first();
+                $user = \App\Models\User::where('token', $token)->select('id')->first();
                 $newtoken = self::base64EncodeUrlSafe("{$user->id}:{$hash}");
 
-                $path = "{$path}?token={$newtoken}";
+                $path = "{$path}?token={$newtoken}{$flagSuffix}";
                 if ($subscribeUrl) return $subscribeUrl . $path;
                 return url($path);
                 break;

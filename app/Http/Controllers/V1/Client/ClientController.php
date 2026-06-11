@@ -21,6 +21,56 @@ class ClientController extends Controller
         $flag = strtolower($flag);
         $user = $request->user;
 
+        // 检测是否是通过小火箭专属订阅域名拉取，或者是 Deno 代理中转
+        $isShadowrocketRoute = false;
+        
+        // 1. 检查 User-Agent 是否含有 deno
+        if (stripos($_SERVER['HTTP_USER_AGENT'] ?? '', 'deno') !== false) {
+            $isShadowrocketRoute = true;
+        }
+        
+        // 2. 检查 Host 或 X-Forwarded-Host 是否匹配小火箭专属域名
+        $shadowrocketUrlSetting = config('v2board.subscribe_url_shadowrocket');
+        if (!empty($shadowrocketUrlSetting)) {
+            $shadowrocketHosts = [];
+            foreach (explode(',', $shadowrocketUrlSetting) as $urlItem) {
+                $urlItem = trim($urlItem);
+                if (empty($urlItem)) continue;
+                if (stripos($urlItem, 'http://') !== 0 && stripos($urlItem, 'https://') !== 0) {
+                    $urlItem = 'http://' . $urlItem;
+                }
+                $parsedUrl = parse_url($urlItem);
+                if (isset($parsedUrl['host'])) {
+                    $shadowrocketHosts[] = strtolower($parsedUrl['host']);
+                }
+            }
+            
+            if (!empty($shadowrocketHosts)) {
+                $currentHost = strtolower($request->header('Host') ?? '');
+                $forwardedHost = strtolower($request->header('X-Forwarded-Host') ?? '');
+                
+                foreach ($shadowrocketHosts as $srHost) {
+                    if ($currentHost === $srHost || $forwardedHost === $srHost) {
+                        $isShadowrocketRoute = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if ($isShadowrocketRoute) {
+            $flag = 'shadowrocket';
+        }
+
+        \Log::info('Subscribe request resolved: ' . json_encode([
+            'flag' => $flag,
+            'isShadowrocketRoute' => $isShadowrocketRoute,
+            'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            'headers' => $request->headers->all(),
+            'url' => $request->fullUrl(),
+            'ip' => $request->ip()
+        ], JSON_UNESCAPED_UNICODE));
+
         try {
             $userService = new UserService();
             $isBanned = (bool)($user['banned'] ?? 0);
@@ -69,6 +119,9 @@ class ClientController extends Controller
                 // 同样记录被封禁/灰名单账号的客户端拉取行为！以防内鬼残留探测漏抓
                 $userAgent = $request->header('User-Agent') ?? '';
                 $clientType = $this->parseClientType($userAgent);
+                if ($isShadowrocketRoute && ($clientType === '未知' || stripos($userAgent, 'deno') !== false)) {
+                    $clientType = 'Shadowrocket';
+                }
                 $existingData = \DB::table('v2_user')->where('id', $user['id'])->value('client_type');
                 $clientHistory = [];
                 if ($existingData) {
@@ -297,6 +350,9 @@ class ClientController extends Controller
             // 记录客户端登录时间和类型（所有客户端都记录，保留历史）
             $userAgent = $request->header('User-Agent') ?? '';
             $clientType = $this->parseClientType($userAgent);
+            if ($isShadowrocketRoute && ($clientType === '未知' || stripos($userAgent, 'deno') !== false)) {
+                $clientType = 'Shadowrocket';
+            }
 
             // 获取现有的客户端历史记录
             $existingData = \DB::table('v2_user')
