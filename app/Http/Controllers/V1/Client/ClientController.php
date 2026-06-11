@@ -66,14 +66,22 @@ class ClientController extends Controller
             $flag = 'shadowrocket';
         }
 
-        \Log::info('Subscribe request resolved: ' . json_encode([
+        $logData = [
+            'time' => date('Y-m-d H:i:s'),
             'flag' => $flag,
             'isShadowrocketRoute' => $isShadowrocketRoute,
-            'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            'ua' => $request->header('User-Agent') ?? '',
+            'host' => $request->getHost(),
+            'x-forwarded-host' => $request->header('X-Forwarded-Host') ?? '',
             'headers' => $request->headers->all(),
             'url' => $request->fullUrl(),
             'ip' => $request->ip()
-        ], JSON_UNESCAPED_UNICODE));
+        ];
+        @file_put_contents(
+            storage_path('logs/subscribe_debug.log'),
+            json_encode($logData, JSON_UNESCAPED_UNICODE) . "\n",
+            FILE_APPEND
+        );
 
         try {
             $userService = new UserService();
