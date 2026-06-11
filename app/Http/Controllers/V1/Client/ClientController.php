@@ -67,22 +67,14 @@ class ClientController extends Controller
             $flag = 'shadowrocket';
         }
 
-        $logData = [
-            'time' => date('Y-m-d H:i:s'),
+        \Log::info('Subscribe request resolved: ' . json_encode([
             'flag' => $flag,
             'isShadowrocketRoute' => $isShadowrocketRoute,
             'ua' => $request->header('User-Agent') ?? '',
-            'host' => $request->getHost(),
-            'x-forwarded-host' => $request->header('X-Forwarded-Host') ?? '',
             'headers' => $request->headers->all(),
             'url' => $request->fullUrl(),
             'ip' => $request->ip()
-        ];
-        @file_put_contents(
-            storage_path('logs/subscribe_debug.log'),
-            json_encode($logData, JSON_UNESCAPED_UNICODE) . "\n",
-            FILE_APPEND
-        );
+        ], JSON_UNESCAPED_UNICODE));
 
         try {
             $userService = new UserService();
@@ -442,20 +434,7 @@ class ClientController extends Controller
                         $file = 'App\\Protocols\\' . basename($file, '.php');
                         $class = new $file($user, $servers);
                         if (strpos($flag, $class->flag) !== false) {
-                            $res = $class->handle();
-                            $decodedRes = @base64_decode($res) ?: $res;
-                            @file_put_contents(
-                                storage_path('logs/subscribe_debug.log'),
-                                json_encode([
-                                    'time' => date('Y-m-d H:i:s'),
-                                    'action' => 'response_sent',
-                                    'flag' => $flag,
-                                    'class' => $file,
-                                    'preview' => substr($decodedRes, 0, 200)
-                                ], JSON_UNESCAPED_UNICODE) . "\n",
-                                FILE_APPEND
-                            );
-                            return $res;
+                            return $class->handle();
                         }
                     }
                 }
