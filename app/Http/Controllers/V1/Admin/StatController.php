@@ -119,15 +119,15 @@ class StatController extends Controller
     public function getServerLastRank()
     {
         $servers = [
-            'shadowsocks' => ServerShadowsocks::get()->toArray(),
-            'v2ray' => ServerVmess::get()->toArray(),
-            'trojan' => ServerTrojan::get()->toArray(),
-            'vmess' => ServerVmess::get()->toArray(),
-            'vless' => ServerVless::get()->toArray(),
-            'tuic' => ServerTuic::get()->toArray(),
-            'hysteria'=> ServerHysteria::get()->toArray(),
-            'anytls' => ServerAnytls::get()->toArray(),
-            'v2node' => ServerV2node::get()->toArray()
+            'shadowsocks' => ServerShadowsocks::where('parent_id', null)->get()->toArray(),
+            'v2ray' => ServerVmess::where('parent_id', null)->get()->toArray(),
+            'trojan' => ServerTrojan::where('parent_id', null)->get()->toArray(),
+            'vmess' => ServerVmess::where('parent_id', null)->get()->toArray(),
+            'vless' => ServerVless::where('parent_id', null)->get()->toArray(),
+            'tuic' => ServerTuic::where('parent_id', null)->get()->toArray(),
+            'hysteria'=> ServerHysteria::where('parent_id', null)->get()->toArray(),
+            'anytls' => ServerAnytls::where('parent_id', null)->get()->toArray(),
+            'v2node' => ServerV2node::where('parent_id', null)->get()->toArray()
         ];
         $startAt = strtotime('-1 day', strtotime(date('Y-m-d')));
         $endAt = strtotime(date('Y-m-d'));
@@ -146,7 +146,6 @@ class StatController extends Controller
             ->get()
             ->toArray();
         foreach ($statistics as $k => $v) {
-            $statistics[$k]['server_name'] = '已删除节点';
             foreach ($servers[$v['server_type']] as $server) {
                 if ($server['id'] === $v['server_id']) {
                     $statistics[$k]['server_name'] = $server['name'];
@@ -163,15 +162,15 @@ class StatController extends Controller
     public function getServerTodayRank()
     {
         $servers = [
-            'shadowsocks' => ServerShadowsocks::get()->toArray(),
-            'v2ray' => ServerVmess::get()->toArray(),
-            'trojan' => ServerTrojan::get()->toArray(),
-            'vmess' => ServerVmess::get()->toArray(),
-            'vless' => ServerVless::get()->toArray(),
-            'tuic' => ServerTuic::get()->toArray(),
-            'hysteria'=> ServerHysteria::get()->toArray(),
-            'anytls' => ServerAnytls::get()->toArray(),
-            'v2node' => ServerV2node::get()->toArray()
+            'shadowsocks' => ServerShadowsocks::where('parent_id', null)->get()->toArray(),
+            'v2ray' => ServerVmess::where('parent_id', null)->get()->toArray(),
+            'trojan' => ServerTrojan::where('parent_id', null)->get()->toArray(),
+            'vmess' => ServerVmess::where('parent_id', null)->get()->toArray(),
+            'vless' => ServerVless::where('parent_id', null)->get()->toArray(),
+            'tuic' => ServerTuic::where('parent_id', null)->get()->toArray(),
+            'hysteria'=> ServerHysteria::where('parent_id', null)->get()->toArray(),
+            'anytls' => ServerAnytls::where('parent_id', null)->get()->toArray(),
+            'v2node' => ServerV2node::where('parent_id', null)->get()->toArray()
         ];
         $startAt = strtotime(date('Y-m-d'));
         $endAt = time();
@@ -190,7 +189,6 @@ class StatController extends Controller
             ->get()
             ->toArray();
         foreach ($statistics as $k => $v) {
-            $statistics[$k]['server_name'] = '已删除节点';
             foreach ($servers[$v['server_type']] as $server) {
                 if ($server['id'] === $v['server_id']) {
                     $statistics[$k]['server_name'] = $server['name'];
