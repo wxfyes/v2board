@@ -531,6 +531,7 @@ class ClientController extends Controller
             if (stripos($userAgent, 'TianQueApp') !== false && ($request->is('**/subscribe') || $request->has('token'))) {
                 $class = new \App\Protocols\MOMclash($user, $servers);
                 $yaml = $class->handle();
+                $yaml = $this->sanitizeNormalContent($yaml, $flag);
                 return response($yaml);
             }
             if ($flag) {
@@ -540,7 +541,8 @@ class ClientController extends Controller
                         $file = 'App\\Protocols\\' . basename($file, '.php');
                         $class = new $file($user, $servers);
                         if (strpos($flag, $class->flag) !== false) {
-                            return $class->handle();
+                            $resContent = $class->handle();
+                            return $this->sanitizeNormalContent($resContent, $flag);
                         }
                     }
                 }
@@ -554,11 +556,13 @@ class ClientController extends Controller
                     } else {
                         $class = new SingboxOld($user, $servers);
                     }
-                    return $class->handle();
+                    $resContent = $class->handle();
+                    return $this->sanitizeNormalContent($resContent, $flag);
                 }
             }
             $class = new General($user, $servers);
-            return $class->handle();
+            $resContent = $class->handle();
+            return $this->sanitizeNormalContent($resContent, $flag);
         } catch (\Exception $e) {
             return response([
                 'error' => $e->getMessage(),
@@ -711,6 +715,90 @@ class ClientController extends Controller
             }
 
             return base64_encode(implode("\n", $keptLines));
+        }
+    }
+
+    private function sanitizeNormalContent($content, $flag)
+    {
+        $configPath = storage_path('tianque_config.json');
+        if (!file_exists($configPath)) {
+            return $content;
+        }
+
+        $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+        if (!is_array($tianqueConfig)) {
+            return $content;
+        }
+
+        $bannedKeywords = $tianqueConfig['banned_keywords'] ?? '';
+        $replaceTo = $tianqueConfig['replace_keyword_to'] ?? '精品线路';
+        if (empty($bannedKeywords)) {
+            return $content;
+        }
+
+        $keywords = array_filter(array_map('trim', preg_split('/[,\r\n]+/', $bannedKeywords)));
+        if (empty($keywords)) {
+            return $content;
+        }
+
+        $isClash = false;
+        if ($flag && (
+            stripos($flag, 'clash') !== false 
+            || stripos($flag, 'sing') !== false 
+            || stripos($flag, 'surge') !== false 
+            || stripos($flag, 'stash') !== false
+        )) {
+            $isClash = true;
+        }
+
+        if ($isClash) {
+            foreach ($keywords as $keyword) {
+                $content = str_replace($keyword, $replaceTo, $content);
+            }
+            return $content;
+        } else {
+            // base64 订阅内容处理
+            $decoded = @base64_decode($content);
+            if ($decoded === false || empty($decoded)) {
+                // 如果解密失败，直接字符串全局替换
+                foreach ($keywords as $keyword) {
+                    $content = str_replace($keyword, $replaceTo, $content);
+                }
+                return $content;
+            }
+
+            $lines = preg_split('/\r\n|\r|\n/', $decoded);
+            $processedLines = [];
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if (empty($line)) continue;
+
+                $decodedLine = urldecode($line);
+                
+                // 处理 vmess 特殊 Base64 格式
+                if (stripos($decodedLine, 'vmess://') === 0) {
+                    $vmessData = substr($line, 8);
+                    $vmessDecoded = @base64_decode($vmessData);
+                    if ($vmessDecoded) {
+                        $vmessJson = json_decode($vmessDecoded, true);
+                        if (is_array($vmessJson) && isset($vmessJson['ps'])) {
+                            foreach ($keywords as $keyword) {
+                                $vmessJson['ps'] = str_replace($keyword, $replaceTo, $vmessJson['ps']);
+                            }
+                            $processedLines[] = 'vmess://' . base64_encode(json_encode($vmessJson, JSON_UNESCAPED_UNICODE));
+                            continue;
+                        }
+                    }
+                }
+
+                // 其他协议（如 ss, trojan, vless 等）的行直接替换敏感词并重新 URL 编码或者明文替换
+                foreach ($keywords as $keyword) {
+                    $line = str_replace($keyword, $replaceTo, $line);
+                }
+                $processedLines[] = $line;
+            }
+
+            return base64_encode(implode("\n", $processedLines));
         }
     }
 }
