@@ -89,7 +89,17 @@
                     </code>
                   </div>
                   <div style="margin-bottom: 4px;">IP 位置: <span>{{ scope.row.last_login_location }}</span></div>
-                  <div>最后登录: <span>{{ scope.row.last_login_time }}</span></div>
+                  <div style="margin-bottom: 4px;">最后登录: <span>{{ scope.row.last_login_time }}</span></div>
+                  <div v-if="scope.row.last_login_proxy" style="margin-top: 6px; border-top: 1px dashed rgba(255, 255, 255, 0.15); padding-top: 6px;">
+                    网站反代/CDN IP: 
+                    <code 
+                      @click="copyToClipboard(scope.row.last_login_proxy.split(' ')[0])"
+                      style="background: rgba(0,0,0,0.35); padding: 2px 6px; border-radius: 4px; font-family: monospace; cursor: pointer; color: #E6A23C; text-decoration: underline;"
+                      title="点击复制反代 IP"
+                    >
+                      {{ scope.row.last_login_proxy }}
+                    </code>
+                  </div>
                 </div>
               </template>
               <div class="email-cell flex-center" style="justify-content: flex-start; gap: 6px; cursor: help;">

@@ -26,8 +26,24 @@ class AuthService
             'id' => $this->user->id,
             'session' => $guid,
         ], config('app.key'), 'HS256');
+        // 解析真实客户端 IP 和直连反代/CDN 节点 IP
+        $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '';
+        $realIp = '';
+        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+            $realIp = $_SERVER['HTTP_CF_CONNECTING_IP'];
+        } elseif (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+            $realIp = $_SERVER['HTTP_X_REAL_IP'];
+        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            $realIp = trim($ips[0]);
+        }
+        if (empty($realIp) || !filter_var($realIp, FILTER_VALIDATE_IP)) {
+            $realIp = $request->ip();
+        }
+
         self::addSession($this->user->id, $guid, [
-            'ip' => $request->ip(),
+            'ip' => $realIp,
+            'proxy_ip' => $remoteAddr,
             'login_at' => time(),
             'ua' => $request->userAgent(),
             'auth_data' => $authData

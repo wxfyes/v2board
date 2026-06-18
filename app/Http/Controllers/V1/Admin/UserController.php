@@ -133,6 +133,7 @@ class UserController extends Controller
             $lastLoginIp = '无登录记录';
             $lastLoginTime = '无登录记录';
             $lastLoginLocation = '未知地区';
+            $lastLoginProxy = '';
             if (!empty($sessions) && is_array($sessions)) {
                 uasort($sessions, function($a, $b) {
                     return ($b['login_at'] ?? 0) <=> ($a['login_at'] ?? 0);
@@ -143,10 +144,18 @@ class UserController extends Controller
                 if ($lastLoginIp !== '未知' && $lastLoginIp !== '无登录记录') {
                     $lastLoginLocation = $this->getIpLocation($lastLoginIp);
                 }
+                
+                // 处理直连/反代 IP
+                $proxyIp = $latestSession['proxy_ip'] ?? '';
+                if (!empty($proxyIp) && $proxyIp !== $lastLoginIp && $proxyIp !== '127.0.0.1') {
+                    $proxyLoc = $this->getIpLocation($proxyIp);
+                    $lastLoginProxy = "{$proxyIp} ({$proxyLoc})";
+                }
             }
             $res[$i]['last_login_ip'] = $lastLoginIp;
             $res[$i]['last_login_time'] = $lastLoginTime;
             $res[$i]['last_login_location'] = $lastLoginLocation;
+            $res[$i]['last_login_proxy'] = $lastLoginProxy;
         }
         return response([
             'data' => $res,
