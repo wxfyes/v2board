@@ -139,6 +139,9 @@ class DetectFrequentSubscribers extends Command
                 if (isset($tianqueConfig['audit_ua_enabled'])) {
                     $auditUaEnabled = (bool)$tianqueConfig['audit_ua_enabled'];
                 }
+            }
+        }
+ 
         // --------------------------------------------------
         // 全局前置计算：24小时内所有用户的 IP 共用映射，用以排查海外 IP 联合探测行为
         // --------------------------------------------------
