@@ -312,6 +312,7 @@ class StatController extends Controller
         $flaggedUsers = $config['flagged_users'] ?? [];
         $honeypotUsers = array_map('intval', $config['honeypot_users'] ?? []);
         $whitelistUsers = $config['whitelist_users'] ?? [];
+        $ignoreIps = $config['ignore_ips'] ?? [];
 
         $flaggedIds = array_keys($flaggedUsers);
         $users = User::whereIn('id', $flaggedIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
@@ -327,6 +328,7 @@ class StatController extends Controller
             if ($user && $user->client_type) {
                 $history = json_decode($user->client_type, true) ?: [];
             }
+            $history = $this->filterClientHistory($history, $ignoreIps);
 
             $inHoneypot = in_array((int)$uid, $honeypotUsers, true) ? 1 : 0;
             $banned = $user ? (int)$user->banned : 0;
@@ -383,6 +385,7 @@ class StatController extends Controller
             if ($user->client_type) {
                 $history = json_decode($user->client_type, true) ?: [];
             }
+            $history = $this->filterClientHistory($history, $ignoreIps);
 
             $data[] = [
                 'user_id' => (int)$uid,
@@ -427,6 +430,7 @@ class StatController extends Controller
             }
 
             $history = json_decode($user->client_type, true) ?: [];
+            $history = $this->filterClientHistory($history, $ignoreIps);
             $matchedKeywords = [];
             foreach ($history as $hItem) {
                 $uaLower = strtolower($hItem['ua'] ?? '');
@@ -488,6 +492,7 @@ class StatController extends Controller
             if ($isInWhitelist) continue;
 
             $history = json_decode($user->client_type, true) ?: [];
+            $history = $this->filterClientHistory($history, $ignoreIps);
             if (empty($history)) continue;
 
             $reasons = [];
@@ -747,6 +752,7 @@ class StatController extends Controller
         }
         $bannedIps = $config['banned_ips'] ?? [];
         $honeypotUsers = array_map('intval', $config['honeypot_users'] ?? []);
+        $ignoreIps = $config['ignore_ips'] ?? [];
 
         // 获取所有有拉取记录的用户
         $users = User::whereNotNull('client_type')->get(['id', 'email', 'client_type']);
@@ -757,6 +763,7 @@ class StatController extends Controller
             if (!is_array($history)) {
                 continue;
             }
+            $history = $this->filterClientHistory($history, $ignoreIps);
 
             $userInHoneypot = in_array((int)$user->id, $honeypotUsers, true);
 
@@ -882,6 +889,67 @@ class StatController extends Controller
         return response([
             'data' => true
         ]);
+    }
+
+    private function ipInRange($ip, $range)
+    {
+        if (strpos($range, '/') === false) {
+            return $ip === $range;
+        }
+
+        list($subnet, $bits) = explode('/', $range);
+        $bits = (int)$bits;
+
+        // IPv4 CIDR 比对
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            if ($bits < 0 || $bits > 32) return false;
+            $ip_dec = ip2long($ip);
+            $subnet_dec = ip2long($subnet);
+            $mask = -1 << (32 - $bits);
+            return ($ip_dec & $mask) === ($subnet_dec & $mask);
+        }
+
+        // IPv6 CIDR 比对
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) && filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            if ($bits < 0 || $bits > 128) return false;
+            $ip_bin = inet_pton($ip);
+            $subnet_bin = inet_pton($subnet);
+            if ($ip_bin === false || $subnet_bin === false) {
+                return false;
+            }
+
+            $ip_hex = bin2hex($ip_bin);
+            $subnet_hex = bin2hex($subnet_bin);
+            
+            $ip_bits_str = '';
+            $subnet_bits_str = '';
+            for ($i = 0; $i < 32; $i++) {
+                $ip_bits_str .= str_pad(base_convert($ip_hex[$i], 16, 2), 4, '0', STR_PAD_LEFT);
+                $subnet_bits_str .= str_pad(base_convert($subnet_hex[$i], 16, 2), 4, '0', STR_PAD_LEFT);
+            }
+
+            return substr($ip_bits_str, 0, $bits) === substr($subnet_bits_str, 0, $bits);
+        }
+
+        return false;
+    }
+
+    private function filterClientHistory($history, $ignoreIps)
+    {
+        if (empty($history) || empty($ignoreIps)) {
+            return $history;
+        }
+
+        return array_values(array_filter($history, function ($hItem) use ($ignoreIps) {
+            $ip = trim($hItem['ip'] ?? '');
+            if (empty($ip)) return false;
+            foreach ($ignoreIps as $ignoreRule) {
+                if ($this->ipInRange($ip, $ignoreRule)) {
+                    return false;
+                }
+            }
+            return true;
+        }));
     }
 }
 
