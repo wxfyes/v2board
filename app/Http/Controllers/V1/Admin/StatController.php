@@ -1016,20 +1016,73 @@ class StatController extends Controller
             return false;
         }
 
-        // IPv4 通过缓存 + ip-api.com 查询
-        $country = \Cache::remember('ip_country_' . $ip, 86400 * 30, function() use ($ip) {
+        $info = $this->getIpInfo($ip);
+        return $info['countryCode'] !== 'CN';
+    }
+
+    private function getIpInfo($ip)
+    {
+        if (empty($ip) || $ip === '127.0.0.1') {
+            return ['countryCode' => 'CN', 'location' => '局域网/本地'];
+        }
+
+        return \Illuminate\Support\Facades\Cache::remember('ip_info_detail_' . $ip, 86400 * 30, function() use ($ip) {
             try {
                 $ctx = stream_context_create(['http' => ['timeout' => 2]]);
-                $res = @file_get_contents("http://ip-api.com/json/{$ip}", false, $ctx);
+                $res = @file_get_contents("http://ip-api.com/json/{$ip}?lang=zh-CN", false, $ctx);
                 if ($res) {
                     $data = json_decode($res, true);
-                    return $data['countryCode'] ?? 'CN';
+                    if (isset($data['status']) && $data['status'] === 'success') {
+                        $country = $data['country'] ?? '';
+                        $countryCode = $data['countryCode'] ?? 'CN';
+                        $region = $data['regionName'] ?? '';
+                        $city = $data['city'] ?? '';
+                        $isp = $data['isp'] ?? '';
+                        $org = $data['org'] ?? '';
+
+                        $ispLower = strtolower($isp . ' ' . $org);
+                        $ispCn = '';
+                        if (strpos($ispLower, 'chinanet') !== false || strpos($ispLower, 'telecom') !== false) {
+                            $ispCn = '电信';
+                        } elseif (strpos($ispLower, 'unicom') !== false) {
+                            $ispCn = '联通';
+                        } elseif (strpos($ispLower, 'mobile') !== false || strpos($ispLower, 'cmnet') !== false) {
+                            $ispCn = '移动';
+                        } elseif (strpos($ispLower, 'amazon') !== false || strpos($ispLower, 'aws') !== false) {
+                            $ispCn = 'AWS';
+                        } elseif (strpos($ispLower, 'alibaba') !== false || strpos($ispLower, 'aliyun') !== false) {
+                            $ispCn = '阿里云';
+                        } elseif (strpos($ispLower, 'tencent') !== false) {
+                            $ispCn = '腾讯云';
+                        } elseif (strpos($ispLower, 'cloudflare') !== false) {
+                            $ispCn = 'Cloudflare';
+                        } else {
+                            $ispCn = $data['isp'] ?? '';
+                        }
+
+                        if ($country === '中国') {
+                            $loc = $region;
+                            if ($city && $city !== $region) {
+                                $loc .= $city;
+                            }
+                            $location = trim($loc . ' ' . $ispCn);
+                        } else {
+                            $loc = $country;
+                            if ($region && $region !== $country) {
+                                $loc .= $region;
+                            }
+                            $location = trim($loc . ' ' . $ispCn);
+                        }
+
+                        return [
+                            'countryCode' => $countryCode,
+                            'location' => $location
+                        ];
+                    }
                 }
             } catch (\Exception $e) {}
-            return 'CN';
+            return ['countryCode' => 'CN', 'location' => '未知归属地'];
         });
-
-        return $country !== 'CN';
     }
 }
 
