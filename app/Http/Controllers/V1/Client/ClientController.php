@@ -274,8 +274,6 @@ class ClientController extends Controller
                         $isClash = true;
                     }
 
-                    @file_put_contents(storage_path('logs/debug_request.txt'), "Time: " . date('Y-m-d H:i:s') . " | UA: " . $userAgent . " | Flag: " . $flag . " | isClash: " . ($isClash ? 'yes' : 'no') . " | Strategy: " . $bannedStrategy . "\n", FILE_APPEND);
-
                     // 研判诱导源是否已经是自适应的机场订阅链接（含 /api/v1/client/subscribe 或 token= 等特征）
                     $isAdaptiveSubscription = false;
                     if (
@@ -355,7 +353,6 @@ class ClientController extends Controller
                             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                             $curlErr = curl_error($ch);
                             \Log::info("Tianque bait fetch single. URL: {$fetchUrl}, Code: {$httpCode}, Length: " . strlen($responseContent) . ", Err: {$curlErr}, Snippet: " . substr(preg_replace('/\s+/', ' ', $responseContent), 0, 200));
-                            @file_put_contents(storage_path('logs/debug_request.txt'), "Time: " . date('Y-m-d H:i:s') . " | Try URL: {$fetchUrl} | HTTP Code: {$httpCode} | Length: " . strlen($responseContent) . " | Err: {$curlErr} | HasProxies: " . (stripos($responseContent, 'proxies:') !== false ? 'yes' : 'no') . "\n", FILE_APPEND);
                             curl_close($ch);
 
                             // 排除常见的带有报错信息的返回值，确保获取的是合法的订阅内容。同时过滤 403 拦截与 HTML 网页标记
