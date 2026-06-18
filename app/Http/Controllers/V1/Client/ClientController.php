@@ -14,8 +14,33 @@ use Illuminate\Http\Request;
 
 class ClientController extends Controller
 {
-    public function subscribe(Request $request)
-    {
+        // 穿透 CDN 与反向代理获取真实用户公网 IP
+        $realIp = null;
+        if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+            $realIp = $_SERVER['HTTP_CF_CONNECTING_IP'];
+        } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            $realIp = trim($ips[0]);
+        } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
+            $realIp = $_SERVER['HTTP_X_REAL_IP'];
+        } else {
+            $realIp = $request->ip();
+        }
+
+        // --- 🛡️ 订阅 IP 黑名单拦截 ---
+        $configPath = storage_path('tianque_config.json');
+        if (file_exists($configPath)) {
+            $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+            if (is_array($tianqueConfig) && isset($tianqueConfig['banned_ips']) && is_array($tianqueConfig['banned_ips'])) {
+                if (in_array($realIp, $tianqueConfig['banned_ips'], true)) {
+                    \Log::warning('Subscribe block by IP: ' . $realIp);
+                    return response([
+                        'message' => 'Your IP has been banned'
+                    ], 403);
+                }
+            }
+        }
+
         $flag = $request->input('flag')
             ?? $request->header('User-Agent')
             ?? '';

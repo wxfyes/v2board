@@ -133,6 +133,8 @@ class AdminRoute
             $router->post('/stat/whitelistUser', 'V1\\Admin\\StatController@whitelistUser');
             $router->post('/stat/removeWhitelistUser', 'V1\\Admin\\StatController@removeWhitelistUser');
             $router->post('/stat/saveSubscriptionAuditSettings', 'V1\\Admin\\StatController@saveSubscriptionAuditSettings');
+            $router->post('/stat/banIp', 'V1\\Admin\\StatController@banIp');
+            $router->post('/stat/removeBanIp', 'V1\\Admin\\StatController@removeBanIp');
             // Notice
             $router->get ('/notice/fetch', 'V1\\Admin\\NoticeController@fetch');
             $router->post('/notice/save', 'V1\\Admin\\NoticeController@save');

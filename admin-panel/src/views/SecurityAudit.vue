@@ -102,6 +102,16 @@
                     <div style="font-size: 13px; line-height: 1.6;">
                       <div style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
                         <span><strong>拉取 IP:</strong> <code class="font-mono">{{ h.ip }}</code></span>
+                        <el-button
+                          v-if="h.ip"
+                          type="danger"
+                          link
+                          size="small"
+                          style="padding: 0; height: auto;"
+                          @click="handleQuickBanIp(h.ip)"
+                        >
+                          (一键封禁此 IP)
+                        </el-button>
                         <span v-if="h.ua && h.ua.toLowerCase().includes('curl')" style="color: var(--el-color-warning); font-size: 12px; display: inline-flex; align-items: center; gap: 2px;">
                           <el-icon><InfoFilled /></el-icon> (该 IP 使用 curl 拉取，多为 OpenWrt 等路由器设备)
                         </span>
@@ -246,6 +256,37 @@
             </el-table>
           </div>
         </el-tab-pane>
+        <el-tab-pane label="IP黑名单管理" name="ip_blacklist">
+          <div style="padding-top: 10px;">
+            <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 12px; line-height: 1.4;">
+              以下 IP 在请求订阅拉取时会被直接拦截并返回 403。您可以手动输入 IP 增加封禁，也可对已封禁的 IP 点击解封。
+            </div>
+            
+            <div class="flex-between gap-10 mb-15" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <el-input
+                v-model="newBannedIp"
+                placeholder="请输入要封禁 the IP 地址 (IPv4/IPv6)"
+                size="small"
+                style="width: 380px;"
+                clearable
+              />
+              <el-button type="primary" size="small" @click="addBannedIpDirectly">添加封禁</el-button>
+            </div>
+
+            <el-table :data="bannedIpsList" stripe size="small" max-height="250px" style="width: 100%;">
+              <el-table-column label="封禁 IP" min-width="250">
+                <template #default="scope">
+                  <code class="font-mono">{{ scope.row }}</code>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="80" align="right">
+                <template #default="scope">
+                  <el-button type="danger" link size="small" @click="removeBannedIpDirectly(scope.row)">解封</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
       </el-tabs>
       <template #footer>
         <span class="dialog-footer">
@@ -309,6 +350,8 @@ const honeypotCount = computed(() => {
 });
 
 const whitelistList = ref([]);
+const bannedIpsList = ref([]);
+const newBannedIp = ref('');
 const settingsDialogVisible = ref(false);
 const settingsActiveTab = ref('rules');
 const newWhitelistIdentity = ref('');
@@ -333,6 +376,7 @@ const fetchAnomalies = async () => {
     if (res.data) {
       anomaliesRawList.value = res.data.list || [];
       whitelistList.value = res.data.whitelist || [];
+      bannedIpsList.value = res.data.banned_ips || [];
       if (res.data.config) {
         settingsForm.ip_limit = res.data.config.ip_limit || 10;
         settingsForm.audit_ua_enabled = res.data.config.audit_ua_enabled !== false;
@@ -406,6 +450,55 @@ const removeWhitelistDirectly = async (identity) => {
     if (err !== 'cancel') {
       console.error(err);
     }
+  }
+};
+
+const handleQuickBanIp = async (ip) => {
+  try {
+    await ElMessageBox.confirm(`确定要封禁该 IP 地址 ${ip} 吗？(封禁后该 IP 将无法拉取本站任何订阅链接)`, '警告', {
+      type: 'warning',
+      confirmButtonText: '确定封禁',
+      cancelButtonText: '取消'
+    });
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/stat/banIp`, { ip });
+    ElMessage.success(`IP ${ip} 封禁成功`);
+    fetchAnomalies();
+  } catch (err) {
+    if (err !== 'cancel') console.error(err);
+  }
+};
+
+const addBannedIpDirectly = async () => {
+  const ip = newBannedIp.value.trim();
+  if (!ip) {
+    ElMessage.warning('请输入要封禁的 IP 地址');
+    return;
+  }
+  try {
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/stat/banIp`, { ip });
+    ElMessage.success(`已成功封禁 IP: ${ip}`);
+    newBannedIp.value = '';
+    fetchAnomalies();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const removeBannedIpDirectly = async (ip) => {
+  try {
+    await ElMessageBox.confirm(`确定要解封 IP ${ip} 吗？`, '提示', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    });
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/stat/removeBanIp`, { ip });
+    ElMessage.success(`IP ${ip} 解封成功`);
+    fetchAnomalies();
+  } catch (err) {
+    if (err !== 'cancel') console.error(err);
   }
 };
 

@@ -463,6 +463,7 @@ class StatController extends Controller
             'data' => [
                 'list' => $data,
                 'whitelist' => array_values($whitelistUsers),
+                'banned_ips' => array_values($config['banned_ips'] ?? []),
                 'config' => [
                     'ip_limit' => isset($config['ip_limit']) ? (int)$config['ip_limit'] : 10,
                     'audit_ua_enabled' => isset($config['audit_ua_enabled']) ? (bool)$config['audit_ua_enabled'] : true
@@ -584,6 +585,57 @@ class StatController extends Controller
         $config['audit_ua_enabled'] = $auditUaEnabled;
 
         @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        return response([
+            'data' => true
+        ]);
+    }
+
+    public function banIp(Request $request)
+    {
+        $ip = trim($request->input('ip'));
+        if (empty($ip)) {
+            abort(500, 'IP不能为空');
+        }
+
+        $configPath = storage_path('tianque_config.json');
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        }
+
+        if (!isset($config['banned_ips']) || !is_array($config['banned_ips'])) {
+            $config['banned_ips'] = [];
+        }
+
+        if (!in_array($ip, $config['banned_ips'], true)) {
+            $config['banned_ips'][] = $ip;
+        }
+
+        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        return response([
+            'data' => true
+        ]);
+    }
+
+    public function removeBanIp(Request $request)
+    {
+        $ip = trim($request->input('ip'));
+        $configPath = storage_path('tianque_config.json');
+        if (!file_exists($configPath)) {
+            abort(500, '配置文件不存在');
+        }
+
+        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        if (isset($config['banned_ips']) && is_array($config['banned_ips'])) {
+            $key = array_search($ip, $config['banned_ips']);
+            if ($key !== false) {
+                unset($config['banned_ips'][$key]);
+                $config['banned_ips'] = array_values($config['banned_ips']);
+                @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            }
+        }
 
         return response([
             'data' => true
