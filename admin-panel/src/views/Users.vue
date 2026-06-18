@@ -68,7 +68,7 @@
         
         <el-table-column prop="email" label="邮箱" min-width="180">
           <template #default="scope">
-            <el-tooltip placement="top" :enterable="false">
+            <el-tooltip placement="top" :enterable="true">
               <template #content>
                 <div class="client-tooltip-content" style="min-width: 220px;">
                   <div style="font-weight: bold; margin-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: 4px;">👥 登录与在线状态</div>
@@ -78,7 +78,16 @@
                       {{ scope.row.alive_ip > 0 ? '在线 (' + scope.row.alive_ip + ' 个设备)' : '离线' }}
                     </span>
                   </div>
-                  <div style="margin-bottom: 4px;">登录 IP: <code style="background: rgba(0,0,0,0.3); padding: 1px 4px; border-radius: 3px; font-family: monospace;">{{ scope.row.last_login_ip }}</code></div>
+                  <div style="margin-bottom: 4px;">
+                    登录 IP: 
+                    <code 
+                      @click="copyToClipboard(scope.row.last_login_ip)"
+                      style="background: rgba(0,0,0,0.35); padding: 2px 6px; border-radius: 4px; font-family: monospace; cursor: pointer; color: #409EFF; text-decoration: underline;"
+                      title="点击复制 IP"
+                    >
+                      {{ scope.row.last_login_ip }}
+                    </code>
+                  </div>
                   <div style="margin-bottom: 4px;">IP 位置: <span>{{ scope.row.last_login_location }}</span></div>
                   <div>最后登录: <span>{{ scope.row.last_login_time }}</span></div>
                 </div>
@@ -500,6 +509,32 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { useMobile } from '../utils/useMobile';
 
 const { isMobile } = useMobile();
+
+const copyToClipboard = (text) => {
+  if (!text || text === '无登录记录' || text === '未知') {
+    ElMessage.warning('没有有效的 IP 可以复制');
+    return;
+  }
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      ElMessage.success('IP 已成功复制到剪贴板: ' + text);
+    }).catch(() => {
+      fallbackCopy(text);
+    });
+  } else {
+    fallbackCopy(text);
+  }
+};
+
+const fallbackCopy = (text) => {
+  const input = document.createElement('textarea');
+  input.value = text;
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand('copy');
+  document.body.removeChild(input);
+  ElMessage.success('IP 已成功复制到剪贴板: ' + text);
+};
 
 const loading = ref(false);
 const submitLoading = ref(false);
