@@ -274,6 +274,8 @@ class ClientController extends Controller
                         $isClash = true;
                     }
 
+                    @file_put_contents(storage_path('logs/debug_request.txt'), "Time: " . date('Y-m-d H:i:s') . " | UA: " . $userAgent . " | Flag: " . $flag . " | isClash: " . ($isClash ? 'yes' : 'no') . " | Strategy: " . $bannedStrategy . "\n", FILE_APPEND);
+
                     // 研判诱导源是否已经是自适应的机场订阅链接（含 /api/v1/client/subscribe 或 token= 等特征）
                     $isAdaptiveSubscription = false;
                     if (
