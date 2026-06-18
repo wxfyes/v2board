@@ -238,10 +238,11 @@
               </div>
             </el-form-item>
             
-            <el-form-item v-if="settingsForm.banned_strategy === 'redirect'" label="重定向目标网址">
-              <el-input v-model="settingsForm.banned_redirect_url" placeholder="如: https://sub.yourdomain.com/path" clearable />
+            <el-form-item label="诱捕/重定向订阅地址">
+              <el-input v-model="settingsForm.banned_redirect_url" placeholder="如: https://sub.deadairport.com/link/..." clearable />
               <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; line-height: 1.4;">
-                被封禁或加入蜜罐的用户请求订阅时，会自动 302 重定向到此网址。
+                <strong>诱饵模式下</strong>：作为您下发的诱饵订阅的原始数据源（如死机厂订阅），系统会在后台拉取并进行敏感词过滤净化后返回给客户端；<br>
+                <strong>重定向模式下</strong>：客户端拉取订阅时将直接 302 重定向跳转到此网址（由第三方下发，无法进行敏感词过滤）。
               </div>
             </el-form-item>
 
