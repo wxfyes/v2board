@@ -44,6 +44,7 @@ class AuthService
         self::addSession($this->user->id, $guid, [
             'ip' => $realIp,
             'proxy_ip' => $remoteAddr,
+            'login_domain' => $request->getHost(),
             'login_at' => time(),
             'ua' => $request->userAgent(),
             'auth_data' => $authData

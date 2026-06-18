@@ -90,6 +90,7 @@
                   </div>
                   <div style="margin-bottom: 4px;">IP 位置: <span>{{ scope.row.last_login_location }}</span></div>
                   <div style="margin-bottom: 4px;">最后登录: <span>{{ scope.row.last_login_time }}</span></div>
+                  <div v-if="scope.row.last_login_domain" style="margin-bottom: 4px;">登录域名: <span style="font-weight: bold; color: #E6A23C;">{{ scope.row.last_login_domain }}</span></div>
                   <div v-if="scope.row.last_login_proxy" style="margin-top: 6px; border-top: 1px dashed rgba(255, 255, 255, 0.15); padding-top: 6px;">
                     网站反代/CDN IP: 
                     <code 
