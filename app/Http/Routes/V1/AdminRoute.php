@@ -135,6 +135,7 @@ class AdminRoute
             $router->post('/stat/saveSubscriptionAuditSettings', 'V1\\Admin\\StatController@saveSubscriptionAuditSettings');
             $router->post('/stat/banIp', 'V1\\Admin\\StatController@banIp');
             $router->post('/stat/removeBanIp', 'V1\\Admin\\StatController@removeBanIp');
+            $router->get ('/stat/getIpAssociationAnalysis', 'V1\\Admin\\StatController@getIpAssociationAnalysis');
             // Notice
             $router->get ('/notice/fetch', 'V1\\Admin\\NoticeController@fetch');
             $router->post('/notice/save', 'V1\\Admin\\NoticeController@save');

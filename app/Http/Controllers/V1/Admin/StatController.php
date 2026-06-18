@@ -641,5 +641,100 @@ class StatController extends Controller
             'data' => true
         ]);
     }
+
+    public function getIpAssociationAnalysis()
+    {
+        $configPath = storage_path('tianque_config.json');
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        }
+        $bannedIps = $config['banned_ips'] ?? [];
+        $honeypotUsers = array_map('intval', $config['honeypot_users'] ?? []);
+
+        // 获取所有有拉取记录的用户
+        $users = User::whereNotNull('client_type')->get(['id', 'email', 'client_type']);
+
+        $ipMap = [];
+        foreach ($users as $user) {
+            $history = json_decode($user->client_type, true);
+            if (!is_array($history)) {
+                continue;
+            }
+
+            $userInHoneypot = in_array((int)$user->id, $honeypotUsers, true);
+
+            foreach ($history as $log) {
+                $ip = trim($log['ip'] ?? '');
+                if (empty($ip) || $ip === '127.0.0.1') {
+                    continue;
+                }
+
+                if (!isset($ipMap[$ip])) {
+                    $ipMap[$ip] = [
+                        'ip' => $ip,
+                        'users' => [],
+                        'total_pulls' => 0,
+                        'latest_time' => 0,
+                    ];
+                }
+
+                $ipMap[$ip]['total_pulls']++;
+                if (($log['time'] ?? 0) > $ipMap[$ip]['latest_time']) {
+                    $ipMap[$ip]['latest_time'] = (int)($log['time'] ?? 0);
+                }
+
+                $ipMap[$ip]['users'][$user->email] = [
+                    'id' => (int)$user->id,
+                    'in_honeypot' => $userInHoneypot
+                ];
+            }
+        }
+
+        // 过滤出关联了 2 个及以上不同账号的 IP
+        $result = [];
+        foreach ($ipMap as $ip => $data) {
+            $userCount = count($data['users']);
+            if ($userCount < 2) {
+                continue;
+            }
+
+            // 转换 users 格式供前端使用
+            $associatedUsers = [];
+            $honeypotCount = 0;
+            foreach ($data['users'] as $email => $uInfo) {
+                $associatedUsers[] = [
+                    'id' => $uInfo['id'],
+                    'email' => $email,
+                    'in_honeypot' => $uInfo['in_honeypot'] ? 1 : 0
+                ];
+                if ($uInfo['in_honeypot']) {
+                    $honeypotCount++;
+                }
+            }
+
+            $result[] = [
+                'ip' => $ip,
+                'associated_accounts_count' => $userCount,
+                'honeypot_accounts_count' => $honeypotCount,
+                'total_pulls' => $data['total_pulls'],
+                'latest_time' => $data['latest_time'],
+                'associated_users' => $associatedUsers,
+                'is_banned' => in_array($ip, $bannedIps, true) ? 1 : 0
+            ];
+        }
+
+        // 按关联账号数从多到少排序，如果一样多，按最近拉取时间降序
+        usort($result, function ($a, $b) {
+            if ($b['associated_accounts_count'] === $a['associated_accounts_count']) {
+                return $b['latest_time'] <=> $a['latest_time'];
+            }
+            return $b['associated_accounts_count'] <=> $a['associated_accounts_count'];
+        });
+
+        return response([
+            'data' => $result
+        ]);
+    }
 }
 
