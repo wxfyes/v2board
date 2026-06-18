@@ -311,8 +311,8 @@ class ClientController extends Controller
                     $cacheFile = storage_path('logs/tianque_bait_' . md5($targetFetchUrl) . '.cache');
                     $cachedContent = null;
                     
-                    // 缓存 30 分钟 (1800 秒)
-                    if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 1800) {
+                    // 缓存 10 秒，保证死机厂的动态 UUID 和动态验证 Token 实时有效
+                    if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 10) {
                         $cachedContent = @file_get_contents($cacheFile);
                         if (!empty($cachedContent)) {
                             $isDirty = false;
