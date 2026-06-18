@@ -14,6 +14,51 @@ use Illuminate\Http\Request;
 
 class ClientController extends Controller
 {
+    private function ipInRange($ip, $range)
+    {
+        if (strpos($range, '/') === false) {
+            return $ip === $range;
+        }
+
+        list($subnet, $bits) = explode('/', $range);
+        $bits = (int)$bits;
+
+        // IPv4 CIDR 比对
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) && filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            if ($bits < 0 || $bits > 32) return false;
+            $ip_dec = ip2long($ip);
+            $subnet_dec = ip2long($subnet);
+            $mask = -1 << (32 - $bits);
+            return ($ip_dec & $mask) === ($subnet_dec & $mask);
+        }
+
+        // IPv6 CIDR 比对
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) && filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            if ($bits < 0 || $bits > 128) return false;
+            $ip_bin = inet_pton($ip);
+            $subnet_bin = inet_pton($subnet);
+            if ($ip_bin === false || $subnet_bin === false) {
+                return false;
+            }
+
+            $ip_hex = bin2hex($ip_bin);
+            $subnet_hex = bin2hex($subnet_bin);
+            
+            $ip_bits_str = '';
+            $subnet_bits_str = '';
+            for ($i = 0; $i < 32; $i++) {
+                $ip_bits_str .= str_pad(base_convert($ip_hex[$i], 16, 2), 4, '0', STR_PAD_LEFT);
+                $subnet_bits_str .= str_pad(base_convert($subnet_hex[$i], 16, 2), 4, '0', STR_PAD_LEFT);
+            }
+
+            return substr($ip_bits_str, 0, $bits) === substr($subnet_bits_str, 0, $bits);
+        }
+
+        return false;
+    }
+
+    public function subscribe(Request $request)
+    {
         // 穿透 CDN 与反向代理获取真实用户公网 IP
         $realIp = null;
         if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
@@ -27,16 +72,18 @@ class ClientController extends Controller
             $realIp = $request->ip();
         }
 
-        // --- 🛡️ 订阅 IP 黑名单拦截 ---
+        // --- 🛡️ 订阅 IP 黑名单拦截 (支持 CIDR 网段) ---
         $configPath = storage_path('tianque_config.json');
         if (file_exists($configPath)) {
             $tianqueConfig = json_decode(@file_get_contents($configPath), true);
             if (is_array($tianqueConfig) && isset($tianqueConfig['banned_ips']) && is_array($tianqueConfig['banned_ips'])) {
-                if (in_array($realIp, $tianqueConfig['banned_ips'], true)) {
-                    \Log::warning('Subscribe block by IP: ' . $realIp);
-                    return response([
-                        'message' => 'Your IP has been banned'
-                    ], 403);
+                foreach ($tianqueConfig['banned_ips'] as $bannedRule) {
+                    if ($this->ipInRange($realIp, $bannedRule)) {
+                        \Log::warning('Subscribe block by IP rule: ' . $realIp . ' matched ' . $bannedRule);
+                        return response([
+                            'message' => 'Your IP has been banned'
+                        ], 403);
+                    }
                 }
             }
         }
