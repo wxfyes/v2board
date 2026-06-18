@@ -455,6 +455,101 @@ class StatController extends Controller
             ];
         }
 
+        // --- 🛡️ 智能行为画像扫描引擎 ---
+        // 查找可能没有敏感 UA，但符合“只拉订阅不跑流量”或者“多 IP 异地跨度拉取”的活跃用户
+        $activeUsers = User::where('banned', 0)
+            ->whereNotNull('client_type')
+            ->whereNotIn('id', $flaggedIds);
+        if (!empty($honeypotUsers)) {
+            $activeUsers->whereNotIn('id', $honeypotUsers);
+        }
+        
+        // 取最近有订阅活动的前 150 个用户来深入画像分析
+        $potentialUsers = $activeUsers->orderBy('t', 'desc')->limit(150)->get(['id', 'email', 'u', 'd', 'client_type', 't', 'banned']);
+        
+        foreach ($potentialUsers as $user) {
+            // 排除已经在 $data 中的
+            $alreadyExists = false;
+            foreach ($data as $dItem) {
+                if ($dItem['user_id'] == $user->id) {
+                    $alreadyExists = true;
+                    break;
+                }
+            }
+            if ($alreadyExists) continue;
+
+            $isInWhitelist = false;
+            foreach ($whitelistUsers as $wlItem) {
+                if ($user->id == $wlItem || strtolower($user->email) === strtolower(trim($wlItem))) {
+                    $isInWhitelist = true;
+                    break;
+                }
+            }
+            if ($isInWhitelist) continue;
+
+            $history = json_decode($user->client_type, true) ?: [];
+            if (empty($history)) continue;
+
+            $reasons = [];
+
+            // 1. 画像分析 A：只拉订阅不跑流量
+            $pullCountLast24h = 0;
+            $now = time();
+            foreach ($history as $hItem) {
+                if (($now - ($hItem['time'] ?? 0)) < 86400) {
+                    $pullCountLast24h++;
+                }
+            }
+            $totalTrafficMB = ($user->u + $user->d) / 1024 / 1024;
+            if ($pullCountLast24h >= 4 && $totalTrafficMB < 100) {
+                $reasons[] = "画像异常: 24h内拉取订阅 " . $pullCountLast24h . " 次，但本月总消耗流量仅为 " . round($totalTrafficMB, 2) . " MB (只拉订阅不跑流量)";
+            }
+
+            // 2. 画像分析 B：多段 Class B/Class C IP 异地交叉拉取
+            $ips = [];
+            foreach ($history as $hItem) {
+                if (isset($hItem['ip']) && !empty($hItem['ip']) && $hItem['ip'] !== '127.0.0.1') {
+                    $ips[] = trim($hItem['ip']);
+                }
+            }
+            $ips = array_values(array_unique($ips));
+            if (count($ips) >= 3) {
+                // 计算不同的段。如果是 IPv6, 取前四段（前缀）；如果是 IPv4, 取前两段
+                $segments = [];
+                foreach ($ips as $ip) {
+                    if (strpos($ip, ':') !== false) {
+                        $parts = explode(':', $ip);
+                        $prefix = implode(':', array_slice($parts, 0, 4));
+                        $segments[] = $prefix;
+                    } else {
+                        $parts = explode('.', $ip);
+                        if (count($parts) >= 2) {
+                            $prefix = $parts[0] . '.' . $parts[1];
+                            $segments[] = $prefix;
+                        }
+                    }
+                }
+                $uniqueSegments = array_values(array_unique($segments));
+                if (count($uniqueSegments) >= 3) {
+                    $reasons[] = "画像异常: 订阅拉取 IP 来自于 " . count($uniqueSegments) . " 个完全不同的运营商/地理子网 (异地探测风险)";
+                }
+            }
+
+            if (!empty($reasons)) {
+                $data[] = [
+                    'user_id' => (int)$user->id,
+                    'email' => $user->email,
+                    'flagged_at' => $user->t ?: time(),
+                    'reasons' => $reasons,
+                    'in_honeypot' => 0,
+                    'banned' => (int)$user->banned,
+                    'history' => $history,
+                    'type' => 'suspected',
+                    'risk_level' => 'low'
+                ];
+            }
+        }
+
         usort($data, function ($a, $b) {
             return $b['flagged_at'] <=> $a['flagged_at'];
         });
