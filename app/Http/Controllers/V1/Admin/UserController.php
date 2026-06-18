@@ -126,11 +126,99 @@ class UserController extends Controller
             $res[$i]['alive_ip'] = $countalive;
             $res[$i]['ips'] = implode(', ', $ips);
             $res[$i]['subscribe_url'] = Helper::getSubscribeUrl($res[$i]['token']);
+
+            // 获取最后登录数据
+            $authService = new AuthService($res[$i]);
+            $sessions = $authService->getSessions();
+            $lastLoginIp = '无登录记录';
+            $lastLoginTime = '无登录记录';
+            $lastLoginLocation = '未知地区';
+            if (!empty($sessions) && is_array($sessions)) {
+                uasort($sessions, function($a, $b) {
+                    return ($b['login_at'] ?? 0) <=> ($a['login_at'] ?? 0);
+                });
+                $latestSession = reset($sessions);
+                $lastLoginIp = $latestSession['ip'] ?? '未知';
+                $lastLoginTime = isset($latestSession['login_at']) ? date('Y-m-d H:i:s', $latestSession['login_at']) : '未知';
+                if ($lastLoginIp !== '未知' && $lastLoginIp !== '无登录记录') {
+                    $lastLoginLocation = $this->getIpLocation($lastLoginIp);
+                }
+            }
+            $res[$i]['last_login_ip'] = $lastLoginIp;
+            $res[$i]['last_login_time'] = $lastLoginTime;
+            $res[$i]['last_login_location'] = $lastLoginLocation;
         }
         return response([
             'data' => $res,
             'total' => $total
         ]);
+    }
+
+    private function getIpLocation($ip)
+    {
+        if (empty($ip) || $ip === '127.0.0.1' || !filter_var($ip, FILTER_VALIDATE_IP)) {
+            return '本地局域网';
+        }
+
+        $cacheKey = "ip_loc_" . md5($ip);
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
+        try {
+            $ctx = stream_context_create(['http' => ['timeout' => 1]]);
+            $res = @file_get_contents("http://ip-api.com/json/{$ip}?lang=zh-CN", false, $ctx);
+            if ($res) {
+                $data = json_decode($res, true);
+                if (isset($data['status']) && $data['status'] === 'success') {
+                    $country = $data['country'] ?? '';
+                    $region = $data['regionName'] ?? '';
+                    $city = $data['city'] ?? '';
+                    $isp = $data['isp'] ?? '';
+                    $org = $data['org'] ?? '';
+
+                    $ispLower = strtolower($isp . ' ' . $org);
+                    $ispCn = '';
+                    if (strpos($ispLower, 'chinanet') !== false || strpos($ispLower, 'telecom') !== false) {
+                        $ispCn = '电信';
+                    } elseif (strpos($ispLower, 'unicom') !== false) {
+                        $ispCn = '联通';
+                    } elseif (strpos($ispLower, 'mobile') !== false || strpos($ispLower, 'cmnet') !== false) {
+                        $ispCn = '移动';
+                    } elseif (strpos($ispLower, 'amazon') !== false || strpos($ispLower, 'aws') !== false) {
+                        $ispCn = 'AWS';
+                    } elseif (strpos($ispLower, 'alibaba') !== false || strpos($ispLower, 'aliyun') !== false) {
+                        $ispCn = '阿里云';
+                    } elseif (strpos($ispLower, 'tencent') !== false) {
+                        $ispCn = '腾讯云';
+                    } elseif (strpos($ispLower, 'cloudflare') !== false) {
+                        $ispCn = 'Cloudflare';
+                    } else {
+                        $ispCn = $isp;
+                    }
+
+                    if ($country === '中国') {
+                        $loc = $region;
+                        if ($city && $city !== $region) {
+                            $loc .= $city;
+                        }
+                        $location = trim($loc . ' ' . $ispCn);
+                    } else {
+                        $loc = $country;
+                        if ($region && $region !== $country) {
+                            $loc .= $region;
+                        }
+                        $location = trim($loc . ' ' . $ispCn);
+                    }
+
+                    Cache::put($cacheKey, $location, 86400 * 30);
+                    return $location;
+                }
+            }
+        } catch (\Exception $e) {}
+
+        Cache::put($cacheKey, '未知地理位置', 86400); // 即使失败也缓存一天，防空阻断
+        return '未知地理位置';
     }
 
     public function getUserInfoById(Request $request)

@@ -66,12 +66,28 @@
       <el-table :data="users" v-loading="loading" stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="70" align="center" />
         
-        <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip>
+        <el-table-column prop="email" label="邮箱" min-width="180">
           <template #default="scope">
-            <div class="email-cell flex-center" style="justify-content: flex-start; gap: 4px;">
-              <span :class="['status-dot', scope.row.alive_ip > 0 ? 'online' : 'offline']">●</span>
-              <span>{{ scope.row.email }}</span>
-            </div>
+            <el-tooltip placement="top" :enterable="false">
+              <template #content>
+                <div class="client-tooltip-content" style="min-width: 220px;">
+                  <div style="font-weight: bold; margin-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: 4px;">👥 登录与在线状态</div>
+                  <div style="margin-bottom: 4px;">
+                    在线状态: 
+                    <span :style="{ color: scope.row.alive_ip > 0 ? '#67C23A' : '#909399', fontWeight: 'bold' }">
+                      {{ scope.row.alive_ip > 0 ? '在线 (' + scope.row.alive_ip + ' 个设备)' : '离线' }}
+                    </span>
+                  </div>
+                  <div style="margin-bottom: 4px;">登录 IP: <code style="background: rgba(0,0,0,0.3); padding: 1px 4px; border-radius: 3px; font-family: monospace;">{{ scope.row.last_login_ip }}</code></div>
+                  <div style="margin-bottom: 4px;">IP 位置: <span>{{ scope.row.last_login_location }}</span></div>
+                  <div>最后登录: <span>{{ scope.row.last_login_time }}</span></div>
+                </div>
+              </template>
+              <div class="email-cell flex-center" style="justify-content: flex-start; gap: 6px; cursor: help;">
+                <span :class="['status-dot', scope.row.alive_ip > 0 ? 'online' : 'offline']">●</span>
+                <span>{{ scope.row.email }}</span>
+              </div>
+            </el-tooltip>
           </template>
         </el-table-column>
         
@@ -1107,13 +1123,31 @@ onMounted(() => {
   line-height: 1;
   vertical-align: middle;
   margin-right: 4px;
+  transition: all 0.3s ease;
 }
 .status-dot.online {
-  color: var(--el-color-success);
+  color: #67C23A;
+  text-shadow: 0 0 6px #67C23A, 0 0 10px #67C23A;
+  animation: status-pulse 1.8s infinite ease-in-out;
 }
 .status-dot.offline {
   color: var(--el-color-info);
   opacity: 0.5;
+}
+
+@keyframes status-pulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
 }
 
 .client-type-text {
