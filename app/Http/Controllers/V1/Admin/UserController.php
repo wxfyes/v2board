@@ -38,6 +38,22 @@ class UserController extends Controller
         $filters = $request->input('filter');
         if ($filters) {
             foreach ($filters as $k => $filter) {
+                if ($filter['key'] === 'in_honeypot') {
+                    $configPath = storage_path('tianque_config.json');
+                    $honeypotUsers = [];
+                    if (file_exists($configPath)) {
+                        $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+                        if (is_array($tianqueConfig) && isset($tianqueConfig['honeypot_users'])) {
+                            $honeypotUsers = array_map('intval', $tianqueConfig['honeypot_users']);
+                        }
+                    }
+                    if ((int)$filter['value'] === 1) {
+                        $builder->whereIn('id', $honeypotUsers);
+                    } else {
+                        $builder->whereNotIn('id', $honeypotUsers);
+                    }
+                    continue;
+                }
                 if ($filter['condition'] === '模糊') {
                     $filter['condition'] = 'like';
                     $filter['value'] = "%{$filter['value']}%";

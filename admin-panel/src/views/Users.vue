@@ -364,6 +364,11 @@
               <el-option label="是 / 封禁" :value="1" />
               <el-option label="否 / 正常" :value="0" />
             </el-select>
+            <!-- in_honeypot input -->
+            <el-select v-else-if="scope.row.key === 'in_honeypot'" v-model="scope.row.value" placeholder="请选择" style="width: 100%">
+              <el-option label="是" :value="1" />
+              <el-option label="否" :value="0" />
+            </el-select>
             <!-- Date/Time input -->
             <el-date-picker
               v-else-if="scope.row.key === 'expired_at' || scope.row.key === 'client_login_at'"
@@ -514,7 +519,8 @@ const filterKeys = {
   invite_user_id: '邀请人ID',
   banned: '封禁状态',
   remarks: '备注',
-  is_admin: '是否管理员'
+  is_admin: '是否管理员',
+  in_honeypot: '是否蜜罐'
 };
 
 const filterConditions = [

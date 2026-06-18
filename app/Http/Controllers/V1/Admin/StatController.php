@@ -356,6 +356,47 @@ class StatController extends Controller
             ];
         }
 
+        // Process honeypot users who are not in flagged_users
+        $honeypotDbUsers = User::whereIn('id', $honeypotUsers)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
+        foreach ($honeypotUsers as $uid) {
+            if (isset($flaggedUsers[$uid])) {
+                continue;
+            }
+            $user = $honeypotDbUsers->get($uid);
+            if (!$user) {
+                continue;
+            }
+
+            // Skip if in whitelist
+            $isInWhitelist = false;
+            foreach ($whitelistUsers as $wlItem) {
+                if ($uid == $wlItem || strtolower($user->email) === strtolower(trim($wlItem))) {
+                    $isInWhitelist = true;
+                    break;
+                }
+            }
+            if ($isInWhitelist) {
+                continue;
+            }
+
+            $history = [];
+            if ($user->client_type) {
+                $history = json_decode($user->client_type, true) ?: [];
+            }
+
+            $data[] = [
+                'user_id' => (int)$uid,
+                'email' => $user->email,
+                'flagged_at' => $user->t ?: time(),
+                'reasons' => ['安全蜜罐账号已接管'],
+                'in_honeypot' => 1,
+                'banned' => (int)$user->banned,
+                'history' => $history,
+                'type' => 'honeypot',
+                'risk_level' => 'low'
+            ];
+        }
+
         // Suspected Users
         $abnormalKeywords = ['curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2'];
         $query = User::where('banned', 0)
