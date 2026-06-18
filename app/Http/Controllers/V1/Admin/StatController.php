@@ -317,52 +317,7 @@ class StatController extends Controller
         $flaggedIds = array_keys($flaggedUsers);
         $users = User::whereIn('id', $flaggedIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
 
-        // 统计最近 24 小时内所有用户的 IP 共用情况，过滤海外 IP 联合探测行为
-        $allUsersWithLog = User::whereNotNull('client_type')->get(['id', 'email', 'client_type']);
-        $ipUserMap = [];
-        $now = time();
-        foreach ($allUsersWithLog as $u) {
-            $hist = json_decode($u->client_type, true) ?: [];
-            $hist = $this->filterClientHistory($hist, $ignoreIps);
-            foreach ($hist as $log) {
-                if (($now - ($log['time'] ?? 0)) < 86400) {
-                    $ip = trim($log['ip'] ?? '');
-                    if (!empty($ip) && $ip !== '127.0.0.1') {
-                        if (!isset($ipUserMap[$ip])) {
-                            $ipUserMap[$ip] = [];
-                        }
-                        if (!in_array((int)$u->id, $ipUserMap[$ip], true)) {
-                            $ipUserMap[$ip][] = (int)$u->id;
-                        }
-                    }
-                }
-            }
-        }
-
-        $sharedOverseasIps = [];
-        $userEmailMap = $allUsersWithLog->pluck('email', 'id')->toArray();
-        foreach ($ipUserMap as $ip => $uids) {
-            if (count($uids) >= 2) {
-                if ($this->isOverseasIp($ip)) {
-                    foreach ($uids as $uid) {
-                        if (!isset($sharedOverseasIps[$uid])) {
-                            $sharedOverseasIps[$uid] = [];
-                        }
-                        $otherEmails = [];
-                        foreach ($uids as $otherUid) {
-                            if ($otherUid !== $uid) {
-                                $otherEmails[] = $userEmailMap[$otherUid] ?? '未知用户';
-                            }
-                        }
-                        $sharedOverseasIps[$uid][] = [
-                            'ip' => $ip,
-                            'others' => $otherEmails
-                        ];
-                    }
-                }
-            }
-        }
-
+        // 标记高风险的检测画像
         $data = [];
         foreach ($flaggedUsers as $uid => $info) {
             $user = $users->get($uid);
@@ -395,6 +350,14 @@ class StatController extends Controller
                 continue;
             }
 
+            // 判断风险等级
+            $riskLevel = 'high';
+            foreach ($reasons as $reason) {
+                if (strpos($reason, '共用海外IP') !== false) {
+                    $riskLevel = 'medium';
+                }
+            }
+
             $data[] = [
                 'user_id' => (int)$uid,
                 'email' => $email,
@@ -404,7 +367,7 @@ class StatController extends Controller
                 'banned' => $banned,
                 'history' => $history,
                 'type' => 'flagged',
-                'risk_level' => 'high'
+                'risk_level' => $riskLevel
             ];
         }
 
@@ -515,88 +478,6 @@ class StatController extends Controller
                 'type' => 'suspected',
                 'risk_level' => 'low'
             ];
-        }
-
-        // --- 🛡️ 智能行为画像扫描引擎 ---
-        // 查找可能没有敏感 UA，但符合“只拉订阅不跑流量”或者“多 IP 异地跨度拉取”的活跃用户
-        $activeUsers = User::where('banned', 0)
-            ->whereNotNull('client_type')
-            ->whereNotIn('id', $flaggedIds);
-        if (!empty($honeypotUsers)) {
-            $activeUsers->whereNotIn('id', $honeypotUsers);
-        }
-        
-        // 取最近有订阅活动的前 150 个用户来深入画像分析
-        $potentialUsers = $activeUsers->orderBy('t', 'desc')->limit(150)->get(['id', 'email', 'u', 'd', 'client_type', 't', 'banned']);
-        
-        foreach ($potentialUsers as $user) {
-            // 排除已经在 $data 中的
-            $alreadyExists = false;
-            foreach ($data as $dItem) {
-                if ($dItem['user_id'] == $user->id) {
-                    $alreadyExists = true;
-                    break;
-                }
-            }
-            if ($alreadyExists) continue;
-
-            $isInWhitelist = false;
-            foreach ($whitelistUsers as $wlItem) {
-                if ($user->id == $wlItem || strtolower($user->email) === strtolower(trim($wlItem))) {
-                    $isInWhitelist = true;
-                    break;
-                }
-            }
-            if ($isInWhitelist) continue;
-
-            $history = json_decode($user->client_type, true) ?: [];
-            $history = $this->filterClientHistory($history, $ignoreIps);
-            if (empty($history)) continue;
-            foreach ($history as &$hItem) {
-                $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
-            }
-            unset($hItem);
-
-            $reasons = [];
-
-            // 1. 画像分析 A：只拉订阅不跑流量
-            $pullCountLast24h = 0;
-            $now = time();
-            foreach ($history as $hItem) {
-                if (($now - ($hItem['time'] ?? 0)) < 86400) {
-                    $pullCountLast24h++;
-                }
-            }
-            $totalTrafficMB = ($user->u + $user->d) / 1024 / 1024;
-            if ($pullCountLast24h >= 4 && $totalTrafficMB < 100) {
-                $reasons[] = "画像异常: 24h内拉取订阅 " . $pullCountLast24h . " 次，但本月总消耗流量仅为 " . round($totalTrafficMB, 2) . " MB (只拉订阅不跑流量)";
-            }
-
-            // 2. 画像分析 B：共用海外 IP 联合探测预警
-            if (isset($sharedOverseasIps[$user->id])) {
-                foreach ($sharedOverseasIps[$user->id] as $info) {
-                    $reasons[] = "共用海外IP预警: 24h内与用户 [" . implode(', ', $info['others']) . "] 共用海外 IP " . $info['ip'] . " 拉取订阅 (疑似多账号联合探测)";
-                }
-            }
-
-            if (!empty($reasons)) {
-                $riskLevel = 'low';
-                if (isset($sharedOverseasIps[$user->id])) {
-                    $riskLevel = 'medium';
-                }
-
-                $data[] = [
-                    'user_id' => (int)$user->id,
-                    'email' => $user->email,
-                    'flagged_at' => $user->t ?: time(),
-                    'reasons' => $reasons,
-                    'in_honeypot' => 0,
-                    'banned' => (int)$user->banned,
-                    'history' => $history,
-                    'type' => 'suspected',
-                    'risk_level' => $riskLevel
-                ];
-            }
         }
 
         usort($data, function ($a, $b) {

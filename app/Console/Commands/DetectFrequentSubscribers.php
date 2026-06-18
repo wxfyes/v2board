@@ -139,9 +139,77 @@ class DetectFrequentSubscribers extends Command
                 if (isset($tianqueConfig['audit_ua_enabled'])) {
                     $auditUaEnabled = (bool)$tianqueConfig['audit_ua_enabled'];
                 }
+        // --------------------------------------------------
+        // 全局前置计算：24小时内所有用户的 IP 共用映射，用以排查海外 IP 联合探测行为
+        // --------------------------------------------------
+        $this->info("ℹ️ 正在分析全站 IP 共用映射关系...");
+        $allActiveUsers = User::where('banned', 0)
+            ->whereNotNull('client_type')
+            ->get(['id', 'email', 'client_type']);
+            
+        $ipUserMap = [];
+        $now = time();
+        foreach ($allActiveUsers as $u) {
+            // 排除白名单
+            $isInWhitelist = false;
+            foreach ($whitelistUsers as $wlItem) {
+                if ($u->id == $wlItem || strtolower($u->email) === strtolower(trim($wlItem))) {
+                    $isInWhitelist = true;
+                    break;
+                }
+            }
+            if ($isInWhitelist) continue;
+
+            $hist = json_decode($u->client_type, true) ?: [];
+            foreach ($hist as $log) {
+                if (($now - ($log['time'] ?? 0)) < 86400) {
+                    $ip = trim($log['ip'] ?? '');
+                    if (!empty($ip) && $ip !== '127.0.0.1') {
+                        if (!isset($ipUserMap[$ip])) {
+                            $ipUserMap[$ip] = [];
+                        }
+                        if (!in_array((int)$u->id, $ipUserMap[$ip], true)) {
+                            $ipUserMap[$ip][] = (int)$u->id;
+                        }
+                    }
+                }
             }
         }
- 
+
+        $sharedOverseasIps = [];
+        $userEmailMap = $allActiveUsers->pluck('email', 'id')->toArray();
+        foreach ($ipUserMap as $ip => $uids) {
+            if (count($uids) >= 2) {
+                $loc = $this->getIpLocation($ip);
+                $isOverseas = true;
+                foreach (['中国', '本地局域网'] as $chinaKw) {
+                    if (strpos($loc, $chinaKw) !== false) {
+                        $isOverseas = false;
+                        break;
+                    }
+                }
+                
+                if ($isOverseas) {
+                    foreach ($uids as $uid) {
+                        if (!isset($sharedOverseasIps[$uid])) {
+                            $sharedOverseasIps[$uid] = [];
+                        }
+                        $otherEmails = [];
+                        foreach ($uids as $otherUid) {
+                            if ($otherUid !== $uid) {
+                                $otherEmails[] = $userEmailMap[$otherUid] ?? '未知用户';
+                            }
+                        }
+                        $sharedOverseasIps[$uid][] = [
+                            'ip' => $ip,
+                            'location' => $loc,
+                            'others' => $otherEmails
+                        ];
+                    }
+                }
+            }
+        }
+
         foreach ($users as $user) {
             // 如果用户已经在天阙灰名单（蜜罐）中，则直接跳过，避免重复报警和重复处理
             if (in_array((int)$user->id, $honeypotUsers, true)) {
@@ -260,6 +328,29 @@ class DetectFrequentSubscribers extends Command
                 $reasons[] = "敏感的命令行或开发库 UA 请求 (检测到: {$abnormalUaName})";
             }
  
+            // --------------------------------------------------
+            // 维度 4：画像异常 - 只拉订阅不跑流量
+            // --------------------------------------------------
+            $pullCountLast24h = 0;
+            foreach ($history as $hItem) {
+                if (!empty($hItem['time']) && ($now - $hItem['time']) < 86400) {
+                    $pullCountLast24h++;
+                }
+            }
+            $totalTrafficMB = ($user->u + $user->d) / 1024 / 1024;
+            if ($pullCountLast24h >= 4 && $totalTrafficMB < 100) {
+                $reasons[] = "只拉订阅不跑流量 (24h拉取 {$pullCountLast24h} 次，本月总流量仅为 " . round($totalTrafficMB, 2) . " MB)";
+            }
+
+            // --------------------------------------------------
+            // 维度 5：画像异常 - 共用海外 IP 联合探测预警
+            // --------------------------------------------------
+            if (isset($sharedOverseasIps[$user->id])) {
+                foreach ($sharedOverseasIps[$user->id] as $info) {
+                    $reasons[] = "共用海外IP预警: 24h内与用户 [" . implode(', ', $info['others']) . "] 共用海外 IP {$info['ip']} ({$info['location']}) 拉取订阅 (疑似多账号联合探测)";
+                }
+            }
+
             // --------------------------------------------------
             // 处置与告警逻辑
             // --------------------------------------------------
