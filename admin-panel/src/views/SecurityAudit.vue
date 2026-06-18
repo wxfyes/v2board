@@ -102,7 +102,7 @@
                   <el-card shadow="none" class="history-item-card">
                     <div style="font-size: 13px; line-height: 1.6;">
                       <div style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                        <span><strong>拉取 IP:</strong> <code class="font-mono">{{ h.ip }}</code></span>
+                        <span><strong>拉取 IP:</strong> <code class="font-mono">{{ h.ip }}</code><span v-if="h.location" style="color: var(--el-text-color-secondary); font-size: 12px; margin-left: 6px;">({{ h.location }})</span></span>
                         <el-button
                           v-if="h.ip"
                           type="danger"
@@ -335,9 +335,12 @@
       </div>
 
       <el-table :data="ipAssociationList" v-loading="ipAssociationLoading" stripe size="small" max-height="450px" style="width: 100%;">
-        <el-table-column label="共用 IP" min-width="180">
+        <el-table-column label="共用 IP" min-width="240">
           <template #default="scope">
             <code class="font-mono" style="font-weight: bold;">{{ scope.row.ip }}</code>
+            <div v-if="scope.row.location" style="font-size: 11px; color: var(--el-text-color-secondary); margin-top: 2px;">
+              {{ scope.row.location }}
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="关联账号数" width="160">

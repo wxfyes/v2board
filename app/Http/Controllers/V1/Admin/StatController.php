@@ -375,6 +375,10 @@ class StatController extends Controller
                 $history = json_decode($user->client_type, true) ?: [];
             }
             $history = $this->filterClientHistory($history, $ignoreIps);
+            foreach ($history as &$hItem) {
+                $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
+            }
+            unset($hItem);
 
             $inHoneypot = in_array((int)$uid, $honeypotUsers, true) ? 1 : 0;
             $banned = $user ? (int)$user->banned : 0;
@@ -432,6 +436,10 @@ class StatController extends Controller
                 $history = json_decode($user->client_type, true) ?: [];
             }
             $history = $this->filterClientHistory($history, $ignoreIps);
+            foreach ($history as &$hItem) {
+                $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
+            }
+            unset($hItem);
 
             $data[] = [
                 'user_id' => (int)$uid,
@@ -477,6 +485,10 @@ class StatController extends Controller
 
             $history = json_decode($user->client_type, true) ?: [];
             $history = $this->filterClientHistory($history, $ignoreIps);
+            foreach ($history as &$hItem) {
+                $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
+            }
+            unset($hItem);
             $matchedKeywords = [];
             foreach ($history as $hItem) {
                 $uaLower = strtolower($hItem['ua'] ?? '');
@@ -540,6 +552,10 @@ class StatController extends Controller
             $history = json_decode($user->client_type, true) ?: [];
             $history = $this->filterClientHistory($history, $ignoreIps);
             if (empty($history)) continue;
+            foreach ($history as &$hItem) {
+                $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
+            }
+            unset($hItem);
 
             $reasons = [];
 
@@ -851,7 +867,8 @@ class StatController extends Controller
                 'total_pulls' => $data['total_pulls'],
                 'latest_time' => $data['latest_time'],
                 'associated_users' => $associatedUsers,
-                'is_banned' => in_array($ip, $bannedIps, true) ? 1 : 0
+                'is_banned' => in_array($ip, $bannedIps, true) ? 1 : 0,
+                'location' => $this->getIpInfo($ip)['location']
             ];
         }
 
