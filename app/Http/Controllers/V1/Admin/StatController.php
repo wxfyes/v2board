@@ -317,6 +317,52 @@ class StatController extends Controller
         $flaggedIds = array_keys($flaggedUsers);
         $users = User::whereIn('id', $flaggedIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
 
+        // 统计最近 24 小时内所有用户的 IP 共用情况，过滤海外 IP 联合探测行为
+        $allUsersWithLog = User::whereNotNull('client_type')->get(['id', 'email', 'client_type']);
+        $ipUserMap = [];
+        $now = time();
+        foreach ($allUsersWithLog as $u) {
+            $hist = json_decode($u->client_type, true) ?: [];
+            $hist = $this->filterClientHistory($hist, $ignoreIps);
+            foreach ($hist as $log) {
+                if (($now - ($log['time'] ?? 0)) < 86400) {
+                    $ip = trim($log['ip'] ?? '');
+                    if (!empty($ip) && $ip !== '127.0.0.1') {
+                        if (!isset($ipUserMap[$ip])) {
+                            $ipUserMap[$ip] = [];
+                        }
+                        if (!in_array((int)$u->id, $ipUserMap[$ip], true)) {
+                            $ipUserMap[$ip][] = (int)$u->id;
+                        }
+                    }
+                }
+            }
+        }
+
+        $sharedOverseasIps = [];
+        $userEmailMap = $allUsersWithLog->pluck('email', 'id')->toArray();
+        foreach ($ipUserMap as $ip => $uids) {
+            if (count($uids) >= 2) {
+                if ($this->isOverseasIp($ip)) {
+                    foreach ($uids as $uid) {
+                        if (!isset($sharedOverseasIps[$uid])) {
+                            $sharedOverseasIps[$uid] = [];
+                        }
+                        $otherEmails = [];
+                        foreach ($uids as $otherUid) {
+                            if ($otherUid !== $uid) {
+                                $otherEmails[] = $userEmailMap[$otherUid] ?? '未知用户';
+                            }
+                        }
+                        $sharedOverseasIps[$uid][] = [
+                            'ip' => $ip,
+                            'others' => $otherEmails
+                        ];
+                    }
+                }
+            }
+        }
+
         $data = [];
         foreach ($flaggedUsers as $uid => $info) {
             $user = $users->get($uid);
@@ -510,37 +556,19 @@ class StatController extends Controller
                 $reasons[] = "画像异常: 24h内拉取订阅 " . $pullCountLast24h . " 次，但本月总消耗流量仅为 " . round($totalTrafficMB, 2) . " MB (只拉订阅不跑流量)";
             }
 
-            // 2. 画像分析 B：多段 Class B/Class C IP 异地交叉拉取
-            $ips = [];
-            foreach ($history as $hItem) {
-                if (isset($hItem['ip']) && !empty($hItem['ip']) && $hItem['ip'] !== '127.0.0.1') {
-                    $ips[] = trim($hItem['ip']);
-                }
-            }
-            $ips = array_values(array_unique($ips));
-            if (count($ips) >= 3) {
-                // 计算不同的段。如果是 IPv6, 取前四段（前缀）；如果是 IPv4, 取前两段
-                $segments = [];
-                foreach ($ips as $ip) {
-                    if (strpos($ip, ':') !== false) {
-                        $parts = explode(':', $ip);
-                        $prefix = implode(':', array_slice($parts, 0, 4));
-                        $segments[] = $prefix;
-                    } else {
-                        $parts = explode('.', $ip);
-                        if (count($parts) >= 2) {
-                            $prefix = $parts[0] . '.' . $parts[1];
-                            $segments[] = $prefix;
-                        }
-                    }
-                }
-                $uniqueSegments = array_values(array_unique($segments));
-                if (count($uniqueSegments) >= 3) {
-                    $reasons[] = "画像异常: 订阅拉取 IP 来自于 " . count($uniqueSegments) . " 个完全不同的运营商/地理子网 (异地探测风险)";
+            // 2. 画像分析 B：共用海外 IP 联合探测预警
+            if (isset($sharedOverseasIps[$user->id])) {
+                foreach ($sharedOverseasIps[$user->id] as $info) {
+                    $reasons[] = "共用海外IP预警: 24h内与用户 [" . implode(', ', $info['others']) . "] 共用海外 IP " . $info['ip'] . " 拉取订阅 (疑似多账号联合探测)";
                 }
             }
 
             if (!empty($reasons)) {
+                $riskLevel = 'low';
+                if (isset($sharedOverseasIps[$user->id])) {
+                    $riskLevel = 'medium';
+                }
+
                 $data[] = [
                     'user_id' => (int)$user->id,
                     'email' => $user->email,
@@ -550,7 +578,7 @@ class StatController extends Controller
                     'banned' => (int)$user->banned,
                     'history' => $history,
                     'type' => 'suspected',
-                    'risk_level' => 'low'
+                    'risk_level' => $riskLevel
                 ];
             }
         }
@@ -950,6 +978,41 @@ class StatController extends Controller
             }
             return true;
         }));
+    }
+
+    private function isOverseasIp($ip)
+    {
+        // 如果是 IPv6
+        if (strpos($ip, ':') !== false) {
+            // 国内三大家宽 IPv6 常见前缀：电信 240e, 移动 2409, 联通 2408, 教育网 2001:da8, 240a/240b
+            $ipLower = strtolower($ip);
+            foreach (['240e', '2409', '2408', '240a', '240b', '2001:da8'] as $prefix) {
+                if (strpos($ipLower, $prefix) === 0) {
+                    return false; // 国内 IP
+                }
+            }
+            return true; // 海外 IP
+        }
+
+        // 如果是局域网 IPv4
+        if (substr($ip, 0, 4) === '127.' || substr($ip, 0, 3) === '10.' || substr($ip, 0, 8) === '192.168.' || substr($ip, 0, 7) === '172.16.') {
+            return false;
+        }
+
+        // IPv4 通过缓存 + ip-api.com 查询
+        $country = \Cache::remember('ip_country_' . $ip, 86400 * 30, function() use ($ip) {
+            try {
+                $ctx = stream_context_create(['http' => ['timeout' => 2]]);
+                $res = @file_get_contents("http://ip-api.com/json/{$ip}", false, $ctx);
+                if ($res) {
+                    $data = json_decode($res, true);
+                    return $data['countryCode'] ?? 'CN';
+                }
+            } catch (\Exception $e) {}
+            return 'CN';
+        });
+
+        return $country !== 'CN';
     }
 }
 
