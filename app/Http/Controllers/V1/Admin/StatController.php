@@ -492,7 +492,16 @@ class StatController extends Controller
                 'ignore_ips' => array_values($config['ignore_ips'] ?? []),
                 'config' => [
                     'ip_limit' => isset($config['ip_limit']) ? (int)$config['ip_limit'] : 10,
-                    'audit_ua_enabled' => isset($config['audit_ua_enabled']) ? (bool)$config['audit_ua_enabled'] : true
+                    'audit_ua_enabled' => isset($config['audit_ua_enabled']) ? (bool)$config['audit_ua_enabled'] : true,
+                    'banned_strategy' => $config['banned_strategy'] ?? 'bait',
+                    'banned_redirect_url' => $config['banned_redirect_url'] ?? '',
+                    'subconverter_enable' => isset($config['subconverter_enable']) ? (bool)$config['subconverter_enable'] : true,
+                    'subconverter_url' => $config['subconverter_url'] ?? 'https://api.wcc.best/sub',
+                    'banned_keywords' => $config['banned_keywords'] ?? '',
+                    'replace_keyword_to' => $config['replace_keyword_to'] ?? '精品线路',
+                    'banned_traffic_enable' => isset($config['banned_traffic_enable']) ? (bool)$config['banned_traffic_enable'] : false,
+                    'banned_traffic_min' => isset($config['banned_traffic_min']) ? (int)$config['banned_traffic_min'] : 100,
+                    'banned_traffic_max' => isset($config['banned_traffic_max']) ? (int)$config['banned_traffic_max'] : 300,
                 ]
             ]
         ];
@@ -598,17 +607,23 @@ class StatController extends Controller
 
     public function saveSubscriptionAuditSettings(Request $request)
     {
-        $ipLimit = (int)$request->input('ip_limit', 10);
-        $auditUaEnabled = (bool)$request->input('audit_ua_enabled', true);
-
         $configPath = storage_path('tianque_config.json');
         $config = [];
         if (file_exists($configPath)) {
             $config = json_decode(@file_get_contents($configPath), true) ?: [];
         }
 
-        $config['ip_limit'] = $ipLimit;
-        $config['audit_ua_enabled'] = $auditUaEnabled;
+        $config['ip_limit'] = (int)$request->input('ip_limit', 10);
+        $config['audit_ua_enabled'] = (bool)$request->input('audit_ua_enabled', true);
+        $config['banned_strategy'] = $request->input('banned_strategy', 'bait');
+        $config['banned_redirect_url'] = $request->input('banned_redirect_url', '');
+        $config['subconverter_enable'] = (bool)$request->input('subconverter_enable', true);
+        $config['subconverter_url'] = $request->input('subconverter_url', 'https://api.wcc.best/sub');
+        $config['banned_keywords'] = $request->input('banned_keywords', '');
+        $config['replace_keyword_to'] = $request->input('replace_keyword_to', '精品线路');
+        $config['banned_traffic_enable'] = (bool)$request->input('banned_traffic_enable', false);
+        $config['banned_traffic_min'] = (int)$request->input('banned_traffic_min', 100);
+        $config['banned_traffic_max'] = (int)$request->input('banned_traffic_max', 300);
 
         @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 

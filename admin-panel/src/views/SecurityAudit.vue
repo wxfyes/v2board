@@ -226,6 +226,110 @@
             </el-form-item>
           </el-form>
         </el-tab-pane>
+        <el-tab-pane label="拦截与蜜罐防御" name="honeypot_settings">
+          <el-form :model="settingsForm" label-width="160px" style="padding-top: 15px;">
+            <el-form-item label="拦截防探测策略">
+              <el-radio-group v-model="settingsForm.banned_strategy">
+                <el-radio value="bait" style="margin-right: 15px;">诱饵模式</el-radio>
+                <el-radio value="redirect">重定向模式</el-radio>
+              </el-radio-group>
+              <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; line-height: 1.4;">
+                <strong>诱饵模式</strong>返回错误/伪装节点信息；<strong>重定向模式</strong>直接 302 重定向到目标网址。
+              </div>
+            </el-form-item>
+            
+            <el-form-item v-if="settingsForm.banned_strategy === 'redirect'" label="重定向目标网址">
+              <el-input v-model="settingsForm.banned_redirect_url" placeholder="如: https://sub.yourdomain.com/path" clearable />
+              <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; line-height: 1.4;">
+                被封禁或加入蜜罐的用户请求订阅时，会自动 302 重定向到此网址。
+              </div>
+            </el-form-item>
+
+            <el-form-item label="拦截过滤敏感词">
+              <el-input v-model="settingsForm.banned_keywords" placeholder="本站域名或简称，用英文逗号分隔" clearable />
+              <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; line-height: 1.4;">
+                在诱饵下发的假配置中，自动清除或混淆敏感词，防止被第三方或测活反查到源站域名。
+              </div>
+            </el-form-item>
+
+            <el-form-item label="敏感词替换为">
+              <el-input v-model="settingsForm.replace_keyword_to" placeholder="如: 精品线路" clearable />
+              <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; line-height: 1.4;">
+                过滤掉上述敏感词后，将会把敏感字眼替换成该文本。
+              </div>
+            </el-form-item>
+
+            <el-form-item label="转换器防封脱敏">
+              <el-switch v-model="settingsForm.subconverter_enable" />
+              <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; line-height: 1.4;">
+                当检测到通过第三方转换器（如 Subconverter）更新时，进行订阅脱敏以隐藏核心主站。
+              </div>
+            </el-form-item>
+
+            <el-form-item v-if="settingsForm.subconverter_enable" label="订阅转换 API 地址">
+              <el-input v-model="settingsForm.subconverter_url" placeholder="默认: https://api.wcc.best/sub" clearable />
+              <div style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; line-height: 1.2;">
+                <span style="font-size: 11px; color: var(--el-text-color-secondary);">常用快捷填入:</span>
+                <el-tag 
+                  size="small" 
+                  effect="plain" 
+                  style="cursor: pointer; user-select: none;"
+                  @click="settingsForm.subconverter_url = 'https://api.bianyuan.xyz/sub'"
+                >
+                  边缘转换
+                </el-tag>
+                <el-tag 
+                  size="small" 
+                  effect="plain" 
+                  style="cursor: pointer; user-select: none;"
+                  @click="settingsForm.subconverter_url = 'https://sub.fyacg.com/sub'"
+                >
+                  肥羊转换
+                </el-tag>
+                <el-tag 
+                  size="small" 
+                  effect="plain" 
+                  style="cursor: pointer; user-select: none;"
+                  @click="settingsForm.subconverter_url = 'https://sub.xeton.dev/sub'"
+                >
+                  ACL4SSR 转换
+                </el-tag>
+                <el-tag 
+                  size="small" 
+                  effect="plain" 
+                  style="cursor: pointer; user-select: none;"
+                  @click="settingsForm.subconverter_url = 'https://api.wcc.best/sub'"
+                >
+                  核心转换
+                </el-tag>
+                <el-tag 
+                  size="small" 
+                  effect="plain" 
+                  style="cursor: pointer; user-select: none;"
+                  @click="settingsForm.subconverter_url = 'https://sub.dler.io/sub'"
+                >
+                  Dler 转换
+                </el-tag>
+              </div>
+            </el-form-item>
+
+            <el-form-item label="防封随机流量包">
+              <el-switch v-model="settingsForm.banned_traffic_enable" />
+              <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; line-height: 1.4;">
+                是否在假拦截配置里生成随机大额虚假已用/剩余流量包以诱骗敌方画像。
+              </div>
+            </el-form-item>
+
+            <el-form-item v-if="settingsForm.banned_traffic_enable" label="生成虚假流量范围">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <el-input-number v-model="settingsForm.banned_traffic_min" :min="1" placeholder="最小(GB)" style="width: 110px;" />
+                <span>至</span>
+                <el-input-number v-model="settingsForm.banned_traffic_max" :min="2" placeholder="最大(GB)" style="width: 110px;" />
+                <span>GB</span>
+              </div>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
         <el-tab-pane label="白名单管理" name="whitelist">
           <div style="padding-top: 10px;">
             <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 12px; line-height: 1.4;">
@@ -473,7 +577,16 @@ const saveSettingsLoading = ref(false);
 
 const settingsForm = reactive({
   ip_limit: 10,
-  audit_ua_enabled: true
+  audit_ua_enabled: true,
+  banned_strategy: 'bait',
+  banned_redirect_url: '',
+  subconverter_enable: true,
+  subconverter_url: 'https://api.wcc.best/sub',
+  banned_keywords: '',
+  replace_keyword_to: '精品线路',
+  banned_traffic_enable: false,
+  banned_traffic_min: 100,
+  banned_traffic_max: 300
 });
 
 const formatTime = (timestamp) => {
@@ -495,6 +608,15 @@ const fetchAnomalies = async () => {
       if (res.data.config) {
         settingsForm.ip_limit = res.data.config.ip_limit || 10;
         settingsForm.audit_ua_enabled = res.data.config.audit_ua_enabled !== false;
+        settingsForm.banned_strategy = res.data.config.banned_strategy || 'bait';
+        settingsForm.banned_redirect_url = res.data.config.banned_redirect_url || '';
+        settingsForm.subconverter_enable = res.data.config.subconverter_enable !== false;
+        settingsForm.subconverter_url = res.data.config.subconverter_url || 'https://api.wcc.best/sub';
+        settingsForm.banned_keywords = res.data.config.banned_keywords || '';
+        settingsForm.replace_keyword_to = res.data.config.replace_keyword_to || '精品线路';
+        settingsForm.banned_traffic_enable = !!res.data.config.banned_traffic_enable;
+        settingsForm.banned_traffic_min = res.data.config.banned_traffic_min || 100;
+        settingsForm.banned_traffic_max = res.data.config.banned_traffic_max || 300;
       }
     }
   } catch (err) {
@@ -516,7 +638,16 @@ const saveAuditSettings = async () => {
     const securePath = getSecurePath();
     await api.post(`/${securePath}/stat/saveSubscriptionAuditSettings`, {
       ip_limit: settingsForm.ip_limit,
-      audit_ua_enabled: settingsForm.audit_ua_enabled
+      audit_ua_enabled: settingsForm.audit_ua_enabled,
+      banned_strategy: settingsForm.banned_strategy,
+      banned_redirect_url: settingsForm.banned_redirect_url,
+      subconverter_enable: settingsForm.subconverter_enable,
+      subconverter_url: settingsForm.subconverter_url,
+      banned_keywords: settingsForm.banned_keywords,
+      replace_keyword_to: settingsForm.replace_keyword_to,
+      banned_traffic_enable: settingsForm.banned_traffic_enable,
+      banned_traffic_min: settingsForm.banned_traffic_min,
+      banned_traffic_max: settingsForm.banned_traffic_max
     });
     ElMessage.success('审计规则已成功更新');
     settingsDialogVisible.value = false;
