@@ -288,6 +288,37 @@
             </el-table>
           </div>
         </el-tab-pane>
+        <el-tab-pane label="节点IP免审白名单" name="ip_ignore">
+          <div style="padding-top: 10px;">
+            <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 12px; line-height: 1.4;">
+              将您本站<strong>节点的公网 IP 地址或网段（支持 CIDR 格式如 45.125.12.0/24）</strong>在此添加。用户连接这些节点拉取订阅时所产生的 IP 请求历史将被忽略，不再记录和计算审计画像，从而彻底消除节点代理更新订阅带来的异地或扩散误报。
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px;">
+              <el-input
+                v-model="newIgnoreIp"
+                placeholder="请输入要忽略的节点 IP 或网段 (例如: 45.125.12.64 或 45.125.12.0/24)"
+                size="small"
+                style="width: 380px;"
+                clearable
+              />
+              <el-button type="primary" size="small" @click="addIgnoreIpDirectly">添加免审</el-button>
+            </div>
+
+            <el-table :data="ignoreIpsList" stripe size="small" max-height="250px" style="width: 100%;">
+              <el-table-column label="免审 IP/网段" min-width="250">
+                <template #default="scope">
+                  <code class="font-mono">{{ scope.row }}</code>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="80" align="right">
+                <template #default="scope">
+                  <el-button type="danger" link size="small" @click="removeIgnoreIpDirectly(scope.row)">移除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
       </el-tabs>
       <template #footer>
         <span class="dialog-footer">
@@ -427,6 +458,8 @@ const honeypotCount = computed(() => {
 const whitelistList = ref([]);
 const bannedIpsList = ref([]);
 const newBannedIp = ref('');
+const ignoreIpsList = ref([]);
+const newIgnoreIp = ref('');
 const settingsDialogVisible = ref(false);
 const ipAssociationVisible = ref(false);
 const ipAssociationLoading = ref(false);
@@ -455,6 +488,7 @@ const fetchAnomalies = async () => {
       anomaliesRawList.value = res.data.list || [];
       whitelistList.value = res.data.whitelist || [];
       bannedIpsList.value = res.data.banned_ips || [];
+      ignoreIpsList.value = res.data.ignore_ips || [];
       if (res.data.config) {
         settingsForm.ip_limit = res.data.config.ip_limit || 10;
         settingsForm.audit_ua_enabled = res.data.config.audit_ua_enabled !== false;
@@ -574,6 +608,39 @@ const removeBannedIpDirectly = async (ip) => {
     const securePath = getSecurePath();
     await api.post(`/${securePath}/stat/removeBanIp`, { ip });
     ElMessage.success(`IP ${ip} 解封成功`);
+    fetchAnomalies();
+  } catch (err) {
+    if (err !== 'cancel') console.error(err);
+  }
+};
+
+const addIgnoreIpDirectly = async () => {
+  const ipVal = newIgnoreIp.value.trim();
+  if (!ipVal) {
+    ElMessage.warning('请输入要忽略的 IP 或网段');
+    return;
+  }
+  try {
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/stat/addIgnoreIp`, { ip: ipVal });
+    ElMessage.success('添加节点免审 IP 成功');
+    newIgnoreIp.value = '';
+    fetchAnomalies();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const removeIgnoreIpDirectly = async (ip) => {
+  try {
+    await ElMessageBox.confirm(`确定要移除免审 IP/网段 ${ip} 吗？`, '提示', {
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    });
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/stat/removeIgnoreIp`, { ip });
+    ElMessage.success('已移除免审 IP/网段');
     fetchAnomalies();
   } catch (err) {
     if (err !== 'cancel') console.error(err);

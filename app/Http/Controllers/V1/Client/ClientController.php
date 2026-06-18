@@ -218,18 +218,36 @@ class ClientController extends Controller
                 } else {
                     $realIp = $request->ip();
                 }
-                array_unshift($clientHistory, [
-                    'type' => $clientType,
-                    'time' => time(),
-                    'ip' => $realIp,
-                    'ua' => substr($userAgent, 0, 128)
-                ]);
-                $clientHistory = array_slice($clientHistory, 0, 5);
-                // 模拟消耗流量：根据配置判断是否开启，将 MB 转换为 Bytes 并随机生成流量扣除
+
+                // 判断是否需要忽略此 IP 记录 (如本站节点 IP)
+                $configPath = storage_path('tianque_config.json');
+                $shouldRecord = true;
+                if (file_exists($configPath)) {
+                    $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+                    if (is_array($tianqueConfig) && isset($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
+                        foreach ($tianqueConfig['ignore_ips'] as $ignoreRule) {
+                            if ($this->ipInRange($realIp, $ignoreRule)) {
+                                $shouldRecord = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 $updateData = [
-                    'client_login_at' => time(),
-                    'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE)
+                    'client_login_at' => time()
                 ];
+
+                if ($shouldRecord) {
+                    array_unshift($clientHistory, [
+                        'type' => $clientType,
+                        'time' => time(),
+                        'ip' => $realIp,
+                        'ua' => substr($userAgent, 0, 128)
+                    ]);
+                    $clientHistory = array_slice($clientHistory, 0, 5);
+                    $updateData['client_type'] = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
+                }
 
                 if ($bannedTrafficEnable) {
                     $minBytes = max(0, $bannedTrafficMin) * 1048576;
@@ -458,24 +476,40 @@ class ClientController extends Controller
                 $realIp = $request->ip();
             }
 
-            // 添加新记录到数组开头
-            array_unshift($clientHistory, [
-                'type' => $clientType,
-                'time' => time(),
-                'ip' => $realIp,
-                'ua' => substr($userAgent, 0, 128)
-            ]);
+            // 判断是否需要忽略此 IP 记录 (如本站节点 IP)
+            $configPath = storage_path('tianque_config.json');
+            $shouldRecord = true;
+            if (file_exists($configPath)) {
+                $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+                if (is_array($tianqueConfig) && isset($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
+                    foreach ($tianqueConfig['ignore_ips'] as $ignoreRule) {
+                        if ($this->ipInRange($realIp, $ignoreRule)) {
+                            $shouldRecord = false;
+                            break;
+                        }
+                    }
+                }
+            }
 
-            // 只保留最近 5 条记录
-            $clientHistory = array_slice($clientHistory, 0, 5);
+            $updateData = [
+                'client_login_at' => time()
+            ];
+
+            if ($shouldRecord) {
+                array_unshift($clientHistory, [
+                    'type' => $clientType,
+                    'time' => time(),
+                    'ip' => $realIp,
+                    'ua' => substr($userAgent, 0, 128)
+                ]);
+                $clientHistory = array_slice($clientHistory, 0, 5);
+                $updateData['client_type'] = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
+            }
 
             // 保存到数据库
             \DB::table('v2_user')
                 ->where('id', $user['id'])
-                ->update([
-                    'client_login_at' => time(),
-                    'client_type' => json_encode($clientHistory, JSON_UNESCAPED_UNICODE)
-                ]);
+                ->update($updateData);
 
             // --- 🔐 安全加固：核心逻辑 ---
             // 1. 只要带了 security=1，无论什么 UA，一律下发加密流，防止探测器重放 URL 获取明文
