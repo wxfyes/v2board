@@ -419,7 +419,7 @@ class StatController extends Controller
 
         // Suspected Users
         $abnormalKeywords = [
-            'curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2',
+            'curl', 'wget', 'python', 'python-requests', 'go-http', 'go-http-client', 'urllib', 'httpclient', 'postman', 'aria2',
             'ClashMetaForAndroid/733', 'clash-verge/v2.3.1', 'clash'
         ];
         if (isset($config['audit_ua_keywords']) && is_array($config['audit_ua_keywords'])) {
@@ -462,10 +462,17 @@ class StatController extends Controller
             unset($hItem);
             $matchedKeywords = [];
             foreach ($history as $hItem) {
-                $uaLower = strtolower($hItem['ua'] ?? '');
+                $ua = $hItem['ua'] ?? '';
+                $uaLower = strtolower($ua);
+                $cleanUa = preg_replace('/[^a-z0-9\/_\-\.]/', ' ', $uaLower);
+                $segments = array_filter(explode(' ', $cleanUa));
+
                 foreach ($abnormalKeywordsLower as $kw) {
-                    if (strpos($uaLower, $kw) !== false) {
-                        $matchedKeywords[] = "拉取记录发现敏感 UA: " . ($hItem['ua'] ?? $kw);
+                    foreach ($segments as $seg) {
+                        if ($seg === $kw || strpos($seg, $kw . '/') === 0) {
+                            $matchedKeywords[] = "拉取记录发现敏感 UA: " . ($hItem['ua'] ?? $kw);
+                            break 2;
+                        }
                     }
                 }
             }

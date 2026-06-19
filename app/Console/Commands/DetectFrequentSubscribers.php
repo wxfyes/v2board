@@ -118,7 +118,7 @@ class DetectFrequentSubscribers extends Command
         $now = time();
         $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
         $abnormalKeywords = [
-            'curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2',
+            'curl', 'wget', 'python', 'python-requests', 'go-http', 'go-http-client', 'urllib', 'httpclient', 'postman', 'aria2',
             'ClashMetaForAndroid/733', 'clash-verge/v2.3.1', 'clash'
         ];
  
@@ -324,12 +324,18 @@ class DetectFrequentSubscribers extends Command
             $abnormalUaName = '';
             if ($auditUaEnabled) {
                 foreach ($history as $item) {
-                    $uaLower = strtolower($item['ua'] ?? ($item['type'] ?? ''));
+                    $ua = $item['ua'] ?? ($item['type'] ?? '');
+                    $uaLower = strtolower($ua);
+                    $cleanUa = preg_replace('/[^a-z0-9\/_\-\.]/', ' ', $uaLower);
+                    $segments = array_filter(explode(' ', $cleanUa));
+
                     foreach ($abnormalKeywordsLower as $kw) {
-                        if (strpos($uaLower, $kw) !== false) {
-                            $hasAbnormalUa = true;
-                            $abnormalUaName = $item['ua'] ?? $item['type'];
-                            break 2;
+                        foreach ($segments as $seg) {
+                            if ($seg === $kw || strpos($seg, $kw . '/') === 0) {
+                                $hasAbnormalUa = true;
+                                $abnormalUaName = $item['ua'] ?? $item['type'];
+                                break 3;
+                            }
                         }
                     }
                 }
