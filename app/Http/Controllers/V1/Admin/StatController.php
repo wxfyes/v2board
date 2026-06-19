@@ -468,10 +468,19 @@ class StatController extends Controller
                 $segments = array_filter(explode(' ', $cleanUa));
 
                 foreach ($abnormalKeywordsLower as $kw) {
-                    foreach ($segments as $seg) {
-                        if ($seg === $kw || strpos($seg, $kw . '/') === 0) {
+                    if (preg_match('/[^a-z0-9\/_\-\.]/', $kw)) {
+                        // 1. 如果关键字中含有分词字符（如空格、括号等），走长特征模糊匹配
+                        if (strpos($uaLower, $kw) !== false) {
                             $matchedKeywords[] = "拉取记录发现敏感 UA: " . ($hItem['ua'] ?? $kw);
-                            break 2;
+                            break;
+                        }
+                    } else {
+                        // 2. 如果是纯单词，走分词段精准匹配，防误伤
+                        foreach ($segments as $seg) {
+                            if ($seg === $kw || strpos($seg, $kw . '/') === 0) {
+                                $matchedKeywords[] = "拉取记录发现敏感 UA: " . ($hItem['ua'] ?? $kw);
+                                break 2;
+                            }
                         }
                     }
                 }

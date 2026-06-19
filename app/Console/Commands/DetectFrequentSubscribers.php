@@ -330,11 +330,21 @@ class DetectFrequentSubscribers extends Command
                     $segments = array_filter(explode(' ', $cleanUa));
 
                     foreach ($abnormalKeywordsLower as $kw) {
-                        foreach ($segments as $seg) {
-                            if ($seg === $kw || strpos($seg, $kw . '/') === 0) {
+                        if (preg_match('/[^a-z0-9\/_\-\.]/', $kw)) {
+                            // 1. 如果关键字中含有非单词标识符（如空格、括号等），说明是长特征片段，执行模糊包含匹配
+                            if (strpos($uaLower, $kw) !== false) {
                                 $hasAbnormalUa = true;
                                 $abnormalUaName = $item['ua'] ?? $item['type'];
-                                break 3;
+                                break 2;
+                            }
+                        } else {
+                            // 2. 如果是纯单词/单产品名，执行高精准的分词匹配，以防 clash 误伤 clash-verge/FlClash 等
+                            foreach ($segments as $seg) {
+                                if ($seg === $kw || strpos($seg, $kw . '/') === 0) {
+                                    $hasAbnormalUa = true;
+                                    $abnormalUaName = $item['ua'] ?? $item['type'];
+                                    break 3;
+                                }
                             }
                         }
                     }
