@@ -56,6 +56,7 @@
           <div class="flex-end gap-10">
             <el-button type="warning" plain size="small" icon="Connection" @click="openIpAssociationDialog">IP 关联分析</el-button>
             <el-button type="primary" plain size="small" icon="Setting" @click="openSettingsDialog">审计规则 & 白名单</el-button>
+            <el-button type="danger" plain size="small" icon="Delete" :disabled="flaggedCount === 0" @click="handleClearAllAnomalies">一键忽略全部预警</el-button>
             <el-button type="primary" size="small" icon="Refresh" :loading="anomaliesLoading" @click="fetchAnomalies">刷新</el-button>
           </div>
         </div>
@@ -833,6 +834,24 @@ const unbanAssociatedIp = async (ip) => {
     fetchAnomalies();
   } catch (err) {
     if (err !== 'cancel') console.error(err);
+  }
+};
+
+const handleClearAllAnomalies = async () => {
+  try {
+    await ElMessageBox.confirm('确定要忽略全部待处理的审计预警吗？此操作将清除所有当前的警报记录。', '警告', {
+      type: 'warning',
+      confirmButtonText: '确定忽略全部',
+      cancelButtonText: '取消'
+    });
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/stat/clearAllAnomalies`);
+    ElMessage.success('已成功清空所有审计记录');
+    fetchAnomalies();
+  } catch (err) {
+    if (err !== 'cancel') {
+      console.error(err);
+    }
   }
 };
 

@@ -526,6 +526,22 @@ class StatController extends Controller
         ]);
     }
 
+    public function clearAllAnomalies(Request $request)
+    {
+        $configPath = storage_path('tianque_config.json');
+        if (!file_exists($configPath)) {
+            abort(500, '配置文件不存在');
+        }
+
+        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        $config['flagged_users'] = [];
+        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        return response([
+            'data' => true
+        ]);
+    }
+
     public function whitelistUser(Request $request)
     {
         $userId = $request->input('id');
