@@ -182,7 +182,7 @@ class DetectFrequentSubscribers extends Command
         $sharedOverseasIps = [];
         $userEmailMap = $allActiveUsers->pluck('email', 'id')->toArray();
         foreach ($ipUserMap as $ip => $uids) {
-            if (count($uids) >= 2) {
+            if (count($uids) >= $ipLimit) {
                 $loc = $this->getIpLocation($ip);
                 $isOverseas = true;
                 foreach (['中国', '本地局域网'] as $chinaKw) {
