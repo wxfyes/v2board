@@ -186,7 +186,7 @@
               :key="key" 
               :label="field.label"
               :prop="'config.' + key"
-              :rules="[{ required: true, message: field.label + '不能为空', trigger: 'blur' }]"
+              :rules="field.required ? [{ required: true, message: field.label + '不能为空', trigger: 'blur' }] : []"
             >
               <el-input 
                 v-model="form.config[key]" 
