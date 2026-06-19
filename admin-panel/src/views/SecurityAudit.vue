@@ -219,10 +219,21 @@
                 同一个订阅 24 小时内独立拉取 IP 达到该数值后，会被自动判定并拦截预警（默认：10 个 IP）。
               </div>
             </el-form-item>
-            <el-form-item label="命令行/开发工具 UA 审计">
+            <el-form-item label="命令行/客户端 UA 审计">
               <el-switch v-model="settingsForm.audit_ua_enabled" />
               <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; line-height: 1.4;">
-                是否对使用 curl, wget, python requests, go-http, urllib 等工具拉取订阅的行为进行检测和审计。如果关闭，前述命令行工具拉取将不触发拦截。
+                是否对使用指定的客户端 UA 拉取订阅的行为进行检测和审计。如果关闭，前述工具拉取将不触发拦截。
+              </div>
+            </el-form-item>
+            <el-form-item label="UA 审计关键字" v-if="settingsForm.audit_ua_enabled">
+              <el-input
+                type="textarea"
+                v-model="settingsForm.audit_ua_keywords"
+                :rows="6"
+                placeholder="每行输入一个 UA 关键字，例如：&#10;curl&#10;ClashMetaForAndroid/733"
+              />
+              <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; line-height: 1.4;">
+                当拉取订阅的 User-Agent 包含以上关键字时将被标记为异常，支持新增、修改或删除，每行一个，不区分大小写。
               </div>
             </el-form-item>
           </el-form>
@@ -580,6 +591,7 @@ const saveSettingsLoading = ref(false);
 const settingsForm = reactive({
   ip_limit: 10,
   audit_ua_enabled: true,
+  audit_ua_keywords: '',
   banned_strategy: 'bait',
   banned_redirect_url: '',
   subconverter_enable: true,
@@ -610,6 +622,11 @@ const fetchAnomalies = async () => {
       if (res.data.config) {
         settingsForm.ip_limit = res.data.config.ip_limit || 10;
         settingsForm.audit_ua_enabled = res.data.config.audit_ua_enabled !== false;
+        if (Array.isArray(res.data.config.audit_ua_keywords)) {
+          settingsForm.audit_ua_keywords = res.data.config.audit_ua_keywords.join('\n');
+        } else {
+          settingsForm.audit_ua_keywords = '';
+        }
         settingsForm.banned_strategy = res.data.config.banned_strategy || 'bait';
         settingsForm.banned_redirect_url = res.data.config.banned_redirect_url || '';
         settingsForm.subconverter_enable = res.data.config.subconverter_enable !== false;
@@ -638,9 +655,15 @@ const saveAuditSettings = async () => {
   saveSettingsLoading.value = true;
   try {
     const securePath = getSecurePath();
+    const keywordsArray = settingsForm.audit_ua_keywords
+      .split('\n')
+      .map(k => k.trim())
+      .filter(k => k.length > 0);
+
     await api.post(`/${securePath}/stat/saveSubscriptionAuditSettings`, {
       ip_limit: settingsForm.ip_limit,
       audit_ua_enabled: settingsForm.audit_ua_enabled,
+      audit_ua_keywords: keywordsArray,
       banned_strategy: settingsForm.banned_strategy,
       banned_redirect_url: settingsForm.banned_redirect_url,
       subconverter_enable: settingsForm.subconverter_enable,

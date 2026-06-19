@@ -1,0 +1,1 @@
+import{A as e,v as t,y as n}from"./index-V6dm53Pd.js";function r(){let r=e(typeof window<`u`?window.innerWidth<=768:!1),i=()=>{r.value=window.innerWidth<=768};return n(()=>{window.addEventListener(`resize`,i)}),t(()=>{window.removeEventListener(`resize`,i)}),{isMobile:r}}export{r as t};
