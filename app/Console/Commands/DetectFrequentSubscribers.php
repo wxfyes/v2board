@@ -117,7 +117,10 @@ class DetectFrequentSubscribers extends Command
         $detectedCount = 0;
         $now = time();
         $whitelistClients = ['天阙(TianQue)', 'Mclash', 'MOMclash'];
-        $abnormalKeywords = ['curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2'];
+        $abnormalKeywords = [
+            'curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2',
+            'ClashMetaForAndroid/733', 'clash-verge/v2.3.1', 'clash'
+        ];
  
         // 读取现有的天阙配置、灰名单（蜜罐）用户与白名单用户，用于跳过已处置或白名单用户，防止重复报警
         $configPath = storage_path('tianque_config.json');
@@ -139,8 +142,12 @@ class DetectFrequentSubscribers extends Command
                 if (isset($tianqueConfig['audit_ua_enabled'])) {
                     $auditUaEnabled = (bool)$tianqueConfig['audit_ua_enabled'];
                 }
+                if (isset($tianqueConfig['audit_ua_keywords']) && is_array($tianqueConfig['audit_ua_keywords'])) {
+                    $abnormalKeywords = $tianqueConfig['audit_ua_keywords'];
+                }
             }
         }
+        $abnormalKeywordsLower = array_map('strtolower', $abnormalKeywords);
  
         // --------------------------------------------------
         // 全局前置计算：24小时内所有用户的 IP 共用映射，用以排查海外 IP 联合探测行为
@@ -318,7 +325,7 @@ class DetectFrequentSubscribers extends Command
             if ($auditUaEnabled) {
                 foreach ($history as $item) {
                     $uaLower = strtolower($item['ua'] ?? ($item['type'] ?? ''));
-                    foreach ($abnormalKeywords as $kw) {
+                    foreach ($abnormalKeywordsLower as $kw) {
                         if (strpos($uaLower, $kw) !== false) {
                             $hasAbnormalUa = true;
                             $abnormalUaName = $item['ua'] ?? $item['type'];

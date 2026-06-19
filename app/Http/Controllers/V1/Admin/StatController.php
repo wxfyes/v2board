@@ -418,7 +418,15 @@ class StatController extends Controller
         }
 
         // Suspected Users
-        $abnormalKeywords = ['curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2'];
+        $abnormalKeywords = [
+            'curl', 'wget', 'python', 'requests', 'go-http', 'urllib', 'httpclient', 'postman', 'aria2',
+            'ClashMetaForAndroid/733', 'clash-verge/v2.3.1', 'clash'
+        ];
+        if (isset($config['audit_ua_keywords']) && is_array($config['audit_ua_keywords'])) {
+            $abnormalKeywords = $config['audit_ua_keywords'];
+        }
+        $abnormalKeywordsLower = array_map('strtolower', $abnormalKeywords);
+
         $query = User::where('banned', 0)
             ->whereNotNull('client_type')
             ->whereNotIn('id', $flaggedIds);
@@ -426,8 +434,8 @@ class StatController extends Controller
             $query->whereNotIn('id', $honeypotUsers);
         }
 
-        $query->where(function($q) use ($abnormalKeywords) {
-            foreach ($abnormalKeywords as $kw) {
+        $query->where(function($q) use ($abnormalKeywordsLower) {
+            foreach ($abnormalKeywordsLower as $kw) {
                 $q->orWhere('client_type', 'like', '%' . $kw . '%');
             }
         });
@@ -455,7 +463,7 @@ class StatController extends Controller
             $matchedKeywords = [];
             foreach ($history as $hItem) {
                 $uaLower = strtolower($hItem['ua'] ?? '');
-                foreach ($abnormalKeywords as $kw) {
+                foreach ($abnormalKeywordsLower as $kw) {
                     if (strpos($uaLower, $kw) !== false) {
                         $matchedKeywords[] = "拉取记录发现敏感 UA: " . ($hItem['ua'] ?? $kw);
                     }
@@ -493,6 +501,7 @@ class StatController extends Controller
                 'config' => [
                     'ip_limit' => isset($config['ip_limit']) ? (int)$config['ip_limit'] : 10,
                     'audit_ua_enabled' => isset($config['audit_ua_enabled']) ? (bool)$config['audit_ua_enabled'] : true,
+                    'audit_ua_keywords' => $abnormalKeywords,
                     'banned_strategy' => $config['banned_strategy'] ?? 'bait',
                     'banned_redirect_url' => $config['banned_redirect_url'] ?? '',
                     'subconverter_enable' => isset($config['subconverter_enable']) ? (bool)$config['subconverter_enable'] : true,
@@ -631,6 +640,12 @@ class StatController extends Controller
 
         $config['ip_limit'] = (int)$request->input('ip_limit', 10);
         $config['audit_ua_enabled'] = (bool)$request->input('audit_ua_enabled', true);
+        if ($request->has('audit_ua_keywords')) {
+            $keywords = $request->input('audit_ua_keywords');
+            if (is_array($keywords)) {
+                $config['audit_ua_keywords'] = array_values(array_filter(array_map('trim', $keywords)));
+            }
+        }
         $config['banned_strategy'] = $request->input('banned_strategy', 'bait');
         $config['banned_redirect_url'] = $request->input('banned_redirect_url', '');
         $config['subconverter_enable'] = (bool)$request->input('subconverter_enable', true);
