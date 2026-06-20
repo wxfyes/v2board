@@ -513,7 +513,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { getSecurePath } from '../api';
 import api from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -632,6 +632,7 @@ const editForm = reactive({
 });
 
 const router = useRouter();
+const route = useRoute();
 
 // Invite filter state
 const filterInviteByEmail = ref('');
@@ -1112,6 +1113,9 @@ const handleMoreCommand = async (command, row) => {
 onMounted(() => {
   fetchPlans();
   fetchGroups();
+  if (route.query.email) {
+    searchQuery.value = route.query.email;
+  }
   fetchUsers();
 });
 </script>

@@ -129,8 +129,20 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="user_id" label="ID" width="80" align="center" />
-        <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
+        <el-table-column label="ID" width="80" align="center">
+          <template #default="scope">
+            <el-button type="primary" link style="font-weight: bold;" @click="showUserDetail(scope.row.user_id)">
+              {{ scope.row.user_id }}
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="邮箱" min-width="180" show-overflow-tooltip>
+          <template #default="scope">
+            <el-button type="primary" link @click="showUserDetail(scope.row.user_id)">
+              {{ scope.row.email }}
+            </el-button>
+          </template>
+        </el-table-column>
         
         <el-table-column label="审计时间" width="160">
           <template #default="scope">
@@ -519,6 +531,103 @@
         <span class="dialog-footer">
           <el-button size="small" @click="ipAssociationVisible = false">关闭</el-button>
         </span>
+      </template>
+    </el-dialog>
+
+    <!-- User Detail / Hologram Dialog -->
+    <el-dialog v-model="userDetailVisible" title="用户全息档案" width="600px" destroy-on-close>
+      <div v-loading="userDetailLoading">
+        <div v-if="userDetailData" class="user-detail-card">
+          <!-- Header Profile -->
+          <div class="user-profile-header mb-15 flex-start" style="display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--el-border-color-lighter); padding-bottom: 15px; margin-bottom: 15px;">
+            <el-avatar :size="50" style="background-color: var(--el-color-primary-light-9); color: var(--el-color-primary);">
+              <el-icon :size="24"><User /></el-icon>
+            </el-avatar>
+            <div>
+              <div style="font-size: 16px; font-weight: bold; color: var(--el-text-color-primary);">
+                {{ userDetailData.email }}
+              </div>
+              <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px;">
+                用户 ID: <code class="font-mono" style="background: var(--el-fill-color); padding: 2px 6px; border-radius: 4px;">{{ userDetailData.id }}</code> | 注册于: {{ formatTime(userDetailData.created_at) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Tags -->
+          <div class="mb-15" style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+            <el-tag :type="userDetailData.banned === 1 ? 'danger' : 'success'" effect="dark">
+              {{ userDetailData.banned === 1 ? '封禁状态: 已封禁' : '账号状态: 正常' }}
+            </el-tag>
+            <el-tag :type="userDetailData.in_honeypot === 1 ? 'warning' : 'info'" effect="dark">
+              {{ userDetailData.in_honeypot === 1 ? '蜜罐接管中' : '未接管蜜罐' }}
+            </el-tag>
+            <el-tag type="primary" effect="plain" v-if="userDetailData.plan_name">
+              套餐: {{ userDetailData.plan_name }}
+            </el-tag>
+            <el-tag type="info" effect="plain" v-else>
+              无订阅套餐
+            </el-tag>
+          </div>
+
+          <!-- Traffic Progress -->
+          <el-card shadow="never" class="mb-15" style="background-color: var(--el-fill-color-light); border: none; margin-bottom: 15px;">
+            <template #header>
+              <div class="flex-between" style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; border-bottom: 1px solid var(--el-border-color-lighter); padding-bottom: 8px; margin-bottom: 10px;">
+                <span>📊 流量使用概览</span>
+                <span style="color: var(--el-text-color-secondary);">
+                  {{ formatTraffic(userDetailData.u + userDetailData.d) }} / {{ formatTraffic(userDetailData.transfer_enable) }}
+                </span>
+              </div>
+            </template>
+            <div>
+              <el-progress 
+                :percentage="calculatePercentage(userDetailData.u + userDetailData.d, userDetailData.transfer_enable)" 
+                :status="getProgressStatus(userDetailData.u + userDetailData.d, userDetailData.transfer_enable)"
+                :stroke-width="12"
+                striped
+                striped-flow
+              />
+              <div class="flex-between mt-10" style="display: flex; justify-content: space-between; font-size: 11px; color: var(--el-text-color-secondary); margin-top: 10px;">
+                <span>上行: {{ formatTraffic(userDetailData.u) }} | 下行: {{ formatTraffic(userDetailData.d) }}</span>
+                <span>剩余流量: <strong :style="{ color: userDetailData.transfer_enable - (userDetailData.u + userDetailData.d) > 0 ? 'var(--el-color-success)' : 'var(--el-color-danger)' }">{{ formatTraffic(Math.max(0, userDetailData.transfer_enable - (userDetailData.u + userDetailData.d))) }}</strong></span>
+              </div>
+            </div>
+          </el-card>
+
+          <!-- Detail Descriptions -->
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="到期时间" :span="2">
+              <span :class="{ 'text-danger': isExpired(userDetailData.expired_at) }" style="font-weight: 500;">
+                {{ userDetailData.expired_at ? formatTime(userDetailData.expired_at) : '长期有效' }}
+                <span v-if="isExpired(userDetailData.expired_at)" style="font-size: 11px; margin-left: 6px; color: var(--el-color-danger);">(已过期)</span>
+                <span v-else-if="userDetailData.expired_at" style="font-size: 11px; color: var(--el-color-success); margin-left: 6px;">
+                  (余 {{ Math.ceil((userDetailData.expired_at - Date.now()/1000) / 86400) }} 天)
+                </span>
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="账户余额">
+              {{ ((userDetailData.balance || 0) / 100).toFixed(2) }} 元
+            </el-descriptions-item>
+            <el-descriptions-item label="推广佣金">
+              {{ ((userDetailData.commission_balance || 0) / 100).toFixed(2) }} 元
+            </el-descriptions-item>
+            <el-descriptions-item label="设备限制">
+              {{ userDetailData.device_limit !== null && userDetailData.device_limit !== undefined ? userDetailData.device_limit + ' 台' : '无限制' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="速率限制">
+              {{ userDetailData.speed_limit ? userDetailData.speed_limit + ' Mbps' : '无限制' }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex-between" style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="flex-start" style="display: flex; gap: 8px;">
+            <el-button type="primary" plain size="small" icon="Tickets" @click="goToUserOrders">TA的订单</el-button>
+            <el-button type="warning" plain size="small" icon="User" @click="goToUserManage">在用户管理中编辑</el-button>
+          </div>
+          <el-button size="small" @click="userDetailVisible = false">关闭</el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -948,6 +1057,81 @@ const handleBanUser = async (row) => {
       console.error(err);
     }
   }
+};
+
+// --- 用户全息档案 (详情查看) 相关状态与方法 ---
+const userDetailVisible = ref(false);
+const userDetailLoading = ref(false);
+const userDetailData = ref(null);
+
+const showUserDetail = async (userId) => {
+  userDetailLoading.value = true;
+  userDetailVisible.value = true;
+  try {
+    const securePath = getSecurePath();
+    const res = await api.get(`/${securePath}/user/fetch`, {
+      params: {
+        filter: [
+          { key: 'id', condition: '=', value: userId }
+        ]
+      }
+    });
+    if (res.data && res.data.length > 0) {
+      userDetailData.value = res.data[0];
+    } else {
+      ElMessage.error('获取用户信息失败或该用户已被删除');
+      userDetailVisible.value = false;
+    }
+  } catch (err) {
+    console.error(err);
+    ElMessage.error('获取用户信息接口出错');
+    userDetailVisible.value = false;
+  } finally {
+    userDetailLoading.value = false;
+  }
+};
+
+const goToUserOrders = () => {
+  if (userDetailData.value) {
+    router.push({ name: 'Orders', query: { email: userDetailData.value.email } });
+    userDetailVisible.value = false;
+  }
+};
+
+const goToUserManage = () => {
+  if (userDetailData.value) {
+    router.push({ name: 'Users', query: { email: userDetailData.value.email } });
+    userDetailVisible.value = false;
+  }
+};
+
+const formatTraffic = (bytes) => {
+  if (bytes === null || bytes === undefined) return '不限';
+  if (bytes === 0) return '0 GB';
+  const g = 1073741824; // 1024^3
+  if (bytes >= 1099511627776) { // 1TB
+    return (bytes / 1099511627776).toFixed(2) + ' TB';
+  }
+  return (bytes / g).toFixed(2) + ' GB';
+};
+
+const calculatePercentage = (used, total) => {
+  if (!total) return 0;
+  const pct = (used / total) * 100;
+  return Math.min(parseFloat(pct.toFixed(1)), 100);
+};
+
+const getProgressStatus = (used, total) => {
+  if (!total) return 'success';
+  const pct = used / total;
+  if (pct >= 0.9) return 'exception';
+  if (pct >= 0.75) return 'warning';
+  return 'success';
+};
+
+const isExpired = (timestamp) => {
+  if (!timestamp) return false;
+  return timestamp < Date.now() / 1000;
 };
 
 onMounted(() => {
