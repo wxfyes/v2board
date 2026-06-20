@@ -644,7 +644,10 @@
             <el-row :gutter="20">
               <el-col :span="12" :xs="24" :sm="12">
                 <el-form-item label="混淆协议 (obfs)" prop="obfs">
-                  <el-input v-model="form.obfs" placeholder="如 salamander (留空关闭)" clearable />
+                  <el-select v-model="form.obfs" placeholder="不启用混淆" clearable style="width: 100%">
+                    <el-option label="不启用混淆" value="" />
+                    <el-option label="salamander" value="salamander" />
+                  </el-select>
                 </el-form-item>
               </el-col>
               <el-col :span="12" :xs="24" :sm="12">
