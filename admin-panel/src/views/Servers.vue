@@ -232,7 +232,7 @@
           <el-row :gutter="20">
             <el-col :span="12" :xs="24" :sm="12">
               <el-form-item label="连接端口" prop="port">
-                <el-input-number v-model="form.port" :min="1" :max="65535" :controls="false" style="width: 100%" />
+                <el-input v-model="form.port" placeholder="例如 443 或 20000-30000" />
               </el-form-item>
             </el-col>
             <el-col :span="12" :xs="24" :sm="12">
