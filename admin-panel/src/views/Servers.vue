@@ -351,6 +351,8 @@
                   <el-select v-model="form.flow" clearable placeholder="无流控" style="width: 100%">
                     <el-option label="无" :value="null" />
                     <el-option label="xtls-rprx-vision" value="xtls-rprx-vision" />
+                    <el-option label="自研混淆 (mom-private)" value="mom-private" />
+                    <el-option label="自研混淆+Vision (mom-vision)" value="mom-vision" />
                   </el-select>
                 </el-form-item>
               </el-col>

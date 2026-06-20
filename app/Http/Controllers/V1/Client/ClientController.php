@@ -444,6 +444,19 @@ class ClientController extends Controller
                 }
             }
 
+            // 自研客户端专属节点过滤：仅允许自研客户端（TianQueApp/MOMclash 或带有 security=1）拉取包含 [MOM] 的节点
+            $tmpUa = $request->header('User-Agent') ?? '';
+            $isMomClient = (stripos($tmpUa, 'TianQueApp') !== false)
+                || (stripos($tmpUa, 'MOMclash') !== false)
+                || ($request->input('security') == '1');
+
+            if (!$isMomClient && isset($servers) && is_array($servers)) {
+                $servers = array_filter($servers, function($server) {
+                    return stripos($server['name'], '[MOM]') === false;
+                });
+                $servers = array_values($servers);
+            }
+
             // 记录客户端登录时间和类型（所有客户端都记录，保留历史）
             $userAgent = $request->header('User-Agent') ?? '';
             $clientType = $this->parseClientType($userAgent);

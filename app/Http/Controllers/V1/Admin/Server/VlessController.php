@@ -22,7 +22,7 @@ class VlessController extends Controller
             'server_port' => 'required',
             'tls' => 'required|in:0,1,2',
             'tls_settings' => 'nullable|array',
-            'flow' => 'nullable|in:xtls-rprx-vision',
+            'flow' => 'nullable|in:xtls-rprx-vision,mom-private,mom-vision',
             'network' => 'required',
             'network_settings' => 'nullable|array',
             'encryption' => 'nullable',
