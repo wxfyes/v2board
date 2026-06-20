@@ -46,15 +46,7 @@ class ServerService
                     $server[$key]['encryption_settings'] = array_diff_key($server[$key]['encryption_settings'], array('private_key' => ''));
                 }
             }
-            $serverArray = $server[$key]->toArray();
-            if (isset($serverArray['flow'])) {
-                if ($serverArray['flow'] === 'mom-vision') {
-                    $serverArray['flow'] = 'xtls-rprx-vision';
-                } elseif ($serverArray['flow'] === 'mom-private') {
-                    $serverArray['flow'] = null;
-                }
-            }
-            $servers[] = $serverArray;
+            $servers[] = $server[$key]->toArray();
         }
 
 
