@@ -452,7 +452,35 @@ class ClientController extends Controller
 
             if (!$isMomClient && isset($servers) && is_array($servers)) {
                 $servers = array_filter($servers, function($server) {
-                    return stripos($server['name'], '[MOM]') === false;
+                    // 1. 根据节点名字关键字过滤
+                    $name = $server['name'] ?? '';
+                    if (
+                        stripos($name, '[MOM]') !== false 
+                        || stripos($name, '[自研]') !== false 
+                        || stripos($name, '[TQ]') !== false
+                    ) {
+                        return false;
+                    }
+
+                    // 2. 根据 vless flow 是否为 mom-vision 过滤
+                    $flow = $server['flow'] ?? '';
+                    if (stripos($flow, 'mom-vision') !== false) {
+                        return false;
+                    }
+
+                    // 3. 根据 gRPC 的 obfuscated 混淆选项过滤
+                    $network = $server['network'] ?? null;
+                    if ($network === 'grpc') {
+                        $networkSettings = $server['network_settings'] ?? $server['networkSettings'] ?? [];
+                        if (is_string($networkSettings)) {
+                            $networkSettings = json_decode($networkSettings, true);
+                        }
+                        if (is_array($networkSettings) && !empty($networkSettings['obfuscated'])) {
+                            return false;
+                        }
+                    }
+
+                    return true;
                 });
                 $servers = array_values($servers);
             }
