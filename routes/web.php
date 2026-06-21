@@ -54,4 +54,12 @@ Route::get('/' . config('v2board.secure_path', config('v2board.frontend_admin_pa
 
 if (!empty(config('v2board.subscribe_path'))) {
     Route::get(config('v2board.subscribe_path'), 'V1\\Client\\ClientController@subscribe')->middleware('client');
-}
+}
+
+Route::get('/test-vless-nodes', function() {
+    $servers = \DB::table('v2_server_vless')->get();
+    foreach ($servers as $server) {
+        $tls = json_decode($server->tls_settings, true);
+        echo "ID: {$server->id} | Name: {$server->name} | Fingerprint: " . ($tls['fingerprint'] ?? 'none') . " | Reality: " . ($server->tls == 2 ? 'Yes' : 'No') . "<br>";
+    }
+});
