@@ -178,9 +178,9 @@ class Singbox
             $array['transport']['early_data_header_name'] = 'Sec-WebSocket-Protocol';
         }
         if ($server['network'] === 'grpc') {
-            $array['transport']['type'] ='grpc';
+            $array['transport']['type'] = 'grpc';
             $grpcSettings = $server['networkSettings'] ?? ($server['network_settings'] ?? []);
-            if (isset($grpcSettings['serviceName'])) $array['transport']['service_name'] = $grpcSettings['serviceName'];
+            $array['transport']['service_name'] = !empty($grpcSettings['serviceName']) ? $grpcSettings['serviceName'] : 'Tun';
         }
 
         return $array;
@@ -241,11 +241,9 @@ class Singbox
             }
         }
         if ($server['network'] === 'grpc') {
-            $array['transport']['type'] ='grpc';
-            if ($server['network_settings']) {
-                $grpcSettings = $server['network_settings'];
-                if (isset($grpcSettings['serviceName'])) $array['transport']['service_name'] = $grpcSettings['serviceName'];
-            }
+            $array['transport']['type'] = 'grpc';
+            $grpcSettings = $server['network_settings'] ?? [];
+            $array['transport']['service_name'] = !empty($grpcSettings['serviceName']) ? $grpcSettings['serviceName'] : 'Tun';
         }
 
         return $array;

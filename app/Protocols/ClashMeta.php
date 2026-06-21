@@ -300,13 +300,11 @@ class ClashMeta
         }
         if ($server['network'] === 'grpc') {
             $array['network'] = 'grpc';
-            if ($server['network_settings']) {
-                $grpcSettings = $server['network_settings'];
-                $array['grpc-opts'] = [];
-                if (isset($grpcSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
-                if (isset($grpcSettings['headers'])) $array['grpc-opts']['custom-headers'] = $grpcSettings['headers'];
-                if (isset($grpcSettings['obfuscated'])) $array['grpc-opts']['obfuscated'] = (bool)$grpcSettings['obfuscated'];
-            }
+            $array['grpc-opts'] = [];
+            $grpcSettings = $server['network_settings'] ?? [];
+            $array['grpc-opts']['grpc-service-name'] = !empty($grpcSettings['serviceName']) ? $grpcSettings['serviceName'] : 'Tun';
+            if (!empty($grpcSettings['headers'])) $array['grpc-opts']['custom-headers'] = $grpcSettings['headers'];
+            if (isset($grpcSettings['obfuscated'])) $array['grpc-opts']['obfuscated'] = (bool)$grpcSettings['obfuscated'];
         }
 
         if ($server['network'] === 'xhttp') {
