@@ -547,7 +547,9 @@ class ClientController extends Controller
                 $class = new \App\Protocols\MOMclash($user, $servers);
                 $yaml = $class->handle();
                 $yaml = $this->sanitizeNormalContent($yaml, $flag);
-                return response($yaml);
+                return response($yaml)
+                    ->header('Content-Type', 'application/yaml; charset=utf-8')
+                    ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
             }
             if ($flag) {
                 if (!strpos($flag, 'sing')) {
@@ -557,7 +559,9 @@ class ClientController extends Controller
                         $class = new $file($user, $servers);
                         if (strpos($flag, $class->flag) !== false) {
                             $resContent = $class->handle();
-                            return $this->sanitizeNormalContent($resContent, $flag);
+                            $processed = $this->sanitizeNormalContent($resContent, $flag);
+                            return response($processed)
+                                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
                         }
                     }
                 }
@@ -572,12 +576,16 @@ class ClientController extends Controller
                         $class = new SingboxOld($user, $servers);
                     }
                     $resContent = $class->handle();
-                    return $this->sanitizeNormalContent($resContent, $flag);
+                    $processed = $this->sanitizeNormalContent($resContent, $flag);
+                    return response($processed)
+                        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
                 }
             }
             $class = new General($user, $servers);
             $resContent = $class->handle();
-            return $this->sanitizeNormalContent($resContent, $flag);
+            $processed = $this->sanitizeNormalContent($resContent, $flag);
+            return response($processed)
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         } catch (\Exception $e) {
             return response([
                 'error' => $e->getMessage(),

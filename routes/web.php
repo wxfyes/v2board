@@ -54,20 +54,4 @@ Route::get('/' . config('v2board.secure_path', config('v2board.frontend_admin_pa
 
 if (!empty(config('v2board.subscribe_path'))) {
     Route::get(config('v2board.subscribe_path'), 'V1\\Client\\ClientController@subscribe')->middleware('client');
-}
-
-Route::get('/test-debug-node', function() {
-    $vlessnodes = \App\Models\ServerVless::all();
-    $res = [];
-    foreach ($vlessnodes as $node) {
-        if (strpos($node->name, 'MOM') !== false) {
-            $clashMetaProxy = \App\Protocols\ClashMeta::buildVless('cc4e19ae-8a19-4935-a00b-21655c919463', $node->toArray());
-            $res[] = [
-                'node_name' => $node->name,
-                'in_db_tls_settings' => $node->tls_settings,
-                'clash_meta_generated_proxy' => $clashMetaProxy
-            ];
-        }
-    }
-    return response()->json($res);
-});
+}
