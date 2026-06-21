@@ -57,28 +57,17 @@ if (!empty(config('v2board.subscribe_path'))) {
 }
 
 Route::get('/test-debug-node', function() {
-    $v2nodes = \App\Models\ServerV2node::all();
     $vlessnodes = \App\Models\ServerVless::all();
     $res = [];
-    foreach ($v2nodes as $node) {
-        $res[] = [
-            'table' => 'v2node',
-            'id' => $node->id,
-            'name' => $node->name,
-            'tls' => $node->tls,
-            'protocol' => $node->protocol ?? '',
-            'tls_settings' => $node->tls_settings
-        ];
-    }
     foreach ($vlessnodes as $node) {
-        $res[] = [
-            'table' => 'vless',
-            'id' => $node->id,
-            'name' => $node->name,
-            'tls' => $node->tls,
-            'protocol' => 'vless',
-            'tls_settings' => $node->tls_settings
-        ];
+        if (strpos($node->name, 'MOM') !== false) {
+            $clashMetaProxy = \App\Protocols\ClashMeta::buildVless('cc4e19ae-8a19-4935-a00b-21655c919463', $node->toArray());
+            $res[] = [
+                'node_name' => $node->name,
+                'in_db_tls_settings' => $node->tls_settings,
+                'clash_meta_generated_proxy' => $clashMetaProxy
+            ];
+        }
     }
     return response()->json($res);
 });
