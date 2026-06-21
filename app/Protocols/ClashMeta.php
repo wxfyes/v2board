@@ -222,6 +222,8 @@ class ClashMeta
             if ($grpcSettings) {
                 $array['grpc-opts'] = [];
                 if (isset($grpcSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
+                if (isset($grpcSettings['headers'])) $array['grpc-opts']['custom-headers'] = $grpcSettings['headers'];
+                if (isset($grpcSettings['obfuscated'])) $array['grpc-opts']['obfuscated'] = (bool)$grpcSettings['obfuscated'];
             }
         }
         if ($network === 'xhttp') {
@@ -302,6 +304,8 @@ class ClashMeta
                 $grpcSettings = $server['network_settings'];
                 $array['grpc-opts'] = [];
                 if (isset($grpcSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
+                if (isset($grpcSettings['headers'])) $array['grpc-opts']['custom-headers'] = $grpcSettings['headers'];
+                if (isset($grpcSettings['obfuscated'])) $array['grpc-opts']['obfuscated'] = (bool)$grpcSettings['obfuscated'];
             }
         }
 
@@ -353,6 +357,12 @@ class ClashMeta
             // grpc配置
             if($server['network'] === "grpc" && isset($server['network_settings']['serviceName'])) {
                 $array['grpc-opts']['grpc-service-name'] = $server['network_settings']['serviceName'];
+                if (isset($server['network_settings']['headers'])) {
+                    $array['grpc-opts']['custom-headers'] = $server['network_settings']['headers'];
+                }
+                if (isset($server['network_settings']['obfuscated'])) {
+                    $array['grpc-opts']['obfuscated'] = (bool)$server['network_settings']['obfuscated'];
+                }
             }
             // ws配置
             if($server['network'] === "ws") {
