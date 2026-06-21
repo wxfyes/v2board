@@ -107,10 +107,45 @@ class ClashMeta
             if ($isFilter) continue;
             $config['proxy-groups'][$k]['proxies'] = array_merge($config['proxy-groups'][$k]['proxies'], $proxies);
         }
-        $config['proxy-groups'] = array_filter($config['proxy-groups'], function($group) {
-            return $group['proxies'];
-        });
-        $config['proxy-groups'] = array_values($config['proxy-groups']);
+        // -----------------------------------------------------------
+        // 🔄 级联收敛过滤算法 (递归清理不存在或变为空的子组引用)
+        // -----------------------------------------------------------
+        do {
+            $removed = false;
+            // 1. 获取当前所有定义的节点组名称
+            $definedGroupNames = array_map(function ($g) {
+                return $g['name'];
+            }, $config['proxy-groups']);
+
+            // 2. 合法目标包含内置出口以及当前定义的组和实际节点
+            $validTargets = array_merge(['DIRECT', 'REJECT', 'PASS', 'COMPATIBLE'], $definedGroupNames);
+            foreach ($config['proxies'] as $p) {
+                $validTargets[] = $p['name'];
+            }
+            $validTargets = array_unique($validTargets);
+
+            // 3. 清理每个组中不存在的子项引用
+            foreach ($config['proxy-groups'] as $gk => $group) {
+                $oldProxies = $group['proxies'];
+                $newProxies = array_values(array_filter($oldProxies, function ($pName) use ($validTargets) {
+                    return in_array($pName, $validTargets);
+                }));
+                if ($oldProxies !== $newProxies) {
+                    $config['proxy-groups'][$gk]['proxies'] = $newProxies;
+                }
+            }
+
+            // 4. 剔除 proxies 变为空的节点组
+            $beforeCount = count($config['proxy-groups']);
+            $config['proxy-groups'] = array_values(array_filter($config['proxy-groups'], function ($group) {
+                return !empty($group['proxies']);
+            }));
+            $afterCount = count($config['proxy-groups']);
+
+            if ($afterCount < $beforeCount) {
+                $removed = true;
+            }
+        } while ($removed);
         // Force the current subscription domain to be a direct rule
         //$subsDomain = $_SERVER['HTTP_HOST'];
         //if ($subsDomain) {
