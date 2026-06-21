@@ -20,6 +20,34 @@ class ServerController extends Controller
         if ($userService->isAvailable($user)) {
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
+
+            foreach ($servers as &$server) {
+
+                $server['host'] = '已加密保护';
+
+                $server['port'] = 8888;
+
+                if (isset($server['tls_settings'])) {
+
+                    $server['tls_settings'] = [];
+
+                }
+
+                if (isset($server['encryption_settings'])) {
+
+                    $server['encryption_settings'] = [];
+
+                }
+
+                if (isset($server['obfs_settings'])) {
+
+                    $server['obfs_settings'] = [];
+
+                }
+
+            }
+
+            unset($server);
         }
         $eTag = sha1(json_encode(array_column($servers, 'cache_key')));
         if (strpos($request->header('If-None-Match'), $eTag) !== false ) {
