@@ -516,7 +516,36 @@ class StatController extends Controller
                     }
                 }
 
-                // 2. 普通敏感 UA 匹配
+                // --- 2. 进行国内机房 IP 探测检测 ---
+                $isIdcSpy = false;
+                $idcSpyReason = '';
+                $idcKeywords = [
+                    '阿里云', '腾讯云', '华为云', '百度云', '京东云', '网易云', '金山云', '天翼云', '联通云', '移动云',
+                    'aliyun', 'alibaba', 'tencent', 'huawei', 'baidu', 'ucloud', 'qcloud', 'ksyun', '美团云', '青云',
+                    'chinacicc', 'capitalonline', '数据中心', '机房', '世纪互联', '光环新网', '网宿', '蓝汛'
+                ];
+                
+                foreach ($uniqueIps as $ip) {
+                    $ipInfo = $this->getIpInfo($ip);
+                    $loc = $ipInfo['location'] ?? '';
+                    $countryCode = $ipInfo['countryCode'] ?? 'CN';
+                    
+                    $isChina = ($countryCode === 'CN' || strpos($loc, '中国') !== false);
+                    $isHongKongOrMacauOrTaiwan = (strpos($loc, '香港') !== false || strpos($loc, '澳门') !== false || strpos($loc, '台湾') !== false);
+                    
+                    if ($isChina && !$isHongKongOrMacauOrTaiwan) {
+                        $locLower = strtolower($loc);
+                        foreach ($idcKeywords as $kw) {
+                            if (strpos($locLower, $kw) !== false) {
+                                $isIdcSpy = true;
+                                $idcSpyReason = "国内机房服务器拉取订阅 (IP: {$ip}, 归属: {$loc})";
+                                break 2;
+                            }
+                        }
+                    }
+                }
+
+                // 3. 普通敏感 UA 匹配
                 $matchedKeywords = [];
                 foreach ($history as $hItem) {
                     $ua = $hItem['ua'] ?? '';
@@ -545,8 +574,14 @@ class StatController extends Controller
                 $matchedKeywords = array_values(array_unique($matchedKeywords));
 
                 // 决定是否采纳记录
-                if ($isSpecSpy) {
-                    $reasons = ["分布式异地探测画像: 24h内使用多省份家宽IP高频拉取 (覆盖省份: " . implode(', ', $specSpyRegions) . ")"];
+                if ($isSpecSpy || $isIdcSpy) {
+                    $reasons = [];
+                    if ($isSpecSpy) {
+                        $reasons[] = "分布式异地探测画像: 24h内使用多省份家宽IP高频拉取 (覆盖省份: " . implode(', ', $specSpyRegions) . ")";
+                    }
+                    if ($isIdcSpy) {
+                        $reasons[] = $idcSpyReason;
+                    }
                     $riskLevel = 'high';
                 } elseif (!empty($matchedKeywords)) {
                     $reasons = $matchedKeywords;

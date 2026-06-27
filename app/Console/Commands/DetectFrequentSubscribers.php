@@ -416,6 +416,35 @@ class DetectFrequentSubscribers extends Command
             }
 
             // --------------------------------------------------
+            // 维度 7：国内机房服务器拉取探测 (阿里云、腾讯云、机房 IP 等)
+            // --------------------------------------------------
+            $isIdcSpy = false;
+            $idcSpyReason = '';
+            $idcKeywords = [
+                '阿里云', '腾讯云', '华为云', '百度云', '京东云', '网易云', '金山云', '天翼云', '联通云', '移动云',
+                'aliyun', 'alibaba', 'tencent', 'huawei', 'baidu', 'ucloud', 'qcloud', 'ksyun', '美团云', '青云',
+                'chinacicc', 'capitalonline', '数据中心', '机房', '世纪互联', '光环新网', '网宿', '蓝汛'
+            ];
+            foreach ($uniqueIps as $ip) {
+                $loc = $this->getIpLocation($ip);
+                $isChina = (strpos($loc, '中国') !== false || strpos($loc, '局域网') !== false);
+                $isHongKongOrMacauOrTaiwan = (strpos($loc, '香港') !== false || strpos($loc, '澳门') !== false || strpos($loc, '台湾') !== false);
+                if ($isChina && !$isHongKongOrMacauOrTaiwan) {
+                    $locLower = strtolower($loc);
+                    foreach ($idcKeywords as $kw) {
+                        if (strpos($locLower, $kw) !== false) {
+                            $isIdcSpy = true;
+                            $idcSpyReason = "国内机房服务器拉取订阅 (IP: {$ip}, 归属: {$loc})";
+                            break 2;
+                        }
+                    }
+                }
+            }
+            if ($isIdcSpy) {
+                $reasons[] = $idcSpyReason;
+            }
+
+            // --------------------------------------------------
             // 处置与告警逻辑
             // --------------------------------------------------
             if (count($reasons) > 0) {
