@@ -441,6 +441,7 @@ class ServerService
     {
         switch ($serverType) {
             case 'v2node':
+            case 'mieru':
                 return ServerV2node::find($serverId);
             case 'vmess':
                 return ServerVmess::find($serverId);

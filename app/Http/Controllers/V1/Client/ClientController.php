@@ -462,9 +462,9 @@ class ClientController extends Controller
                         return false;
                     }
 
-                    // 2. 根据 vless flow 是否为 mom-vision 过滤
+                    // 2. 根据 vless flow 是否为自研混淆 (如 mom-private, mom-vision) 过滤
                     $flow = $server['flow'] ?? '';
-                    if (stripos($flow, 'mom-vision') !== false) {
+                    if (stripos($flow, 'mom-') !== false) {
                         return false;
                     }
 

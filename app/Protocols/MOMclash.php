@@ -87,6 +87,10 @@ class MOMclash
                     $proxy[] = $this->buildHysteria2($user['uuid'], $item);
                     $proxies[] = $item['name'];
                     break;
+                case 'mieru':
+                    $proxy[] = $this->buildMieru($user['uuid'], $item);
+                    $proxies[] = $item['name'];
+                    break;
             }
         }
 
@@ -135,7 +139,7 @@ class MOMclash
                 return $g['name'];
             }, $config['proxy-groups']);
 
-            // 2. 合法目标包含内置出口以及当前定义的组和实际节点
+            // 2. 合法目标包含内置出口以及当前定义的组 and 实际节点
             $validTargets = array_merge(['DIRECT', 'REJECT', 'PASS', 'COMPATIBLE'], $definedGroupNames);
             foreach ($config['proxies'] as $p) {
                 $validTargets[] = $p['name'];
@@ -233,6 +237,26 @@ class MOMclash
         if (isset($server['obfs'])) {
             $array['obfs'] = $server['obfs'];
             $array['obfs-password'] = $server['obfs_password'];
+        }
+        return $array;
+    }
+
+    private function buildMieru($password, $server)
+    {
+        $tlsSettings = $server['tls_settings'] ?? [];
+        $portRange = $tlsSettings['port_range'] ?? '';
+        $array = [
+            'name' => $server['name'],
+            'type' => 'mieru',
+            'server' => $server['host'],
+            'username' => $password,
+            'password' => $password,
+            'transport' => $tlsSettings['transport'] ?? 'TCP'
+        ];
+        if (!empty($portRange)) {
+            $array['port-range'] = $portRange;
+        } else {
+            $array['port'] = (int)$server['port'];
         }
         return $array;
     }

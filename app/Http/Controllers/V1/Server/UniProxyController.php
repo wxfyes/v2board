@@ -316,6 +316,14 @@ class UniProxyController extends Controller
                     'padding_scheme' => $paddingScheme
                 ];
                 break;
+            case 'mieru':
+                $response = [
+                    'host' => $this->nodeInfo->host,
+                    'server_port' => $this->nodeInfo->server_port,
+                    'port_range' => $this->nodeInfo->tls_settings['port_range'] ?? '',
+                    'transport' => $this->nodeInfo->tls_settings['transport'] ?? 'TCP'
+                ];
+                break;
         }
         $response['base_config'] = [
             'push_interval' => (int)config('v2board.server_push_interval', 60),

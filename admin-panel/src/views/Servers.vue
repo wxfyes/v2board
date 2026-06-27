@@ -264,6 +264,7 @@
                   <el-select v-model="form.v2node_protocol" style="width: 100%" @change="handleV2nodeProtocolChange">
                     <el-option label="AnyTLS" value="anytls" />
                     <el-option label="Hysteria2" value="hysteria2" />
+                    <el-option label="Mieru" value="mieru" />
                     <el-option label="Shadowsocks" value="shadowsocks" />
                     <el-option label="Trojan" value="trojan" />
                     <el-option label="Tuic" value="tuic" />
@@ -751,6 +752,19 @@
             </el-form-item>
           </template>
 
+          <!-- V2node Mieru -->
+          <template v-if="activeType === 'v2node' && form.v2node_protocol === 'mieru'">
+            <el-form-item label="端口范围" prop="tls_settings.port_range">
+              <el-input v-model="form.tls_settings.port_range" placeholder="例如：10000-10050" />
+            </el-form-item>
+            <el-form-item label="传输协议">
+              <el-select v-model="form.tls_settings.transport" placeholder="请选择传输协议" style="width: 100%">
+                <el-option label="TCP" value="TCP" />
+                <el-option label="UDP" value="UDP" />
+              </el-select>
+            </el-form-item>
+          </template>
+
           <el-form-item label="上架状态" class="mt-15">
             <el-radio-group v-model="form.show">
               <el-radio :label="1">启用显示</el-radio>
@@ -917,7 +931,9 @@ const form = reactive({
     short_id: '',
     fingerprint: 'chrome',
     reject_unknown_sni: 0,
-    allow_insecure: 0
+    allow_insecure: 0,
+    port_range: '',
+    transport: 'TCP'
   },
   tls_settings_raw_str: '{}',
 
@@ -1354,7 +1370,7 @@ const handleV2nodeProtocolChange = (proto) => {
   form.network = 'tcp';
   form.network_settings = [];
   form.network_settings_raw_str = '[]';
-  form.tls_settings = { server_name: '', cert_mode: 'self', provider: '', dns_env: '', cert_file: '', key_file: '', dest: '', server_port: '443', xver: 0, private_key: '', public_key: '', short_id: '', fingerprint: 'chrome', reject_unknown_sni: 0, allow_insecure: 0 };
+  form.tls_settings = { server_name: '', cert_mode: 'self', provider: '', dns_env: '', cert_file: '', key_file: '', dest: '', server_port: '443', xver: 0, private_key: '', public_key: '', short_id: '', fingerprint: 'chrome', reject_unknown_sni: 0, allow_insecure: 0, port_range: '', transport: 'TCP' };
   form.tls_settings_raw_str = '{}';
   form.server_name = '';
   form.insecure = 0;
@@ -1418,7 +1434,9 @@ const handleCreateCommand = (type) => {
     short_id: '',
     fingerprint: 'chrome',
     reject_unknown_sni: 0,
-    allow_insecure: 0
+    allow_insecure: 0,
+    port_range: '',
+    transport: 'TCP'
   };
   form.tls_settings_raw_str = '{}';
 
@@ -1647,6 +1665,13 @@ const openEditDialog = (row, type) => {
       form.allow_insecure = tls.insecure || 0;
       const paddingScheme = row.padding_scheme || [];
       form.anytls_custom_str = typeof paddingScheme === 'string' ? paddingScheme : JSON.stringify(paddingScheme, null, 2);
+    } else if (proto === 'mieru') {
+      const tls = row.tls_settings || {};
+      form.tls_settings = {
+        port_range: tls.port_range || '',
+        transport: tls.transport || 'TCP',
+        server_name: '', cert_mode: 'self', provider: '', dns_env: '', cert_file: '', key_file: '', dest: '', server_port: '443', xver: 0, private_key: '', public_key: '', short_id: '', fingerprint: 'chrome', reject_unknown_sni: 0, allow_insecure: 0
+      };
     }
   }
 
@@ -1853,6 +1878,12 @@ const handleSubmit = async () => {
             throw new Error('填充方案 JSON 格式不正确');
           }
           payload.padding_scheme = form.anytls_custom_str;
+        } else if (proto === 'mieru') {
+          payload.tls = 0;
+          payload.tls_settings = {
+            port_range: form.tls_settings.port_range,
+            transport: form.tls_settings.transport || 'TCP'
+          };
         }
       }
 

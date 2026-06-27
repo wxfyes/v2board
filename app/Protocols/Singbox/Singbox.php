@@ -108,6 +108,7 @@ class Singbox
             $serverKey = Helper::getServerKey($server['created_at'], $length);
             $userKey = Helper::uuidToBase64($password, $length);
             $password = "{$serverKey}:{$userKey}";
+            $password = "{$serverKey}:{$userKey}";
         }
         $array = [];
         $array['tag'] = $server['name'];
@@ -424,6 +425,27 @@ class Singbox
         if (isset($server['obfs'])) {
             $array['obfs']['type'] = $server['obfs'];
             $array['obfs']['password'] = $server['obfs_password'];
+        }
+        return $array;
+    }
+
+    protected function buildMieru($password, $server)
+    {
+        $tlsSettings = $server['tls_settings'] ?? [];
+        $portRange = $tlsSettings['port_range'] ?? '';
+        $array = [
+            'type' => 'mieru',
+            'tag' => $server['name'],
+            'server' => $server['host'],
+            'username' => $password,
+            'password' => $password,
+            'transport' => $tlsSettings['transport'] ?? 'TCP',
+            'domain_resolver' => 'local'
+        ];
+        if (!empty($portRange)) {
+            $array['port_range'] = $portRange;
+        } else {
+            $array['server_port'] = (int)$server['port'];
         }
         return $array;
     }
