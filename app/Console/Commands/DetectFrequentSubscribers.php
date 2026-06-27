@@ -126,6 +126,7 @@ class DetectFrequentSubscribers extends Command
         $configPath = storage_path('tianque_config.json');
         $honeypotUsers = [];
         $whitelistUsers = [];
+        $ignoreIps = [];
         $auditUaEnabled = true;
         if (file_exists($configPath)) {
             $tianqueConfig = json_decode(@file_get_contents($configPath), true);
@@ -135,6 +136,9 @@ class DetectFrequentSubscribers extends Command
                 }
                 if (isset($tianqueConfig['whitelist_users'])) {
                     $whitelistUsers = $tianqueConfig['whitelist_users'];
+                }
+                if (isset($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
+                    $ignoreIps = $tianqueConfig['ignore_ips'];
                 }
                 if (isset($tianqueConfig['ip_limit'])) {
                     $ipLimit = (int)$tianqueConfig['ip_limit'];
@@ -148,6 +152,23 @@ class DetectFrequentSubscribers extends Command
             }
         }
         $abnormalKeywordsLower = array_map('strtolower', $abnormalKeywords);
+
+        // 自动解析自定义免审 IP 中可能存在的反代域名，并自动合并节点 IP，完美防御反代和节点误报
+        $resolvedIgnoreIps = [];
+        foreach ($ignoreIps as $ipOrDomain) {
+            $ipOrDomain = trim($ipOrDomain);
+            if (empty($ipOrDomain)) continue;
+            if (filter_var($ipOrDomain, FILTER_VALIDATE_IP) || strpos($ipOrDomain, '/') !== false) {
+                $resolvedIgnoreIps[] = $ipOrDomain;
+            } else {
+                $ip = gethostbyname($ipOrDomain);
+                if ($ip && $ip !== $ipOrDomain && filter_var($ip, FILTER_VALIDATE_IP)) {
+                    $resolvedIgnoreIps[] = $ip;
+                }
+            }
+        }
+        $serverIps = $this->getSystemServerIps();
+        $resolvedIgnoreIps = array_values(array_unique(array_merge($resolvedIgnoreIps, $serverIps)));
  
         // --------------------------------------------------
         // 全局前置计算：24小时内所有用户的 IP 共用映射，用以排查海外 IP 联合探测行为
@@ -171,6 +192,7 @@ class DetectFrequentSubscribers extends Command
             if ($isInWhitelist) continue;
 
             $hist = json_decode($u->client_type, true) ?: [];
+            $hist = $this->filterClientHistory($hist, $resolvedIgnoreIps);
             foreach ($hist as $log) {
                 if (($now - ($log['time'] ?? 0)) < 86400) {
                     $ip = trim($log['ip'] ?? '');
@@ -239,9 +261,11 @@ class DetectFrequentSubscribers extends Command
             }
  
             $history = json_decode($user->client_type, true);
-            
-            // 记录为空或过少跳过
-            if (!is_array($history) || count($history) < 1) {
+            if (!is_array($history)) {
+                continue;
+            }
+            $history = $this->filterClientHistory($history, $resolvedIgnoreIps);
+            if (count($history) < 1) {
                 continue;
             }
  
@@ -714,5 +738,84 @@ class DetectFrequentSubscribers extends Command
         }
 
         return '未知地区';
+    }
+
+    private function filterClientHistory(array $history, array $ignoreIps)
+    {
+        return array_filter($history, function($item) use ($ignoreIps) {
+            $ip = $item['ip'] ?? '';
+            if (empty($ip)) return false;
+            
+            foreach ($ignoreIps as $ignore) {
+                if ($this->ipMatch($ip, $ignore)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    private function ipMatch($ip, $pattern)
+    {
+        $pattern = trim($pattern);
+        if ($ip === $pattern) {
+            return true;
+        }
+        
+        if (strpos($pattern, '/') !== false) {
+            list($subnet, $bits) = explode('/', $pattern);
+            $bits = (int)$bits;
+            $ipLong = ip2long($ip);
+            $subnetLong = ip2long($subnet);
+            if ($ipLong === false || $subnetLong === false) {
+                return false;
+            }
+            $mask = -1 << (32 - $bits);
+            return ($ipLong & $mask) === ($subnetLong & $mask);
+        }
+        
+        return false;
+    }
+
+    private function getSystemServerIps()
+    {
+        $ips = [];
+        $serverModels = [
+            \App\Models\ServerVmess::class,
+            \App\Models\ServerVless::class,
+            \App\Models\ServerTrojan::class,
+            \App\Models\ServerShadowsocks::class,
+            \App\Models\ServerHysteria::class,
+            \App\Models\ServerTuic::class,
+            \App\Models\ServerMieru::class,
+            \App\Models\ServerAnytls::class,
+            \App\Models\ServerV2node::class,
+        ];
+
+        foreach ($serverModels as $model) {
+            if (!class_exists($model)) {
+                continue;
+            }
+            try {
+                $hosts = $model::pluck('host')->toArray();
+                foreach ($hosts as $host) {
+                    $host = trim($host);
+                    if (empty($host)) continue;
+                    
+                    if (filter_var($host, FILTER_VALIDATE_IP)) {
+                        $ips[] = $host;
+                    } else {
+                        $ip = gethostbyname($host);
+                        if ($ip && $ip !== $host && filter_var($ip, FILTER_VALIDATE_IP)) {
+                            $ips[] = $ip;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // 忽略异常
+            }
+        }
+        
+        return array_values(array_unique($ips));
     }
 }
