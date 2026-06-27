@@ -1158,6 +1158,10 @@ class StatController extends Controller
             $honeypotUsers = [];
         }
 
+        // 自动将本机场所有节点的 IP 地址合并到免审 IP 中，完美防误报
+        $serverIps = $this->getSystemServerIps();
+        $ignoreIps = array_values(array_unique(array_merge($ignoreIps, $serverIps)));
+
         // 初筛 (按 ID 降序排列，由于是在内存解包后做高精度的 UA 和省份时间判定，我们直接对最新的 1000 个账号进行审计)
         $query = User::where('id', '>', $idMin)->whereNotNull('client_type');
         
@@ -1465,6 +1469,48 @@ class StatController extends Controller
             'status' => 'success',
             'message' => "成功将 {$addedCount} 个账号加入蜜罐接管。"
         ]);
+    }
+
+    private function getSystemServerIps()
+    {
+        $ips = [];
+        $serverModels = [
+            \App\Models\ServerVmess::class,
+            \App\Models\ServerVless::class,
+            \App\Models\ServerTrojan::class,
+            \App\Models\ServerShadowsocks::class,
+            \App\Models\ServerHysteria::class,
+            \App\Models\ServerTuic::class,
+            \App\Models\ServerMieru::class,
+            \App\Models\ServerAnytls::class,
+            \App\Models\ServerV2node::class,
+        ];
+
+        foreach ($serverModels as $model) {
+            if (!class_exists($model)) {
+                continue;
+            }
+            try {
+                $hosts = $model::pluck('host')->toArray();
+                foreach ($hosts as $host) {
+                    $host = trim($host);
+                    if (empty($host)) continue;
+                    
+                    if (filter_var($host, FILTER_VALIDATE_IP)) {
+                        $ips[] = $host;
+                    } else {
+                        $ip = gethostbyname($host);
+                        if ($ip && $ip !== $host && filter_var($ip, FILTER_VALIDATE_IP)) {
+                            $ips[] = $ip;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // 忽略异常
+            }
+        }
+        
+        return array_values(array_unique($ips));
     }
 }
 
