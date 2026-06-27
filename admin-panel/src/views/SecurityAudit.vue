@@ -545,16 +545,28 @@
       <el-card shadow="never" style="margin-bottom: 15px; background: var(--el-fill-color-blank); border-color: var(--el-border-color-lighter);">
         <el-form :inline="true" size="small" :model="customAuditForm" style="margin-bottom: -15px;">
           <el-form-item label="ID 大于">
-            <el-input-number v-model="customAuditForm.id_min" :min="0" style="width: 110px;" />
+            <el-input-number v-model="customAuditForm.id_min" :min="0" style="width: 100px;" />
           </el-form-item>
           <el-form-item label="UA 包含">
-            <el-input v-model="customAuditForm.ua_keyword" placeholder="如 clash-verge/733" style="width: 160px;" clearable />
+            <el-input v-model="customAuditForm.ua_keyword" placeholder="如 clash-verge/733" style="width: 150px;" clearable />
           </el-form-item>
-          <el-form-item label="24h跨省数 >=">
-            <el-input-number v-model="customAuditForm.province_count" :min="0" :max="34" style="width: 90px;" />
+          <el-form-item label="审计时间">
+            <el-select v-model="customAuditForm.time_range" style="width: 100px;">
+              <el-option label="24 小时" :value="86400" />
+              <el-option label="36 小时" :value="129600" />
+              <el-option label="48 小时" :value="172800" />
+              <el-option label="72 小时" :value="259200" />
+            </el-select>
           </el-form-item>
-          <el-form-item label="仅限国内机房IP">
+          <el-form-item label="跨省数 >=">
+            <el-input-number v-model="customAuditForm.province_count" :min="0" :max="34" style="width: 75px;" />
+          </el-form-item>
+          <el-form-item label="仅限机房IP">
             <el-switch v-model="customAuditForm.only_idc" />
+          </el-form-item>
+          <el-form-item label="已用流量 <=">
+            <el-input-number v-model="customAuditForm.max_traffic" :min="0" style="width: 100px;" controls-position="right" />
+            <span style="margin-left: 3px; color: var(--el-text-color-secondary);">M (0不限)</span>
           </el-form-item>
           <el-form-item style="margin-left: 10px;">
             <el-button type="success" icon="Cpu" :loading="customAuditLoading" @click="runCustomAuditScan">开始探测扫描</el-button>
@@ -604,7 +616,7 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="24h IP数" width="80" prop="ip_count" align="center" sortable />
+        <el-table-column label="活跃 IP数" width="85" prop="ip_count" align="center" sortable />
         <el-table-column label="跨省数" width="70" prop="province_count" align="center" sortable />
         <el-table-column label="拉取省份" min-width="100">
           <template #default="scope">
@@ -831,7 +843,8 @@ const customAuditForm = reactive({
   ua_keyword: 'clash-verge/733',
   province_count: 5,
   only_idc: false,
-  time_range: 86400
+  time_range: 86400,
+  max_traffic: 1024
 });
 
 const settingsForm = reactive({
@@ -1288,7 +1301,8 @@ const runCustomAuditScan = async () => {
       ua_keyword: customAuditForm.ua_keyword,
       province_count: customAuditForm.province_count,
       only_idc: customAuditForm.only_idc,
-      time_range: customAuditForm.time_range
+      time_range: customAuditForm.time_range,
+      max_traffic: customAuditForm.max_traffic
     });
     if (res.data) {
       // 由于 api 拦截器已执行 return response.data，此处 res 即为后端返回的根 JSON 对象

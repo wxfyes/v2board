@@ -1145,6 +1145,7 @@ class StatController extends Controller
         $provinceCount = (int)$request->input('province_count', 0);
         $onlyIdc = (bool)$request->input('only_idc', false);
         $timeRange = (int)$request->input('time_range', 86400);
+        $maxTrafficMb = (int)$request->input('max_traffic', 0);
 
         // 读出免审 IP 配置
         $configPath = storage_path('tianque_config.json');
@@ -1171,9 +1172,10 @@ class StatController extends Controller
             }
         }
         
-        $users = $query->orderBy('id', 'desc')->limit(1000)->get(['id', 'email', 'client_type', 'banned']);
+        $users = $query->orderBy('id', 'desc')->limit(1000)->get(['id', 'email', 'client_type', 'banned', 'u', 'd']);
 
         $now = time();
+        $hours = round($timeRange / 3600);
         $matchedUsers = [];
 
         $idcKeywords = [
@@ -1206,7 +1208,7 @@ class StatController extends Controller
                     'idc_count' => 0,
                     'uas' => $allHistoryUas,
                     'match_status' => 'excluded',
-                    'exclude_reason' => '排除原因: 最近 24 小时内没有任何拉取记录。'
+                    'exclude_reason' => "排除原因: 最近 {$hours} 小时内没有任何拉取记录。"
                 ];
                 continue;
             }
@@ -1245,7 +1247,29 @@ class StatController extends Controller
                         'idc_count' => 0,
                         'uas' => $allHistoryUas,
                         'match_status' => 'excluded',
-                        'exclude_reason' => "排除原因: 最近 24h 活跃 UA 不包含 '{$uaKeyword}' (该 UA 仅存在于较早历史中)。"
+                        'exclude_reason' => "排除原因: 最近 {$hours} 小时活跃 UA 不包含 '{$uaKeyword}' (该 UA 仅存在于较早历史中)。"
+                    ];
+                    continue;
+                }
+            }
+
+            // 2.5 已用流量上限校验 (如果设置了 max_traffic)
+            if ($maxTrafficMb > 0) {
+                $usedTraffic = (float)($user->u + $user->d);
+                $maxTrafficLimit = (float)$maxTrafficMb * 1024 * 1024;
+                if ($usedTraffic > $maxTrafficLimit) {
+                    $matchedUsers[] = [
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                        'banned' => (int)$user->banned,
+                        'in_honeypot' => in_array((int)$user->id, $honeypotUsers, true) ? 1 : 0,
+                        'ip_count' => count(array_unique(array_map(function($l) { return $l['ip'] ?? ''; }, $logs))),
+                        'province_count' => 0,
+                        'provinces' => [],
+                        'idc_count' => 0,
+                        'uas' => $activeUas,
+                        'match_status' => 'excluded',
+                        'exclude_reason' => '排除原因: 已使用总流量为 ' . round($usedTraffic / (1024 * 1024), 2) . ' MB，超过了限制的 ' . $maxTrafficMb . ' MB。'
                     ];
                     continue;
                 }
@@ -1310,16 +1334,14 @@ class StatController extends Controller
                     $regions[] = $loc;
                 }
 
-                // 机房检测
+                // 机房检测 (全球适配，不限国内，只要匹配到云厂商关键字即判定为机房 IP)
                 $isIdc = false;
-                if ($isChina && !$isHongKongOrMacauOrTaiwan) {
-                    $locLower = strtolower($loc);
-                    foreach ($idcKeywords as $kw) {
-                        if (strpos($locLower, $kw) !== false) {
-                            $isIdc = true;
-                            $idcMatchCount++;
-                            break;
-                        }
+                $locLower = strtolower($loc);
+                foreach ($idcKeywords as $kw) {
+                    if (strpos($locLower, $kw) !== false) {
+                        $isIdc = true;
+                        $idcMatchCount++;
+                        break;
                     }
                 }
 
@@ -1363,7 +1385,7 @@ class StatController extends Controller
                     'idc_count' => 0,
                     'uas' => $activeUas,
                     'match_status' => 'excluded',
-                    'exclude_reason' => '排除原因: 最近 24h 内没有检测到任何来自国内机房的拉取 IP。'
+                    'exclude_reason' => "排除原因: 最近 {$hours} 小时内没有检测到任何来自机房的拉取 IP。"
                 ];
                 continue;
             }
@@ -1393,6 +1415,7 @@ class StatController extends Controller
                 'province_count' => $provinceCount,
                 'only_idc' => $onlyIdc,
                 'time_range' => $timeRange,
+                'max_traffic' => $maxTrafficMb,
                 'users_count' => count($users)
             ]
         ]);
