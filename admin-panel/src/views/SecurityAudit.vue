@@ -570,6 +570,7 @@
         size="small"
         max-height="400px"
         style="width: 100%;"
+        :row-class-name="tableRowClassName"
         @selection-change="handleCustomAuditSelectionChange"
       >
         <el-table-column type="selection" width="55" />
@@ -579,31 +580,41 @@
             <span style="font-weight: 500;">{{ scope.row.email }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="账号状态" width="100">
+        <el-table-column label="账号状态" width="80">
           <template #default="scope">
             <el-tag :type="scope.row.banned === 1 ? 'danger' : 'success'" size="small">
               {{ scope.row.banned === 1 ? '已封禁' : '正常' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="蜜罐状态" width="100">
+        <el-table-column label="蜜罐状态" width="80">
           <template #default="scope">
             <el-tag :type="scope.row.in_honeypot === 1 ? 'warning' : 'info'" size="small" effect="plain">
               {{ scope.row.in_honeypot === 1 ? '接管中' : '未接管' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="24h IP数" width="90" prop="ip_count" align="center" sortable />
-        <el-table-column label="跨省数" width="80" prop="province_count" align="center" sortable />
-        <el-table-column label="拉取省份列表" min-width="150">
+        <el-table-column label="探测诊断 / 排除原因" min-width="260">
           <template #default="scope">
-            <span style="font-size: 12px; color: var(--el-text-color-regular);">
-              {{ scope.row.provinces.join(', ') || '无国内省份' }}
+            <span v-if="scope.row.match_status === 'matched'" style="color: var(--el-color-success); font-weight: bold; display: flex; align-items: center; gap: 4px;">
+              <el-icon><Cpu /></el-icon> 🟢 完全吻合特征
+            </span>
+            <span v-else style="color: var(--el-text-color-secondary); font-size: 12px; font-style: italic;">
+              {{ scope.row.exclude_reason }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="机房IP数" width="90" prop="idc_count" align="center" sortable />
-        <el-table-column label="操作" width="120" align="right" fixed="right">
+        <el-table-column label="24h IP数" width="80" prop="ip_count" align="center" sortable />
+        <el-table-column label="跨省数" width="70" prop="province_count" align="center" sortable />
+        <el-table-column label="拉取省份" min-width="100">
+          <template #default="scope">
+            <span style="font-size: 12px; color: var(--el-text-color-regular);">
+              {{ scope.row.provinces.join(', ') || '无' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="机房IP" width="70" prop="idc_count" align="center" sortable />
+        <el-table-column label="操作" width="100" align="right" fixed="right">
           <template #default="scope">
             <el-button
               v-if="scope.row.in_honeypot === 0"
@@ -1255,9 +1266,11 @@ const getProgressStatus = (used, total) => {
   return 'success';
 };
 
-const isExpired = (timestamp) => {
-  if (!timestamp) return false;
-  return timestamp < Date.now() / 1000;
+const tableRowClassName = ({ row }) => {
+  if (row.match_status === 'excluded') {
+    return 'excluded-row';
+  }
+  return '';
 };
 
 const openCustomAuditDialog = () => {
@@ -1278,8 +1291,15 @@ const runCustomAuditScan = async () => {
       time_range: customAuditForm.time_range
     });
     if (res.data) {
-      customAuditResults.value = res.data.data || [];
-      ElMessage.success(`探测完成，扫描到 ${customAuditResults.value.length} 个符合特征的异常账号`);
+      // 降序排序，完全吻合 (matched) 的用户排在最前面，其余已排除 (excluded) 的用户排在后面
+      const rawResults = res.data.data || [];
+      customAuditResults.value = [...rawResults].sort((a, b) => {
+        if (a.match_status === 'matched' && b.match_status !== 'matched') return -1;
+        if (a.match_status !== 'matched' && b.match_status === 'matched') return 1;
+        return b.user_id - a.user_id;
+      });
+      const matchedCount = customAuditResults.value.filter(r => r.match_status === 'matched').length;
+      ElMessage.success(`探测完成，找到 ${matchedCount} 个完全吻合特征的疑似内鬼（分析共 ${customAuditResults.value.length} 个关联账号）`);
     }
   } catch (err) {
     console.error(err);
@@ -1443,5 +1463,10 @@ onMounted(() => {
 
 .text-center {
   text-align: center;
+}
+
+:deep(.el-table .excluded-row) {
+  opacity: 0.55;
+  background-color: var(--el-fill-color-light) !important;
 }
 </style>

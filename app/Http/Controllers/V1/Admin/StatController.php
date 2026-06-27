@@ -1157,12 +1157,21 @@ class StatController extends Controller
             $honeypotUsers = [];
         }
 
-        // 初筛 (按 ID 降序排列，由于是在内存解包后做高精度的 UA 和省份时间判定，我们直接对最新的 2000 个活跃账号进行审计)
-        $users = User::where('id', '>', $idMin)
-            ->whereNotNull('client_type')
-            ->orderBy('id', 'desc')
-            ->limit(2000)
-            ->get(['id', 'email', 'client_type', 'banned']);
+        // 初筛 (按 ID 降序排列，由于是在内存解包后做高精度的 UA 和省份时间判定，我们直接对最新的 1000 个账号进行审计)
+        $query = User::where('id', '>', $idMin)->whereNotNull('client_type');
+        
+        if (!empty($uaKeyword)) {
+            // 支持用 / 或者是空格分割多个关键字，并进行 And 模糊匹配
+            $keywords = preg_split('/[\/\s]+/', $uaKeyword);
+            foreach ($keywords as $kw) {
+                $kw = trim($kw);
+                if (!empty($kw)) {
+                    $query->where('client_type', 'like', '%' . $kw . '%');
+                }
+            }
+        }
+        
+        $users = $query->orderBy('id', 'desc')->limit(1000)->get(['id', 'email', 'client_type', 'banned']);
 
         $now = time();
         $matchedUsers = [];
@@ -1177,26 +1186,67 @@ class StatController extends Controller
             $history = json_decode($user->client_type, true) ?: [];
             $history = $this->filterClientHistory($history, $ignoreIps);
 
-            // 时间范围过滤
+            // 获取历史所有的不重复 UA
+            $allHistoryUas = array_values(array_unique(array_map(function($h) { return $h['ua'] ?? ($h['type'] ?? ''); }, $history)));
+
+            // 1. 最近 24h 时间范围过滤
             $logs = array_filter($history, function($h) use ($now, $timeRange) {
                 return ($now - ($h['time'] ?? 0)) <= $timeRange;
             });
 
             if (empty($logs)) {
+                $matchedUsers[] = [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'banned' => (int)$user->banned,
+                    'in_honeypot' => in_array((int)$user->id, $honeypotUsers, true) ? 1 : 0,
+                    'ip_count' => 0,
+                    'province_count' => 0,
+                    'provinces' => [],
+                    'idc_count' => 0,
+                    'uas' => $allHistoryUas,
+                    'match_status' => 'excluded',
+                    'exclude_reason' => '排除原因: 最近 24 小时内没有任何拉取记录。'
+                ];
                 continue;
             }
 
-            // 如果设置了 UA，再次精细验证这 24h 内是否有该 UA 拉取
+            // 获取活跃 UA 列表
+            $activeUas = array_values(array_unique(array_map(function($l) { return $l['ua'] ?? ($l['type'] ?? ''); }, $logs)));
+
+            // 2. 如果设置了 UA，验证这 24h 内是否有该 UA 拉取
             if (!empty($uaKeyword)) {
                 $hasTargetUa = false;
+                $keywords = preg_split('/[\/\s]+/', $uaKeyword);
                 foreach ($logs as $log) {
-                    $ua = strtolower($log['ua'] ?? '');
-                    if (strpos($ua, strtolower($uaKeyword)) !== false) {
+                    $uaLower = strtolower($log['ua'] ?? ($log['type'] ?? ''));
+                    $allKwMatch = true;
+                    foreach ($keywords as $kw) {
+                        $kw = trim($kw);
+                        if (!empty($kw) && strpos($uaLower, strtolower($kw)) === false) {
+                            $allKwMatch = false;
+                            break;
+                        }
+                    }
+                    if ($allKwMatch) {
                         $hasTargetUa = true;
                         break;
                     }
                 }
                 if (!$hasTargetUa) {
+                    $matchedUsers[] = [
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                        'banned' => (int)$user->banned,
+                        'in_honeypot' => in_array((int)$user->id, $honeypotUsers, true) ? 1 : 0,
+                        'ip_count' => count(array_unique(array_map(function($l) { return $l['ip'] ?? ''; }, $logs))),
+                        'province_count' => 0,
+                        'provinces' => [],
+                        'idc_count' => 0,
+                        'uas' => $allHistoryUas,
+                        'match_status' => 'excluded',
+                        'exclude_reason' => "排除原因: 最近 24h 活跃 UA 不包含 '{$uaKeyword}' (该 UA 仅存在于较早历史中)。"
+                    ];
                     continue;
                 }
             }
@@ -1210,6 +1260,24 @@ class StatController extends Controller
                 }
             }
             $uniqueIps = array_values(array_unique($ips));
+
+            // 3. 独立 IP 数量过滤
+            if ($provinceCount > 0 && count($uniqueIps) < $provinceCount) {
+                $matchedUsers[] = [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'banned' => (int)$user->banned,
+                    'in_honeypot' => in_array((int)$user->id, $honeypotUsers, true) ? 1 : 0,
+                    'ip_count' => count($uniqueIps),
+                    'province_count' => 0,
+                    'provinces' => [],
+                    'idc_count' => 0,
+                    'uas' => $activeUas,
+                    'match_status' => 'excluded',
+                    'exclude_reason' => "排除原因: 24h独立 IP 数为 " . count($uniqueIps) . " 个，少于设定的 {$provinceCount} 个，不满足跨省条件。"
+                ];
+                continue;
+            }
 
             // 对这几个 IP 进行定位
             $regions = [];
@@ -1264,19 +1332,43 @@ class StatController extends Controller
 
             $uniqueRegions = array_values(array_unique($regions));
 
-            // 省份数量条件限制
+            // 4. 省份数量条件限制
             if ($provinceCount > 0 && count($uniqueRegions) < $provinceCount) {
+                $matchedUsers[] = [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'banned' => (int)$user->banned,
+                    'in_honeypot' => in_array((int)$user->id, $honeypotUsers, true) ? 1 : 0,
+                    'ip_count' => count($uniqueIps),
+                    'province_count' => count($uniqueRegions),
+                    'provinces' => $uniqueRegions,
+                    'idc_count' => $idcMatchCount,
+                    'uas' => $activeUas,
+                    'match_status' => 'excluded',
+                    'exclude_reason' => '排除原因: 虽独立 IP 数足够，但去重后省份数量仅为 ' . count($uniqueRegions) . ' 个，未达到设定的 ' . $provinceCount . ' 个。'
+                ];
                 continue;
             }
 
-            // 是否仅限 IDC 限制
+            // 5. 是否仅限 IDC 限制
             if ($onlyIdc && $idcMatchCount === 0) {
+                $matchedUsers[] = [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'banned' => (int)$user->banned,
+                    'in_honeypot' => in_array((int)$user->id, $honeypotUsers, true) ? 1 : 0,
+                    'ip_count' => count($uniqueIps),
+                    'province_count' => count($uniqueRegions),
+                    'provinces' => $uniqueRegions,
+                    'idc_count' => 0,
+                    'uas' => $activeUas,
+                    'match_status' => 'excluded',
+                    'exclude_reason' => '排除原因: 最近 24h 内没有检测到任何来自国内机房的拉取 IP。'
+                ];
                 continue;
             }
 
-            // 获取活跃 UA 列表
-            $activeUas = array_values(array_unique(array_map(function($l) { return $l['ua'] ?? ''; }, $logs)));
-
+            // 6. 完全符合
             $matchedUsers[] = [
                 'user_id' => $user->id,
                 'email' => $user->email,
@@ -1287,6 +1379,8 @@ class StatController extends Controller
                 'provinces' => $uniqueRegions,
                 'idc_count' => $idcMatchCount,
                 'uas' => $activeUas,
+                'match_status' => 'matched',
+                'exclude_reason' => '',
                 'history' => $ipDetails
             ];
         }
