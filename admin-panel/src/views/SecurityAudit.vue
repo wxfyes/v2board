@@ -1291,8 +1291,8 @@ const runCustomAuditScan = async () => {
       time_range: customAuditForm.time_range
     });
     if (res.data) {
-      // 降序排序，完全吻合 (matched) 的用户排在最前面，其余已排除 (excluded) 的用户排在后面
-      const rawResults = res.data.data || [];
+      // 由于 api 拦截器已执行 return response.data，此处 res 即为后端返回的根 JSON 对象
+      const rawResults = res.data || [];
       customAuditResults.value = [...rawResults].sort((a, b) => {
         if (a.match_status === 'matched' && b.match_status !== 'matched') return -1;
         if (a.match_status !== 'matched' && b.match_status === 'matched') return 1;
@@ -1300,7 +1300,7 @@ const runCustomAuditScan = async () => {
       });
       const matchedCount = customAuditResults.value.filter(r => r.match_status === 'matched').length;
       
-      const dbg = res.data.debug || {};
+      const dbg = res.debug || {};
       console.log('Radar Debug Info:', dbg);
       
       ElMessage({
