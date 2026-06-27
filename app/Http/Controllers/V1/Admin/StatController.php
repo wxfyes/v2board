@@ -429,7 +429,9 @@ class StatController extends Controller
 
         // Suspected Users
         $lastId = 0;
-        while (count($data) < 30) {
+        $loopCount = 0;
+        while (count($data) < 30 && $loopCount < 5) {
+            $loopCount++;
             $query = User::where('banned', 0)
                 ->whereNotNull('client_type')
                 ->whereNotIn('id', $flaggedIds);
@@ -466,10 +468,6 @@ class StatController extends Controller
 
                 $history = json_decode($user->client_type, true) ?: [];
                 $history = $this->filterClientHistory($history, $ignoreIps);
-                foreach ($history as &$hItem) {
-                    $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
-                }
-                unset($hItem);
                 
                 $matchedKeywords = [];
                 foreach ($history as $hItem) {
@@ -501,6 +499,12 @@ class StatController extends Controller
                 if (empty($matchedKeywords)) {
                     continue;
                 }
+
+                // 延迟查询 IP 归属地，仅对最终进入展示列表的用户进行查询，极大提升接口响应性能
+                foreach ($history as &$hItem) {
+                    $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
+                }
+                unset($hItem);
 
                 $data[] = [
                     'user_id' => (int)$user->id,
