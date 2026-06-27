@@ -54,6 +54,7 @@
             <div class="rank-subtitle-text">对多 IP 扩散分享、高频测活、命令行客户端等进行精细化审查与蜜罐重定向管理</div>
           </div>
           <div class="flex-end gap-10">
+            <el-button type="success" plain size="small" icon="Cpu" @click="openCustomAuditDialog">自定义特征探测</el-button>
             <el-button type="warning" plain size="small" icon="Connection" @click="openIpAssociationDialog">IP 关联分析</el-button>
             <el-button type="primary" plain size="small" icon="Setting" @click="openSettingsDialog">审计规则 & 白名单</el-button>
             <el-button type="danger" plain size="small" icon="Delete" :disabled="flaggedCount === 0" @click="handleClearAllAnomalies">一键忽略全部预警</el-button>
@@ -534,6 +535,119 @@
       </template>
     </el-dialog>
 
+    <!-- Custom Audit Radar Dialog -->
+    <el-dialog v-model="customAuditVisible" title="天阙安全审计 - 自定义特征探测雷达" width="950px" destroy-on-close>
+      <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 15px; line-height: 1.5;">
+        在这里您可以自由设定用户的拉取行为特征。点击开始探测后，雷达会从全局用户库中即时扫描并筛选出符合条件的异常账号。
+      </div>
+
+      <!-- Filters Form -->
+      <el-card shadow="never" style="margin-bottom: 15px; background: var(--el-fill-color-blank); border-color: var(--el-border-color-lighter);">
+        <el-form :inline="true" size="small" :model="customAuditForm" style="margin-bottom: -15px;">
+          <el-form-item label="ID 大于">
+            <el-input-number v-model="customAuditForm.id_min" :min="0" style="width: 110px;" />
+          </el-form-item>
+          <el-form-item label="UA 包含">
+            <el-input v-model="customAuditForm.ua_keyword" placeholder="如 clash-verge/733" style="width: 160px;" clearable />
+          </el-form-item>
+          <el-form-item label="24h跨省数 >=">
+            <el-input-number v-model="customAuditForm.province_count" :min="0" :max="34" style="width: 90px;" />
+          </el-form-item>
+          <el-form-item label="仅限国内机房IP">
+            <el-switch v-model="customAuditForm.only_idc" />
+          </el-form-item>
+          <el-form-item style="margin-left: 10px;">
+            <el-button type="success" icon="Cpu" :loading="customAuditLoading" @click="runCustomAuditScan">开始探测扫描</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- Results Table -->
+      <el-table
+        v-loading="customAuditLoading"
+        :data="customAuditResults"
+        stripe
+        size="small"
+        max-height="400px"
+        style="width: 100%;"
+        @selection-change="handleCustomAuditSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
+        <el-table-column label="用户 ID" width="90" prop="user_id" sortable />
+        <el-table-column label="用户邮箱" min-width="180">
+          <template #default="scope">
+            <span style="font-weight: 500;">{{ scope.row.email }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="账号状态" width="100">
+          <template #default="scope">
+            <el-tag :type="scope.row.banned === 1 ? 'danger' : 'success'" size="small">
+              {{ scope.row.banned === 1 ? '已封禁' : '正常' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="蜜罐状态" width="100">
+          <template #default="scope">
+            <el-tag :type="scope.row.in_honeypot === 1 ? 'warning' : 'info'" size="small" effect="plain">
+              {{ scope.row.in_honeypot === 1 ? '接管中' : '未接管' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="24h IP数" width="90" prop="ip_count" align="center" sortable />
+        <el-table-column label="跨省数" width="80" prop="province_count" align="center" sortable />
+        <el-table-column label="拉取省份列表" min-width="150">
+          <template #default="scope">
+            <span style="font-size: 12px; color: var(--el-text-color-regular);">
+              {{ scope.row.provinces.join(', ') || '无国内省份' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="机房IP数" width="90" prop="idc_count" align="center" sortable />
+        <el-table-column label="操作" width="120" align="right" fixed="right">
+          <template #default="scope">
+            <el-button
+              v-if="scope.row.in_honeypot === 0"
+              type="warning"
+              size="small"
+              plain
+              @click="handleCustomHoneypot([scope.row.user_id])"
+            >
+              放入蜜罐
+            </el-button>
+            <el-button
+              v-else
+              type="info"
+              size="small"
+              disabled
+            >
+              已接管
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- Selection operations -->
+      <div v-if="customAuditSelection.length > 0" style="margin-top: 15px; display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 13px; color: var(--el-text-color-regular);">
+          已选中 <strong>{{ customAuditSelection.length }}</strong> 个账号
+        </span>
+        <el-button
+          type="warning"
+          icon="Connection"
+          size="small"
+          @click="handleCustomHoneypot(customAuditSelection.map(item => item.user_id))"
+        >
+          批量拖入蜜罐
+        </el-button>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button size="small" @click="customAuditVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- User Detail / Hologram Dialog -->
     <el-dialog v-model="userDetailVisible" title="用户全息档案" width="600px" destroy-on-close>
       <div v-loading="userDetailLoading">
@@ -696,6 +810,18 @@ const ipAssociationList = ref([]);
 const settingsActiveTab = ref('rules');
 const newWhitelistIdentity = ref('');
 const saveSettingsLoading = ref(false);
+
+const customAuditVisible = ref(false);
+const customAuditLoading = ref(false);
+const customAuditResults = ref([]);
+const customAuditSelection = ref([]);
+const customAuditForm = reactive({
+  id_min: 10000,
+  ua_keyword: 'clash-verge/733',
+  province_count: 5,
+  only_idc: false,
+  time_range: 86400
+});
 
 const settingsForm = reactive({
   ip_limit: 10,
@@ -1132,6 +1258,88 @@ const getProgressStatus = (used, total) => {
 const isExpired = (timestamp) => {
   if (!timestamp) return false;
   return timestamp < Date.now() / 1000;
+};
+
+const openCustomAuditDialog = () => {
+  customAuditResults.value = [];
+  customAuditSelection.value = [];
+  customAuditVisible.value = true;
+};
+
+const runCustomAuditScan = async () => {
+  customAuditLoading.value = true;
+  try {
+    const securePath = getSecurePath();
+    const res = await api.post(`/${securePath}/stat/customAuditScan`, {
+      id_min: customAuditForm.id_min,
+      ua_keyword: customAuditForm.ua_keyword,
+      province_count: customAuditForm.province_count,
+      only_idc: customAuditForm.only_idc,
+      time_range: customAuditForm.time_range
+    });
+    if (res.data) {
+      customAuditResults.value = res.data.data || [];
+      ElMessage.success(`探测完成，扫描到 ${customAuditResults.value.length} 个符合特征的异常账号`);
+    }
+  } catch (err) {
+    console.error(err);
+    ElMessage.error(err.response?.data?.message || '探测执行失败');
+  } finally {
+    customAuditLoading.value = false;
+  }
+};
+
+const handleCustomAuditSelectionChange = (val) => {
+  customAuditSelection.value = val;
+};
+
+const handleCustomHoneypot = async (userIds) => {
+  if (!userIds || userIds.length === 0) return;
+  
+  try {
+    await ElMessageBox.confirm(
+      `确定要将选中的 ${userIds.length} 个账号拖入蜜罐中接管吗？`,
+      '批量蜜罐接管确认',
+      {
+        confirmButtonText: '确定接管',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+  } catch (cancel) {
+    return;
+  }
+  
+  customAuditLoading.value = true;
+  try {
+    const securePath = getSecurePath();
+    const res = await api.post(`/${securePath}/stat/customAuditHoneypot`, {
+      user_ids: userIds
+    });
+    if (res.data && res.data.status === 'success') {
+      ElMessage.success(res.data.message || '接管成功');
+      
+      // 更新这些用户在 customAuditResults 里的蜜罐状态
+      customAuditResults.value.forEach(item => {
+        if (userIds.includes(item.user_id)) {
+          item.in_honeypot = 1;
+        }
+      });
+      
+      // 清空勾选
+      customAuditSelection.value = [];
+      
+      // 刷新主列表
+      fetchAnomalies();
+    } else {
+      ElMessage.error(res.data?.message || '接管失败');
+    }
+  } catch (err) {
+    console.error(err);
+    ElMessage.error('网络请求失败');
+  } finally {
+    customAuditLoading.value = false;
+  }
 };
 
 onMounted(() => {

@@ -147,6 +147,8 @@ class AdminRoute
             $router->get ('/stat/getIpAssociationAnalysis', 'V1\\Admin\\StatController@getIpAssociationAnalysis');
             $router->post('/stat/addIgnoreIp', 'V1\\Admin\\StatController@addIgnoreIp');
             $router->post('/stat/removeIgnoreIp', 'V1\\Admin\\StatController@removeIgnoreIp');
+            $router->post('/stat/customAuditScan', 'V1\\Admin\\StatController@customAuditScan');
+            $router->post('/stat/customAuditHoneypot', 'V1\\Admin\\StatController@customAuditHoneypot');
             // Notice
             $router->get ('/notice/fetch', 'V1\\Admin\\NoticeController@fetch');
             $router->post('/notice/save', 'V1\\Admin\\NoticeController@save');

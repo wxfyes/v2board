@@ -1137,5 +1137,207 @@ class StatController extends Controller
             return ['countryCode' => 'CN', 'location' => '未知归属地'];
         });
     }
+
+    public function customAuditScan(\Illuminate\Http\Request $request)
+    {
+        $idMin = (int)$request->input('id_min', 10000);
+        $uaKeyword = trim($request->input('ua_keyword', ''));
+        $provinceCount = (int)$request->input('province_count', 0);
+        $onlyIdc = (bool)$request->input('only_idc', false);
+        $timeRange = (int)$request->input('time_range', 86400);
+
+        // 读出免审 IP 配置
+        $configPath = storage_path('tianque_config.json');
+        $ignoreIps = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+            $ignoreIps = $config['ignore_ips'] ?? [];
+            $honeypotUsers = array_map('intval', $config['honeypot_users'] ?? []);
+        } else {
+            $honeypotUsers = [];
+        }
+
+        // 初筛
+        $query = User::where('id', '>', $idMin)->whereNotNull('client_type');
+        if (!empty($uaKeyword)) {
+            $query->where('client_type', 'like', '%' . $uaKeyword . '%');
+        }
+
+        $users = $query->get(['id', 'email', 'client_type', 'banned']);
+
+        $now = time();
+        $matchedUsers = [];
+
+        $idcKeywords = [
+            '阿里云', '腾讯云', '华为云', '百度云', '京东云', '网易云', '金山云', '天翼云', '联通云', '移动云',
+            'aliyun', 'alibaba', 'tencent', 'huawei', 'baidu', 'ucloud', 'qcloud', 'ksyun', '美团云', '青云',
+            'chinacicc', 'capitalonline', '数据中心', '机房', '世纪互联', '光环新网', '网宿', '蓝汛'
+        ];
+
+        foreach ($users as $user) {
+            $history = json_decode($user->client_type, true) ?: [];
+            $history = $this->filterClientHistory($history, $ignoreIps);
+
+            // 时间范围过滤
+            $logs = array_filter($history, function($h) use ($now, $timeRange) {
+                return ($now - ($h['time'] ?? 0)) <= $timeRange;
+            });
+
+            if (empty($logs)) {
+                continue;
+            }
+
+            // 如果设置了 UA，再次精细验证这 24h 内是否有该 UA 拉取
+            if (!empty($uaKeyword)) {
+                $hasTargetUa = false;
+                foreach ($logs as $log) {
+                    $ua = strtolower($log['ua'] ?? '');
+                    if (strpos($ua, strtolower($uaKeyword)) !== false) {
+                        $hasTargetUa = true;
+                        break;
+                    }
+                }
+                if (!$hasTargetUa) {
+                    continue;
+                }
+            }
+
+            // 提取 24h 独立 IP
+            $ips = [];
+            foreach ($logs as $log) {
+                $ip = trim($log['ip'] ?? '');
+                if (!empty($ip) && $ip !== '127.0.0.1') {
+                    $ips[] = $ip;
+                }
+            }
+            $uniqueIps = array_values(array_unique($ips));
+
+            // 对这几个 IP 进行定位
+            $regions = [];
+            $idcMatchCount = 0;
+            $ipDetails = [];
+
+            foreach ($uniqueIps as $ip) {
+                $ipInfo = $this->getIpInfo($ip);
+                $loc = $ipInfo['location'] ?? '';
+                $countryCode = $ipInfo['countryCode'] ?? 'CN';
+
+                // 提取省份
+                $isChina = ($countryCode === 'CN' || strpos($loc, '中国') !== false);
+                $isHongKongOrMacauOrTaiwan = (strpos($loc, '香港') !== false || strpos($loc, '澳门') !== false || strpos($loc, '台湾') !== false);
+                
+                $regionName = '';
+                if ($isChina) {
+                    $locClean = preg_replace('/[^\x{4e00}-\x{9fa5}a-zA-Z]/u', '', $loc);
+                    foreach (['北京', '上海', '天津', '重庆', '河北', '山西', '辽宁', '吉林', '黑龙江', '江苏', '浙江', '安徽', '福建', '江西', '山东', '河南', '湖北', '湖南', '广东', '海南', '四川', '贵州', '云南', '陕西', '甘肃', '青海', '台湾', '内蒙古', '广西', '西藏', '宁夏', '新疆', '香港', '澳门'] as $prov) {
+                        if (strpos($locClean, $prov) !== false) {
+                            $regionName = $prov;
+                            break;
+                        }
+                    }
+                }
+
+                if ($regionName) {
+                    $regions[] = $regionName;
+                } elseif ($isChina) {
+                    $regions[] = $loc;
+                }
+
+                // 机房检测
+                $isIdc = false;
+                if ($isChina && !$isHongKongOrMacauOrTaiwan) {
+                    $locLower = strtolower($loc);
+                    foreach ($idcKeywords as $kw) {
+                        if (strpos($locLower, $kw) !== false) {
+                            $isIdc = true;
+                            $idcMatchCount++;
+                            break;
+                        }
+                    }
+                }
+
+                $ipDetails[] = [
+                    'ip' => $ip,
+                    'location' => $loc,
+                    'is_idc' => $isIdc
+                ];
+            }
+
+            $uniqueRegions = array_values(array_unique($regions));
+
+            // 省份数量条件限制
+            if ($provinceCount > 0 && count($uniqueRegions) < $provinceCount) {
+                continue;
+            }
+
+            // 是否仅限 IDC 限制
+            if ($onlyIdc && $idcMatchCount === 0) {
+                continue;
+            }
+
+            // 获取活跃 UA 列表
+            $activeUas = array_values(array_unique(array_map(function($l) { return $l['ua'] ?? ''; }, $logs)));
+
+            $matchedUsers[] = [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'banned' => (int)$user->banned,
+                'in_honeypot' => in_array((int)$user->id, $honeypotUsers, true) ? 1 : 0,
+                'ip_count' => count($uniqueIps),
+                'province_count' => count($uniqueRegions),
+                'provinces' => $uniqueRegions,
+                'idc_count' => $idcMatchCount,
+                'uas' => $activeUas,
+                'history' => $ipDetails
+            ];
+        }
+
+        return response([
+            'data' => $matchedUsers
+        ]);
+    }
+
+    public function customAuditHoneypot(\Illuminate\Http\Request $request)
+    {
+        $userIds = $request->input('user_ids', []);
+        if (!is_array($userIds) || empty($userIds)) {
+            return response([
+                'status' => 'fail',
+                'message' => '参数错误'
+            ]);
+        }
+
+        $configPath = storage_path('tianque_config.json');
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        }
+        if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
+            $config['honeypot_users'] = [];
+        }
+
+        $existing = array_map('intval', $config['honeypot_users']);
+        $addedCount = 0;
+        foreach ($userIds as $uid) {
+            $uid = (int)$uid;
+            if (!in_array($uid, $existing, true)) {
+                $existing[] = $uid;
+                $config['honeypot_users'] = $existing;
+                if (!isset($config['honeypot_times'])) {
+                    $config['honeypot_times'] = [];
+                }
+                $config['honeypot_times'][(string)$uid] = time();
+                $addedCount++;
+            }
+        }
+
+        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        @chmod($configPath, 0755);
+
+        return response([
+            'status' => 'success',
+            'message' => "成功将 {$addedCount} 个账号加入蜜罐接管。"
+        ]);
+    }
 }
 
