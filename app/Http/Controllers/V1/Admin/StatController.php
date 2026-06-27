@@ -1181,7 +1181,10 @@ class StatController extends Controller
         $idcKeywords = [
             '阿里云', '腾讯云', '华为云', '百度云', '京东云', '网易云', '金山云', '天翼云', '联通云', '移动云',
             'aliyun', 'alibaba', 'tencent', 'huawei', 'baidu', 'ucloud', 'qcloud', 'ksyun', '美团云', '青云',
-            'chinacicc', 'capitalonline', '数据中心', '机房', '世纪互联', '光环新网', '网宿', '蓝汛'
+            'chinacicc', 'capitalonline', '数据中心', '机房', '世纪互联', '光环新网', '网宿', '蓝汛',
+            'aws', 'amazon', '亚马逊', 'gcp', 'google', '谷歌云', 'azure', 'microsoft', '微软云',
+            'oracle', '甲骨文', 'digitalocean', 'linode', 'vultr', 'bandwagon', '搬瓦工', 'ovh',
+            'choopa', 'zenlayer', 'cloudflare', 'hostwind'
         ];
 
         foreach ($users as $user) {
