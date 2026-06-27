@@ -1299,7 +1299,16 @@ const runCustomAuditScan = async () => {
         return b.user_id - a.user_id;
       });
       const matchedCount = customAuditResults.value.filter(r => r.match_status === 'matched').length;
-      ElMessage.success(`探测完成，找到 ${matchedCount} 个完全吻合特征的疑似内鬼（分析共 ${customAuditResults.value.length} 个关联账号）`);
+      
+      const dbg = res.data.debug || {};
+      console.log('Radar Debug Info:', dbg);
+      
+      ElMessage({
+        type: 'success',
+        message: `探测完成：完全吻合 ${matchedCount} 个，初筛命中 ${dbg.users_count || 0} 个（后台接收 UA: "${dbg.ua_keyword || ''}"，ID: ${dbg.id_min || 0}）`,
+        duration: 8000,
+        showClose: true
+      });
     }
   } catch (err) {
     console.error(err);

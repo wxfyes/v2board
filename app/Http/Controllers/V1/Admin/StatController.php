@@ -1386,7 +1386,15 @@ class StatController extends Controller
         }
 
         return response([
-            'data' => $matchedUsers
+            'data' => $matchedUsers,
+            'debug' => [
+                'id_min' => $idMin,
+                'ua_keyword' => $uaKeyword,
+                'province_count' => $provinceCount,
+                'only_idc' => $onlyIdc,
+                'time_range' => $timeRange,
+                'users_count' => count($users)
+            ]
         ]);
     }
 
