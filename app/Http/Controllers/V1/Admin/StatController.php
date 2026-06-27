@@ -1157,15 +1157,12 @@ class StatController extends Controller
             $honeypotUsers = [];
         }
 
-        // 初筛 (按 ID 降序排列，且未限制 UA 时默认限制最大 2000 人进行保护，防内存耗尽与 504)
-        $query = User::where('id', '>', $idMin)->whereNotNull('client_type')->orderBy('id', 'desc');
-        if (!empty($uaKeyword)) {
-            $query->where('client_type', 'like', '%' . $uaKeyword . '%');
-        } else {
-            $query->limit(2000);
-        }
-
-        $users = $query->get(['id', 'email', 'client_type', 'banned']);
+        // 初筛 (按 ID 降序排列，由于是在内存解包后做高精度的 UA 和省份时间判定，我们直接对最新的 2000 个活跃账号进行审计)
+        $users = User::where('id', '>', $idMin)
+            ->whereNotNull('client_type')
+            ->orderBy('id', 'desc')
+            ->limit(2000)
+            ->get(['id', 'email', 'client_type', 'banned']);
 
         $now = time();
         $matchedUsers = [];
