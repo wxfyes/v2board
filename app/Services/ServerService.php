@@ -13,6 +13,7 @@ use App\Models\ServerVmess;
 use App\Models\ServerTrojan;
 use App\Models\ServerTuic;
 use App\Models\ServerAnytls;
+use App\Models\ServerMieru;
 use App\Utils\CacheKey;
 use App\Utils\Helper;
 use Illuminate\Support\Facades\Cache;
@@ -216,6 +217,28 @@ class ServerService
         return $servers;
     }
 
+    public function getAvailableMieru(User $user)
+    {
+        $servers = [];
+        $model = ServerMieru::orderBy('sort', 'ASC');
+        $mieru = $model->get()->keyBy('id');
+        foreach ($mieru as $key => $v) {
+            if (!$v['show']) continue;
+            $mieru[$key]['type'] = 'mieru';
+            $mieru[$key]['last_check_at'] = Cache::get(CacheKey::get('SERVER_MIERU_LAST_CHECK_AT', $v['id']));
+            if (!in_array($user->group_id, $v['group_id'])) continue;
+            if (strpos($v['port'], '-') !== false) {
+                $mieru[$key]['port'] = Helper::randomPort($v['port']);
+            }
+            if (isset($mieru[$v['parent_id']])) {
+                $mieru[$key]['last_check_at'] = Cache::get(CacheKey::get('SERVER_MIERU_LAST_CHECK_AT', $v['parent_id']));
+                $mieru[$key]['created_at'] = $mieru[$v['parent_id']]['created_at'];
+            }
+            $servers[] = $mieru[$key]->toArray();
+        }
+        return $servers;
+    }
+
     public function getAvailableServers(User $user)
     {
         $servers = array_merge(
@@ -226,7 +249,8 @@ class ServerService
             $this->getAvailableHysteria($user),
             $this->getAvailableVless($user),
             $this->getAvailableAnyTLS($user),
-            $this->getAvailableV2node($user)
+            $this->getAvailableV2node($user),
+            $this->getAvailableMieru($user)
         );
         $tmp = array_column($servers, 'sort');
         array_multisort($tmp, SORT_ASC, $servers);
@@ -391,6 +415,17 @@ class ServerService
         return $servers;
     }
 
+    public function getAllMieru()
+    {
+        $servers = ServerMieru::orderBy('sort', 'ASC')
+            ->get()
+            ->toArray();
+        foreach ($servers as $k => $v) {
+            $servers[$k]['type'] = 'mieru';
+        }
+        return $servers;
+    }
+
     private function mergeData(&$servers)
     {
         foreach ($servers as $k => $v) {
@@ -418,7 +453,8 @@ class ServerService
             $this->getAllHysteria(),
             $this->getAllVLess(),
             $this->getAllAnyTLS(),
-            $this->getAllV2node()
+            $this->getAllV2node(),
+            $this->getAllMieru()
         );
         $this->mergeData($servers);
         $tmp = array_column($servers, 'sort');
@@ -441,8 +477,9 @@ class ServerService
     {
         switch ($serverType) {
             case 'v2node':
-            case 'mieru':
                 return ServerV2node::find($serverId);
+            case 'mieru':
+                return ServerMieru::find($serverId);
             case 'vmess':
                 return ServerVmess::find($serverId);
             case 'shadowsocks':

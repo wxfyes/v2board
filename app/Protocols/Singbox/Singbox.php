@@ -83,6 +83,10 @@ class Singbox
                     $hysteria2Config = $this->buildHysteria2($this->user['uuid'], $item);
                     $proxies[] = $hysteria2Config;
                     break;
+                case 'mieru':
+                    $mieruConfig = $this->buildMieru($this->user['uuid'], $item);
+                    $proxies[] = $mieruConfig;
+                    break;
             }
         }
     
@@ -107,7 +111,6 @@ class Singbox
             $length = $server['cipher'] === '2022-blake3-aes-128-gcm' ? 16 : 32;
             $serverKey = Helper::getServerKey($server['created_at'], $length);
             $userKey = Helper::uuidToBase64($password, $length);
-            $password = "{$serverKey}:{$userKey}";
             $password = "{$serverKey}:{$userKey}";
         }
         $array = [];
@@ -431,15 +434,15 @@ class Singbox
 
     protected function buildMieru($password, $server)
     {
-        $tlsSettings = $server['tls_settings'] ?? [];
-        $portRange = $tlsSettings['port_range'] ?? '';
+        $portRange = $server['port_range'] ?? $server['tls_settings']['port_range'] ?? '';
+        $transport = $server['transport'] ?? $server['tls_settings']['transport'] ?? 'TCP';
         $array = [
             'type' => 'mieru',
             'tag' => $server['name'],
             'server' => $server['host'],
             'username' => $password,
             'password' => $password,
-            'transport' => $tlsSettings['transport'] ?? 'TCP',
+            'transport' => $transport,
             'domain_resolver' => 'local'
         ];
         if (!empty($portRange)) {

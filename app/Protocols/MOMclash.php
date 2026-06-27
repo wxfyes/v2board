@@ -243,15 +243,15 @@ class MOMclash
 
     private function buildMieru($password, $server)
     {
-        $tlsSettings = $server['tls_settings'] ?? [];
-        $portRange = $tlsSettings['port_range'] ?? '';
+        $portRange = $server['port_range'] ?? $server['tls_settings']['port_range'] ?? '';
+        $transport = $server['transport'] ?? $server['tls_settings']['transport'] ?? 'TCP';
         $array = [
             'name' => $server['name'],
             'type' => 'mieru',
             'server' => $server['host'],
             'username' => $password,
             'password' => $password,
-            'transport' => $tlsSettings['transport'] ?? 'TCP'
+            'transport' => $transport
         ];
         if (!empty($portRange)) {
             $array['port-range'] = $portRange;

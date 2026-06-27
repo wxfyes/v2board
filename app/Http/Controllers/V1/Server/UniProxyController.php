@@ -320,8 +320,8 @@ class UniProxyController extends Controller
                 $response = [
                     'host' => $this->nodeInfo->host,
                     'server_port' => $this->nodeInfo->server_port,
-                    'port_range' => $this->nodeInfo->tls_settings['port_range'] ?? '',
-                    'transport' => $this->nodeInfo->tls_settings['transport'] ?? 'TCP'
+                    'port_range' => $this->nodeInfo->port_range ?? $this->nodeInfo->tls_settings['port_range'] ?? '',
+                    'transport' => $this->nodeInfo->transport ?? $this->nodeInfo->tls_settings['transport'] ?? 'TCP'
                 ];
                 break;
         }

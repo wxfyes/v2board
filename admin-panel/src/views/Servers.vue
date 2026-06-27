@@ -264,7 +264,6 @@
                   <el-select v-model="form.v2node_protocol" style="width: 100%" @change="handleV2nodeProtocolChange">
                     <el-option label="AnyTLS" value="anytls" />
                     <el-option label="Hysteria2" value="hysteria2" />
-                    <el-option label="Mieru" value="mieru" />
                     <el-option label="Shadowsocks" value="shadowsocks" />
                     <el-option label="Trojan" value="trojan" />
                     <el-option label="Tuic" value="tuic" />
@@ -752,15 +751,15 @@
             </el-form-item>
           </template>
 
-          <!-- V2node Mieru -->
-          <template v-if="activeType === 'v2node' && form.v2node_protocol === 'mieru'">
-            <el-form-item label="端口范围" prop="tls_settings.port_range">
-              <el-input v-model="form.tls_settings.port_range" placeholder="例如：10000-10050" />
+          <!-- Mieru -->
+          <template v-if="activeType === 'mieru'">
+            <el-form-item label="端口范围" prop="port_range">
+              <el-input v-model="form.port_range" placeholder="例如：10000-10050" />
             </el-form-item>
             <el-form-item label="传输协议">
-              <el-select v-model="form.tls_settings.transport" placeholder="请选择传输协议" style="width: 100%">
-                <el-option label="TCP" value="TCP" />
-                <el-option label="UDP" value="UDP" />
+              <el-select v-model="form.transport" placeholder="请选择传输协议" style="width: 100%">
+                <el-option label="TCP" value="tcp" />
+                <el-option label="UDP" value="udp" />
               </el-select>
             </el-form-item>
           </template>
@@ -812,6 +811,7 @@ const nodeTypes = {
   hysteria: 'Hysteria',
   tuic: 'Tuic',
   anytls: 'AnyTLS',
+  mieru: 'Mieru',
   v2node: 'V2node'
 };
 
@@ -823,6 +823,7 @@ const nodeLists = reactive({
   hysteria: [],
   tuic: [],
   anytls: [],
+  mieru: [],
   v2node: [],
 });
 
@@ -984,7 +985,11 @@ const form = reactive({
 
   // V2node specific
   listen_ip: '0.0.0.0',
-  v2node_protocol: 'vmess'
+  v2node_protocol: 'vmess',
+
+  // Mieru specific
+  port_range: '',
+  transport: 'tcp'
 });
 
 const rules = {
@@ -1481,6 +1486,9 @@ const handleCreateCommand = (type) => {
   form.listen_ip = '0.0.0.0';
   form.v2node_protocol = 'vmess';
   
+  form.port_range = '';
+  form.transport = 'tcp';
+  
   dialogVisible.value = true;
 };
 
@@ -1608,10 +1616,9 @@ const openEditDialog = (row, type) => {
     form.insecure = row.insecure || 0;
     const paddingScheme = row.padding_scheme || [];
     form.anytls_custom_str = typeof paddingScheme === 'string' ? paddingScheme : JSON.stringify(paddingScheme, null, 2);
-
-
-
-
+  } else if (type === 'mieru') {
+    form.port_range = row.port_range || '';
+    form.transport = row.transport || 'tcp';
   } else if (type === 'v2node') {
     form.listen_ip = row.listen_ip || '0.0.0.0';
     const proto = row.protocol || 'vmess';
@@ -1665,13 +1672,6 @@ const openEditDialog = (row, type) => {
       form.allow_insecure = tls.insecure || 0;
       const paddingScheme = row.padding_scheme || [];
       form.anytls_custom_str = typeof paddingScheme === 'string' ? paddingScheme : JSON.stringify(paddingScheme, null, 2);
-    } else if (proto === 'mieru') {
-      const tls = row.tls_settings || {};
-      form.tls_settings = {
-        port_range: tls.port_range || '',
-        transport: tls.transport || 'TCP',
-        server_name: '', cert_mode: 'self', provider: '', dns_env: '', cert_file: '', key_file: '', dest: '', server_port: '443', xver: 0, private_key: '', public_key: '', short_id: '', fingerprint: 'chrome', reject_unknown_sni: 0, allow_insecure: 0
-      };
     }
   }
 
@@ -1813,6 +1813,10 @@ const handleSubmit = async () => {
         }
         payload.padding_scheme = form.anytls_custom_str;
 
+      } else if (activeType.value === 'mieru') {
+        payload.port_range = form.port_range;
+        payload.transport = (form.transport || 'tcp').toLowerCase();
+
       } else if (activeType.value === 'v2node') {
         payload.listen_ip = form.listen_ip || '0.0.0.0';
         payload.protocol = form.v2node_protocol;
@@ -1878,12 +1882,6 @@ const handleSubmit = async () => {
             throw new Error('填充方案 JSON 格式不正确');
           }
           payload.padding_scheme = form.anytls_custom_str;
-        } else if (proto === 'mieru') {
-          payload.tls = 0;
-          payload.tls_settings = {
-            port_range: form.tls_settings.port_range,
-            transport: form.tls_settings.transport || 'TCP'
-          };
         }
       }
 
@@ -2329,5 +2327,16 @@ onBeforeUnmount(() => {
   background-color: #ef6c00;
   color: #fff;
   border-color: #ef6c00;
+}
+
+.node-id-badge.mieru {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+.node-id-badge.mieru.child {
+  background-color: #2e7d32;
+  color: #fff;
+  border-color: #2e7d32;
 }
 </style>

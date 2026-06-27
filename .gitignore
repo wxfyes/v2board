@@ -26,3 +26,9 @@ workerman.webman.php.pid
 workerman.log
 /analyze_abuse.php
 /tianque_detect.php
+/check_node.php
+/check_reality.go
+/temp_query.php
+/test_v2board.php
+/scratch_go
+/scratch_test.php
