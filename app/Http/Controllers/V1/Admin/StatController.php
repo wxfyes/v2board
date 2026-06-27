@@ -1157,10 +1157,12 @@ class StatController extends Controller
             $honeypotUsers = [];
         }
 
-        // 初筛
-        $query = User::where('id', '>', $idMin)->whereNotNull('client_type');
+        // 初筛 (按 ID 降序排列，且未限制 UA 时默认限制最大 2000 人进行保护，防内存耗尽与 504)
+        $query = User::where('id', '>', $idMin)->whereNotNull('client_type')->orderBy('id', 'desc');
         if (!empty($uaKeyword)) {
             $query->where('client_type', 'like', '%' . $uaKeyword . '%');
+        } else {
+            $query->limit(2000);
         }
 
         $users = $query->get(['id', 'email', 'client_type', 'banned']);
