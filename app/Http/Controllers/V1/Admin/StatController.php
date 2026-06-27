@@ -469,71 +469,50 @@ class StatController extends Controller
                 $history = json_decode($user->client_type, true) ?: [];
                 $history = $this->filterClientHistory($history, $ignoreIps);
                 
-                // --- 1. 进行特异画像检测 (阿里云 IP / 国内 / clash-verge/733 / 5省 / ID > 10000) ---
+                // --- 1. 进行分布式异地扩散探测检测 (24h 内 5 个及以上不同国内省份拉取，不限 UA 和 IP 属性) ---
                 $isSpecSpy = false;
                 $specSpyRegions = [];
-                if ($user->id > 10000) {
-                    $now = time();
-                    $logs24h = array_filter($history, function($h) use ($now) {
-                        return ($now - ($h['time'] ?? 0)) <= 86400;
-                    });
+                
+                $now = time();
+                $logs24h = array_filter($history, function($h) use ($now) {
+                    return ($now - ($h['time'] ?? 0)) <= 86400;
+                });
 
-                    // 24h 内有 clash-verge/733 UA 记录
-                    $hasTargetUa = false;
-                    foreach ($logs24h as $log) {
-                        $uaLower = strtolower($log['ua'] ?? '');
-                        if (strpos($uaLower, 'clash-verge/733') !== false || (strpos($uaLower, 'clash-verge') !== false && strpos($uaLower, '733') !== false)) {
-                            $hasTargetUa = true;
-                            break;
+                $ips = [];
+                foreach ($logs24h as $log) {
+                    $ip = trim($log['ip'] ?? '');
+                    if (!empty($ip) && $ip !== '127.0.0.1') {
+                        $ips[] = $ip;
+                    }
+                }
+                $uniqueIps = array_values(array_unique($ips));
+
+                if (count($uniqueIps) >= 5) {
+                    $regions = [];
+                    foreach ($uniqueIps as $ip) {
+                        $ipInfo = $this->getIpInfo($ip);
+                        $loc = $ipInfo['location'] ?? '';
+                        $countryCode = $ipInfo['countryCode'] ?? 'CN';
+                        
+                        // 判定是否为国内省份拉取
+                        if ($countryCode === 'CN' || strpos($loc, '中国') !== false) {
+                            $locClean = preg_replace('/[^\x{4e00}-\x{9fa5}a-zA-Z]/u', '', $loc);
+                            $regionName = '';
+                            foreach (['北京', '上海', '天津', '重庆', '河北', '山西', '辽宁', '吉林', '黑龙江', '江苏', '浙江', '安徽', '福建', '江西', '山东', '河南', '湖北', '湖南', '广东', '海南', '四川', '贵州', '云南', '陕西', '甘肃', '青海', '台湾', '内蒙古', '广西', '西藏', '宁夏', '新疆', '香港', '澳门'] as $prov) {
+                                if (strpos($locClean, $prov) !== false) {
+                                    $regionName = $prov;
+                                    break;
+                                }
+                            }
+                            if ($regionName) {
+                                $regions[] = $regionName;
+                            }
                         }
                     }
-
-                    if ($hasTargetUa) {
-                        $ips = [];
-                        foreach ($logs24h as $log) {
-                            $ip = trim($log['ip'] ?? '');
-                            if (!empty($ip) && $ip !== '127.0.0.1') {
-                                $ips[] = $ip;
-                            }
-                        }
-                        $uniqueIps = array_values(array_unique($ips));
-
-                        if (count($uniqueIps) >= 5) {
-                            $regions = [];
-                            $aliyunCount = 0;
-                            $chinaCount = 0;
-                            foreach ($uniqueIps as $ip) {
-                                $ipInfo = $this->getIpInfo($ip);
-                                $loc = $ipInfo['location'] ?? '';
-                                $countryCode = $ipInfo['countryCode'] ?? 'CN';
-                                
-                                if ($countryCode === 'CN' || strpos($loc, '中国') !== false) {
-                                    $chinaCount++;
-                                }
-                                if (strpos(strtolower($loc), 'aliyun') !== false || strpos(strtolower($loc), 'alibaba') !== false || strpos($loc, '阿里云') !== false || strpos($loc, 'aws') !== false || strpos(strtolower($loc), 'amazon') !== false) {
-                                    $aliyunCount++;
-                                }
-                                
-                                $locClean = preg_replace('/[^\x{4e00}-\x{9fa5}a-zA-Z]/u', '', $loc);
-                                $regionName = '';
-                                foreach (['北京', '上海', '天津', '重庆', '河北', '山西', '辽宁', '吉林', '黑龙江', '江苏', '浙江', '安徽', '福建', '江西', '山东', '河南', '湖北', '湖南', '广东', '海南', '四川', '贵州', '云南', '陕西', '甘肃', '青海', '台湾', '内蒙古', '广西', '西藏', '宁夏', '新疆', '香港', '澳门'] as $prov) {
-                                    if (strpos($locClean, $prov) !== false) {
-                                        $regionName = $prov;
-                                        break;
-                                    }
-                                }
-                                if ($regionName) {
-                                    $regions[] = $regionName;
-                                } else {
-                                    $regions[] = $loc;
-                                }
-                            }
-                            $uniqueRegions = array_values(array_unique($regions));
-                            if (count($uniqueRegions) >= 5 && $aliyunCount > 0) {
-                                $isSpecSpy = true;
-                                $specSpyRegions = $uniqueRegions;
-                            }
-                        }
+                    $uniqueRegions = array_values(array_unique($regions));
+                    if (count($uniqueRegions) >= 5) {
+                        $isSpecSpy = true;
+                        $specSpyRegions = $uniqueRegions;
                     }
                 }
 
@@ -567,7 +546,7 @@ class StatController extends Controller
 
                 // 决定是否采纳记录
                 if ($isSpecSpy) {
-                    $reasons = ["特异内鬼画像: 阿里云国内IP多省高频探测 (UA: clash-verge/733, 覆盖省份: " . implode(', ', $specSpyRegions) . ")"];
+                    $reasons = ["分布式异地探测画像: 24h内使用多省份家宽IP高频拉取 (覆盖省份: " . implode(', ', $specSpyRegions) . ")"];
                     $riskLevel = 'high';
                 } elseif (!empty($matchedKeywords)) {
                     $reasons = $matchedKeywords;
