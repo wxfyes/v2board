@@ -378,6 +378,64 @@ class DetectFrequentSubscribers extends Command
             }
 
             // --------------------------------------------------
+            // 维度 6：特异内鬼画像 - 阿里云国内IP多省高频探测 (ID > 10000 且 UA clash-verge/733)
+            // --------------------------------------------------
+            if ($user->id > 10000) {
+                $logs24h = array_filter($history, function($h) use ($now) {
+                    return ($now - ($h['time'] ?? 0)) <= 86400;
+                });
+                $hasTargetUa = false;
+                foreach ($logs24h as $log) {
+                    $uaLower = strtolower($log['ua'] ?? '');
+                    if (strpos($uaLower, 'clash-verge/733') !== false || (strpos($uaLower, 'clash-verge') !== false && strpos($uaLower, '733') !== false)) {
+                        $hasTargetUa = true;
+                        break;
+                    }
+                }
+                if ($hasTargetUa) {
+                    $ips = [];
+                    foreach ($logs24h as $log) {
+                        $ip = trim($log['ip'] ?? '');
+                        if (!empty($ip) && $ip !== '127.0.0.1') {
+                            $ips[] = $ip;
+                        }
+                    }
+                    $uniqueIps = array_values(array_unique($ips));
+                    if (count($uniqueIps) >= 5) {
+                        $regions = [];
+                        $aliyunCount = 0;
+                        $chinaCount = 0;
+                        foreach ($uniqueIps as $ip) {
+                            $loc = $this->getIpLocation($ip);
+                            if (strpos($loc, '中国') !== false || strpos($loc, '本地局域网') !== false) {
+                                $chinaCount++;
+                            }
+                            if (strpos(strtolower($loc), 'aliyun') !== false || strpos(strtolower($loc), 'alibaba') !== false || strpos($loc, '阿里云') !== false) {
+                                $aliyunCount++;
+                            }
+                            $locClean = preg_replace('/[^\x{4e00}-\x{9fa5}a-zA-Z]/u', '', $loc);
+                            $regionName = '';
+                            foreach (['北京', '上海', '天津', '重庆', '河北', '山西', '辽宁', '吉林', '黑龙江', '江苏', '浙江', '安徽', '福建', '江西', '山东', '河南', '湖北', '湖南', '广东', '海南', '四川', '贵州', '云南', '陕西', '甘肃', '青海', '台湾', '内蒙古', '广西', '西藏', '宁夏', '新疆', '香港', '澳门'] as $prov) {
+                                    if (strpos($locClean, $prov) !== false) {
+                                        $regionName = $prov;
+                                        break;
+                                    }
+                            }
+                            if ($regionName) {
+                                $regions[] = $regionName;
+                            } else {
+                                $regions[] = $loc;
+                            }
+                        }
+                        $uniqueRegions = array_unique($regions);
+                        if (count($uniqueRegions) >= 5 && $aliyunCount > 0) {
+                            $reasons[] = "特异内鬼画像: 阿里云国内IP多省高频探测 (UA: clash-verge/733, 覆盖省份: " . implode(', ', $uniqueRegions) . ")";
+                        }
+                    }
+                }
+            }
+
+            // --------------------------------------------------
             // 处置与告警逻辑
             // --------------------------------------------------
             if (count($reasons) > 0) {
