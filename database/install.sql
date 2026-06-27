@@ -459,6 +459,27 @@ CREATE TABLE `v2_server_v2node` (
                                     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+DROP TABLE IF EXISTS `v2_server_mieru`;
+CREATE TABLE `v2_server_mieru` (
+                                   `id` int(11) NOT NULL AUTO_INCREMENT,
+                                   `group_id` varchar(255) NOT NULL,
+                                   `route_id` varchar(255) DEFAULT NULL,
+                                   `name` varchar(255) NOT NULL,
+                                   `parent_id` int(11) DEFAULT NULL,
+                                   `host` varchar(255) NOT NULL,
+                                   `port` varchar(11) NOT NULL,
+                                   `server_port` int(11) NOT NULL,
+                                   `tags` varchar(255) DEFAULT NULL,
+                                   `rate` varchar(11) NOT NULL,
+                                   `show` tinyint(1) NOT NULL DEFAULT '0',
+                                   `sort` int(11) DEFAULT NULL,
+                                   `port_range` varchar(255) DEFAULT NULL,
+                                   `transport` varchar(64) NOT NULL DEFAULT 'tcp',
+                                   `created_at` int(11) NOT NULL,
+                                   `updated_at` int(11) NOT NULL,
+                                   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 DROP TABLE IF EXISTS `v2_stat`;
 CREATE TABLE `v2_stat` (
                            `id` int(11) NOT NULL AUTO_INCREMENT,
