@@ -434,8 +434,8 @@ class Singbox
 
     protected function buildMieru($password, $server)
     {
-        $portRange = $server['port_range'] ?? $server['tls_settings']['port_range'] ?? '';
-        $transport = strtoupper($server['transport'] ?? $server['tls_settings']['transport'] ?? 'TCP');
+        $portRange = $server['port_range'] ?? (is_array($server['tls_settings'] ?? null) ? ($server['tls_settings']['port_range'] ?? '') : '');
+        $transport = strtoupper($server['transport'] ?? (is_array($server['tls_settings'] ?? null) ? ($server['tls_settings']['transport'] ?? 'TCP') : 'TCP'));
         $array = [
             'type' => 'mieru',
             'tag' => $server['name'],
