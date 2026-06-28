@@ -158,7 +158,8 @@ class SecurityTelegramController extends Controller
                         'tuic' => \App\Models\ServerTuic::where('parent_id', null)->get()->toArray(),
                         'hysteria'=> \App\Models\ServerHysteria::where('parent_id', null)->get()->toArray(),
                         'anytls' => \App\Models\ServerAnytls::where('parent_id', null)->get()->toArray(),
-                        'v2node' => \App\Models\ServerV2node::where('parent_id', null)->get()->toArray()
+                        'v2node' => \App\Models\ServerV2node::where('parent_id', null)->get()->toArray(),
+                        'mieru' => \App\Models\ServerMieru::where('parent_id', null)->get()->toArray()
                     ];
 
                     $nodeStats = \App\Models\StatServer::select([
