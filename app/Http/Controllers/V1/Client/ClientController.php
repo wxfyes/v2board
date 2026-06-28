@@ -604,8 +604,9 @@ class ClientController extends Controller
                             // 🔍 临时日志
                             \Log::info("DEBUG-FP-FLAG: " . substr($processed, 0, 5000));
 
-                            return response($processed)
-                                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+                            return response($processed, 200, [
+                                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
+                            ]);
                         }
                     }
                 }
@@ -626,13 +627,14 @@ class ClientController extends Controller
                     \Log::info("DEBUG-FP-SINGBOX: " . substr($processed, 0, 5000));
 
                     $appName = config('v2board.app_name', 'V2Board');
-                    return response($processed)
-                        ->header('Content-Type', 'application/json')
-                        ->header('subscription-userinfo', "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}")
-                        ->header('profile-update-interval', '24')
-                        ->header('Profile-Title', 'base64:' . base64_encode($appName))
-                        ->header('Content-Disposition', 'attachment; filename="' . $appName . '"')
-                        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+                    return response($processed, 200, [
+                        'Content-Type' => 'application/json',
+                        'subscription-userinfo' => "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}",
+                        'profile-update-interval' => '24',
+                        'Profile-Title' => 'base64:' . base64_encode($appName),
+                        'Content-Disposition' => 'attachment; filename="' . $appName . '"',
+                        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
+                    ]);
                 }
             }
             $class = new General($user, $servers);
@@ -642,8 +644,9 @@ class ClientController extends Controller
             // 🔍 临时日志
             \Log::info("DEBUG-FP-GENERAL: " . substr($processed, 0, 5000));
 
-            return response($processed)
-                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+            return response($processed, 200, [
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
+            ]);
         } catch (\Exception $e) {
             return response([
                 'error' => $e->getMessage(),
