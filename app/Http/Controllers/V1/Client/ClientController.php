@@ -451,9 +451,12 @@ class ClientController extends Controller
                 || ($request->input('security') == '1');
 
             if (!$isMomClient && isset($servers) && is_array($servers)) {
-                $servers = array_filter($servers, function($server) {
+                $servers = array_filter($servers, function($server) use ($tmpUa) {
                     // 0. 过滤 Mieru 协议节点，防止不支持该类型的第三方通用客户端加载报错
                     if (($server['type'] ?? '') === 'mieru') {
+                        if (stripos($tmpUa, 'Hiddify') !== false) {
+                            return true;
+                        }
                         return false;
                     }
 
