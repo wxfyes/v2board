@@ -599,7 +599,13 @@ class ClientController extends Controller
                         $class = new $file($user, $servers);
                         if (strpos($flag, $class->flag) !== false) {
                             $resContent = $class->handle();
-                            return $this->resolveResponse($resContent, $flag, 'DEBUG-FP-FLAG');
+                            $processed = $this->sanitizeNormalContent($resContent, $flag);
+
+                            // 🔍 临时日志
+                            \Log::info("DEBUG-FP-FLAG: " . substr($processed, 0, 5000));
+
+                            return response($processed)
+                                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
                         }
                     }
                 }
@@ -614,12 +620,25 @@ class ClientController extends Controller
                         $class = new SingboxOld($user, $servers);
                     }
                     $resContent = $class->handle();
-                    return $this->resolveResponse($resContent, $flag, 'DEBUG-FP-SINGBOX');
+                    $processed = $this->sanitizeNormalContent($resContent, $flag);
+
+                    // 🔍 临时日志
+                    \Log::info("DEBUG-FP-SINGBOX: " . substr($processed, 0, 5000));
+
+                    return response($processed)
+                        ->header('Content-Type', 'application/json')
+                        ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
                 }
             }
             $class = new General($user, $servers);
             $resContent = $class->handle();
-            return $this->resolveResponse($resContent, $flag, 'DEBUG-FP-GENERAL');
+            $processed = $this->sanitizeNormalContent($resContent, $flag);
+
+            // 🔍 临时日志
+            \Log::info("DEBUG-FP-GENERAL: " . substr($processed, 0, 5000));
+
+            return response($processed)
+                ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         } catch (\Exception $e) {
             return response([
                 'error' => $e->getMessage(),
@@ -773,26 +792,6 @@ class ClientController extends Controller
 
             return base64_encode(implode("\n", $keptLines));
         }
-    }
-
-    private function resolveResponse($resContent, $flag, $logTag)
-    {
-        if ($resContent instanceof \Symfony\Component\HttpFoundation\Response) {
-            $body = $resContent->getContent();
-            $processed = $this->sanitizeNormalContent($body, $flag);
-            $resContent->setContent($processed);
-
-            \Log::info("{$logTag}: " . substr($processed, 0, 5000));
-
-            $resContent->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-            return $resContent;
-        }
-
-        $processed = $this->sanitizeNormalContent($resContent, $flag);
-        \Log::info("{$logTag}: " . substr($processed, 0, 5000));
-
-        return response($processed)
-            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     private function sanitizeNormalContent($content, $flag)
