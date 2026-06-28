@@ -625,8 +625,13 @@ class ClientController extends Controller
                     // 🔍 临时日志
                     \Log::info("DEBUG-FP-SINGBOX: " . substr($processed, 0, 5000));
 
+                    $appName = config('v2board.app_name', 'V2Board');
                     return response($processed)
                         ->header('Content-Type', 'application/json')
+                        ->header('subscription-userinfo', "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}")
+                        ->header('profile-update-interval', '24')
+                        ->header('Profile-Title', 'base64:' . base64_encode($appName))
+                        ->header('Content-Disposition', 'attachment; filename="' . $appName . '"')
                         ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
                 }
             }

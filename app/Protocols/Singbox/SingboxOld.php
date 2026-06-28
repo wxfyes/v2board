@@ -18,18 +18,10 @@ class SingboxOld
 
     public function handle()
     {
-        $appName = config('v2board.app_name', 'V2Board');
         $this->config = $this->loadConfig();
         $proxies = $this->buildProxies();
         $outbounds = $this->addProxies($proxies);
         $this->config['outbounds'] = $outbounds;
-        $user = $this->user;
-
-        header('Content-Type: application/json');
-        header("subscription-userinfo: upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}");
-        header('profile-update-interval: 24');
-        header('Profile-Title: base64:' . base64_encode($appName));
-        header('Content-Disposition: attachment; filename="' . $appName . '"');
 
         return json_encode($this->config, JSON_UNESCAPED_SLASHES);
     }
