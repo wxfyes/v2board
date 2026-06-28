@@ -6,9 +6,10 @@
                 "tag": "local"
             },
             {
-                "type": "udp",
+                "type": "https",
                 "tag": "remote",
-                "server": "1.1.1.1"
+                "server": "https://8.8.8.8/dns-query",
+                "detour": "节点选择"
             },
             {
                 "type": "udp",
@@ -28,19 +29,6 @@
         "final": "remote"
     },
     "inbounds": [
-        {
-            "tag": "tun-in",
-            "type": "tun",
-            "address": [
-                "172.19.0.1/30",
-                "2001:0470:f9da:fdfa::1/64"
-            ],
-            "auto_route": true,
-            "mtu": 9000,
-            "stack": "system",
-            "strict_route": true,
-            "route_exclude_address_set": ["geoip-cn"]
-        },
         {
             "tag": "socks-in",
             "type": "socks",
