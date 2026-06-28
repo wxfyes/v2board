@@ -587,9 +587,10 @@ class ClientController extends Controller
                 // 🔍 临时日志：直接查看后端在天阙APP返回时的真实内容
                 \Log::info("DEBUG-FP-MOMCLASH: " . substr($yaml, 0, 5000));
 
-                return response($yaml)
-                    ->header('Content-Type', 'application/yaml; charset=utf-8')
-                    ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+                return response($yaml, 200, [
+                    'Content-Type' => 'application/yaml; charset=utf-8',
+                    'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
+                ]);
             }
             if ($flag) {
                 if (!strpos($flag, 'sing')) {
@@ -647,7 +648,7 @@ class ClientController extends Controller
             return response($processed, 200, [
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response([
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
