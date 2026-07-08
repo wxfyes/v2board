@@ -34,6 +34,13 @@ return [
     */
 
     'channels' => [
+        'risk' => [
+            'driver' => 'daily',
+            'path'   => storage_path('logs/risk.log'),
+            'level'  => 'debug',
+            'days'   => 30,
+        ],
+
         'mysql' => [
             'driver' => 'custom',
             'via' => App\Logging\MysqlLogger::class,
