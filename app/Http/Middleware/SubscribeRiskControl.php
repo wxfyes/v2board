@@ -34,8 +34,7 @@ class SubscribeRiskControl
 
     // ==================================================
 
-    /** 待推送的 Telegram 消息（响应后发送） */
-    private array $pendingMessages = [];
+
 
     // -------------------------------------------------------------------------
     // 主入口
@@ -65,16 +64,7 @@ class SubscribeRiskControl
         return $next($request);
     }
 
-    // -------------------------------------------------------------------------
-    // 响应发送后：推送 Telegram（用户无感知）
-    // -------------------------------------------------------------------------
 
-    public function terminate(Request $request, $response): void
-    {
-        foreach ($this->pendingMessages as $msg) {
-            $this->pushTelegram($msg);
-        }
-    }
 
     // -------------------------------------------------------------------------
     // 获取真实 IP（三级回退，兼容 Cloudflare）
@@ -199,8 +189,8 @@ class SubscribeRiskControl
             $this->autoBan($user, $reason, $triggerCount);
         }
 
-        // 4. Telegram（加入队列，响应后发送）
-        $this->queueTelegram($user, $ip, $userAgent, $reason, $score, $triggerCount);
+        // 4. Telegram（同步直接发送，确保兼容 Webman/Workerman 容器）
+        $this->sendTelegram($user, $ip, $userAgent, $reason, $score, $triggerCount);
     }
 
     // -------------------------------------------------------------------------
@@ -284,18 +274,33 @@ class SubscribeRiskControl
     // 4. Telegram 推送（响应后执行）
     // -------------------------------------------------------------------------
 
-    private function queueTelegram($user, string $ip, string $userAgent, string $reason, int $score, int $triggerCount): void
-    {
-        $botToken = config('services.telegram.bot_token') ?: env('TELEGRAM_BOT_TOKEN');
-        $chatId   = config('services.telegram.chat_id') ?: env('TELEGRAM_CHAT_ID');
+    // -------------------------------------------------------------------------
+    // 4. Telegram 推送（同步直接发送）
+    // -------------------------------------------------------------------------
 
-        if (!$botToken || !$chatId) return;
+    private function sendTelegram($user, string $ip, string $userAgent, string $reason, int $score, int $triggerCount): void
+    {
+        // 四重环境变量备用读取，彻底解决 Laravel 缓存、Webman、Swoole 常驻进程无法读取 env() 的痛点
+        $botToken = config('services.telegram.bot_token')
+            ?? $_ENV['TELEGRAM_BOT_TOKEN']
+            ?? getenv('TELEGRAM_BOT_TOKEN')
+            ?? env('TELEGRAM_BOT_TOKEN');
+
+        $chatId = config('services.telegram.chat_id')
+            ?? $_ENV['TELEGRAM_CHAT_ID']
+            ?? getenv('TELEGRAM_CHAT_ID')
+            ?? env('TELEGRAM_CHAT_ID');
+
+        if (!$botToken || !$chatId) {
+            Log::channel('risk')->info('[风控] 未配置 TELEGRAM_BOT_TOKEN 或 TELEGRAM_CHAT_ID，跳过 TG 推送');
+            return;
+        }
 
         $emoji    = $score >= 80 ? '🔴' : ($score >= 60 ? '🟠' : '🟡');
         $banWarn  = ($score >= self::BAN_MIN_SCORE && $triggerCount >= self::BAN_THRESHOLD)
                     ? "\n🚫 已自动封禁" : '';
 
-        $this->pendingMessages[] = implode("\n", [
+        $text = implode("\n", [
             "{$emoji} 订阅风控告警{$banWarn}",
             "━━━━━━━━━━━━",
             "👤 {$user->email}（ID: {$user->id}）",
@@ -305,17 +310,11 @@ class SubscribeRiskControl
             "📊 评分：{$score}/100  |  7天累计：{$triggerCount}次",
             "🕐 " . now()->toDateTimeString(),
         ]);
-    }
-
-    private function pushTelegram(string $text): void
-    {
-        $botToken = config('services.telegram.bot_token') ?: env('TELEGRAM_BOT_TOKEN');
-        $chatId   = config('services.telegram.chat_id') ?: env('TELEGRAM_CHAT_ID');
 
         try {
             Http::timeout(5)->post(
-                'https://api.telegram.org/bot' . $botToken . '/sendMessage',
-                ['chat_id' => $chatId, 'text' => $text]
+                'https://api.telegram.org/bot' . trim($botToken) . '/sendMessage',
+                ['chat_id' => trim($chatId), 'text' => $text]
             );
         } catch (\Throwable $e) {
             Log::channel('risk')->warning('[风控] Telegram 推送失败', ['error' => $e->getMessage()]);
