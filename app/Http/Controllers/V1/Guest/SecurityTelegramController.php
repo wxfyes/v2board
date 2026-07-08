@@ -708,6 +708,34 @@ class SecurityTelegramController extends Controller
                 $actionResultStr = "【已从蜜罐中移出】";
                 break;
 
+            case 'whitelist':
+                $configPath = storage_path('tianque_config.json');
+                $config = [];
+                if (file_exists($configPath)) {
+                    $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                }
+                if (!isset($config['whitelist_users']) || !is_array($config['whitelist_users'])) {
+                    $config['whitelist_users'] = [];
+                }
+                if (!in_array($userId, $config['whitelist_users'], true)) {
+                    $config['whitelist_users'][] = $userId;
+                    // 从蜜罐名单移出
+                    if (isset($config['honeypot_users']) && is_array($config['honeypot_users'])) {
+                        $currentHoneypots = array_map('intval', $config['honeypot_users']);
+                        $key = array_search($userId, $currentHoneypots, true);
+                        if ($key !== false) {
+                            unset($currentHoneypots[$key]);
+                            $config['honeypot_users'] = array_values($currentHoneypots);
+                        }
+                    }
+                    if (isset($config['honeypot_times']) && is_array($config['honeypot_times'])) {
+                        unset($config['honeypot_times'][(string)$userId]);
+                    }
+                    @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                }
+                $actionResultStr = "【已加入白名单】";
+                break;
+
             case 'ban':
                 $user->banned = 1;
                 $user->save();

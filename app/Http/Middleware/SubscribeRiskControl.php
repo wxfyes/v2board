@@ -117,33 +117,70 @@ class SubscribeRiskControl
     private function checkRegion($user, string $ip, string $userAgent, Request $request): void
     {
         try {
-            $current = $this->getCountry($ip);
-            if (!$current) return;
+            $geo = $this->getGeoInfo($ip);
+            if (!$geo || empty($geo['countryCode'])) return;
 
-            $cacheKey = "sub_region:{$user->id}";
-            $last     = null;
+            $country = $geo['countryCode'];
+            $region  = $geo['region'] ?? ''; // 省份代码，如 GD, SH, SN
 
+            // ① 跨国检测（配合 UA 检测进行白名单放行，彻底防止同设备换代理误封）
+            $countryCacheKey = "sub_region:{$user->id}";
+            $lastCountry     = null;
             try {
-                $last = Redis::get($cacheKey);
-                Redis::setex($cacheKey, 86400, $current);
-            } catch (\Throwable $e) {
-                Log::channel('risk')->warning('[风控] Redis 地区缓存异常', ['error' => $e->getMessage()]);
+                $lastCountry = Redis::get($countryCacheKey);
+                Redis::setex($countryCacheKey, 86400, $country);
+            } catch (\Throwable $e) {}
+
+            if ($lastCountry && $lastCountry !== $country) {
+                // 读取上一次拉取的 UA
+                $uaCacheKey = "sub_ua:{$user->id}";
+                $lastUa     = null;
+                try {
+                    $lastUa = Redis::get($uaCacheKey);
+                    Redis::setex($uaCacheKey, 86400, $userAgent);
+                } catch (\Throwable $e) {}
+
+                // 只有当国家发生了变动，且客户端的 User-Agent 也变动了，才计入跨国异常（防止自己切代理误封）
+                if ($lastUa && $lastUa !== $userAgent) {
+                    $reason = "IP 跨国界异设备：{$lastCountry}({$lastUa}) → {$country}({$userAgent})";
+                    $this->alert($user, $ip, $userAgent, $reason, 60, $request);
+                }
             }
 
-            if ($last && $last !== $current) {
-                $reason = "IP 跨区域：{$last} → {$current}";
-                $this->alert($user, $ip, $userAgent, $reason, 60, $request);
+            // ② 国内跨省检测（24小时内拉取 IP 覆盖省份数量 >= 3 直接拉闸秒封）
+            if ($country === 'CN' && $region) {
+                $provCacheKey = "sub_provinces:{$user->id}";
+                try {
+                    $isNew = Redis::sadd($provCacheKey, $region);
+                    if ($isNew) {
+                        $card = Redis::scard($provCacheKey);
+                        if ((int)$card === 1) {
+                            Redis::expire($provCacheKey, 86400); // 首次写入，生存期 24 小时
+                        }
+
+                        if ((int)$card >= 3) {
+                            $provinces = Redis::smembers($provCacheKey);
+                            $provList  = implode(', ', $provinces);
+                            $reason    = "24小时内国内跨省异常：已覆盖 {$card} 个省份 ({$provList})";
+                            // 扣 100 分直接秒封
+                            $this->alert($user, $ip, $userAgent, $reason, 100, $request);
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::channel('risk')->warning('[风控] 国内省份数量检测异常', ['error' => $e->getMessage()]);
+                }
             }
+
         } catch (\Throwable $e) {
             Log::channel('risk')->warning('[风控] 地区检测异常', ['error' => $e->getMessage()]);
         }
     }
 
     // -------------------------------------------------------------------------
-    // IP 归属国家查询（带缓存）
+    // IP 归属地理查询（带缓存，缓存国家及省份代码）
     // -------------------------------------------------------------------------
 
-    private function getCountry(string $ip): ?string
+    private function getGeoInfo(string $ip): ?array
     {
         if (!filter_var($ip, FILTER_VALIDATE_IP,
                 FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
@@ -151,21 +188,21 @@ class SubscribeRiskControl
         }
 
         try {
-            $cached = Redis::get("ip_country:{$ip}");
-            if ($cached) return $cached;
+            $cached = Redis::get("ip_geo:{$ip}");
+            if ($cached) return json_decode($cached, true);
         } catch (\Throwable $e) {}
 
         try {
             $res = Http::timeout(2)
-                ->get("http://ip-api.com/json/{$ip}", ['fields' => 'status,countryCode'])
+                ->get("http://ip-api.com/json/{$ip}", ['fields' => 'status,countryCode,region'])
                 ->json();
 
-            if (($res['status'] ?? '') === 'success' && !empty($res['countryCode'])) {
-                try { Redis::setex("ip_country:{$ip}", 3600, $res['countryCode']); } catch (\Throwable $e) {}
-                return $res['countryCode'];
+            if (($res['status'] ?? '') === 'success') {
+                try { Redis::setex("ip_geo:{$ip}", 3600, json_encode($res)); } catch (\Throwable $e) {}
+                return $res;
             }
         } catch (\Throwable $e) {
-            Log::channel('risk')->info('[风控] IP 查询失败（跳过）', ['ip' => $ip]);
+            Log::channel('risk')->info('[风控] IP 地理查询失败（跳过）', ['ip' => $ip]);
         }
 
         return null;
@@ -185,7 +222,8 @@ class SubscribeRiskControl
 
         // 3. 累计风险计数 + 判断是否自动封禁
         $triggerCount = $this->incrementRiskCount($user->id);
-        if ($score >= self::BAN_MIN_SCORE && $triggerCount >= self::BAN_THRESHOLD) {
+        // 如果评分等于 100（极其严重的违规），或者累计次数触发了阈值，则直接封禁
+        if ($score >= 100 || ($score >= self::BAN_MIN_SCORE && $triggerCount >= self::BAN_THRESHOLD)) {
             $this->autoBan($user, $reason, $triggerCount);
         }
 
@@ -232,6 +270,62 @@ class SubscribeRiskControl
     }
 
     // -------------------------------------------------------------------------
+    // 自动导入蜜罐
+    // -------------------------------------------------------------------------
+
+    private function autoBan($user, string $reason, int $triggerCount): void
+    {
+        try {
+            $configPath = storage_path('tianque_config.json');
+            $config = [];
+            if (file_exists($configPath)) {
+                $config = json_decode(@file_get_contents($configPath), true) ?: [];
+            }
+
+            if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
+                $config['honeypot_users'] = [];
+            }
+            if (!isset($config['honeypot_times']) || !is_array($config['honeypot_times'])) {
+                $config['honeypot_times'] = [];
+            }
+
+            $userId = (int)$user->id;
+            $currentHoneypots = array_map('intval', $config['honeypot_users']);
+
+            if (!in_array($userId, $currentHoneypots, true)) {
+                // 将用户加入蜜罐名单
+                $currentHoneypots[] = $userId;
+                $config['honeypot_users'] = $currentHoneypots;
+                $config['honeypot_times'][(string)$userId] = time();
+
+                // 从疑似标记名单中移出（如果存在）
+                if (isset($config['flagged_users']) && is_array($config['flagged_users'])) {
+                    if (isset($config['flagged_users'][(string)$userId])) {
+                        unset($config['flagged_users'][(string)$userId]);
+                    }
+                }
+
+                @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+                // 强制清除该用户所有活跃登录 Session，迫使其客户端重连拉取最新的诱饵节点
+                try {
+                    $authService = new \App\Services\AuthService($user);
+                    $authService->removeAllSession();
+                } catch (\Throwable $ex) {}
+
+                Log::channel('risk')->warning('[风控] 用户已自动导入蜜罐（假封禁）', [
+                    'user_id'       => $userId,
+                    'email'         => $user->email,
+                    'trigger_count' => $triggerCount,
+                    'reason'        => $reason,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::channel('risk')->error('[风控] 自动导入蜜罐失败', ['error' => $e->getMessage()]);
+        }
+    }
+
+    // -------------------------------------------------------------------------
     // 3. Redis 累计风险计数（7 天滑动窗口）
     // -------------------------------------------------------------------------
 
@@ -248,31 +342,6 @@ class SubscribeRiskControl
             return 0;
         }
     }
-
-    // -------------------------------------------------------------------------
-    // 自动封禁
-    // -------------------------------------------------------------------------
-
-    private function autoBan($user, string $reason, int $triggerCount): void
-    {
-        try {
-            // v2board 封禁字段为 banned，值为 1
-            \App\Models\User::where('id', $user->id)->update(['banned' => 1]);
-
-            Log::channel('risk')->warning('[风控] 用户已自动封禁', [
-                'user_id'       => $user->id,
-                'email'         => $user->email,
-                'trigger_count' => $triggerCount,
-                'reason'        => $reason,
-            ]);
-        } catch (\Throwable $e) {
-            Log::channel('risk')->error('[风控] 自动封禁失败', ['error' => $e->getMessage()]);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // 4. Telegram 推送（响应后执行）
-    // -------------------------------------------------------------------------
 
     // -------------------------------------------------------------------------
     // 4. Telegram 推送（同步直接发送）
@@ -296,9 +365,9 @@ class SubscribeRiskControl
             return;
         }
 
+        $isBanned = ($score >= 100 || ($score >= self::BAN_MIN_SCORE && $triggerCount >= self::BAN_THRESHOLD));
         $emoji    = $score >= 80 ? '🔴' : ($score >= 60 ? '🟠' : '🟡');
-        $banWarn  = ($score >= self::BAN_MIN_SCORE && $triggerCount >= self::BAN_THRESHOLD)
-                    ? "\n🚫 已自动封禁" : '';
+        $banWarn  = $isBanned ? "\n🍯 已自动导入蜜罐" : '';
 
         $text = implode("\n", [
             "{$emoji} 订阅风控告警{$banWarn}",
@@ -311,10 +380,27 @@ class SubscribeRiskControl
             "🕐 " . now()->toDateTimeString(),
         ]);
 
+        // 构建行内键盘按钮
+        $keyboard = [
+            'inline_keyboard' => [
+                [
+                    $isBanned 
+                        ? ['text' => '↩️ 移出蜜罐', 'callback_data' => "unhoneypot:{$user->id}"]
+                        : ['text' => '🍯 放入蜜罐', 'callback_data' => "honeypot:{$user->id}"],
+                    ['text' => '🛡️ 设为白名单', 'callback_data' => "whitelist:{$user->id}"],
+                    ['text' => '🔄 重置订阅', 'callback_data' => "reset:{$user->id}"]
+                ]
+            ]
+        ];
+
         try {
             Http::timeout(5)->post(
                 'https://api.telegram.org/bot' . trim($botToken) . '/sendMessage',
-                ['chat_id' => trim($chatId), 'text' => $text]
+                [
+                    'chat_id'      => trim($chatId),
+                    'text'         => $text,
+                    'reply_markup' => json_encode($keyboard)
+                ]
             );
         } catch (\Throwable $e) {
             Log::channel('risk')->warning('[风控] Telegram 推送失败', ['error' => $e->getMessage()]);
