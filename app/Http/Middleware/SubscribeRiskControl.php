@@ -28,7 +28,7 @@ class SubscribeRiskControl
     const RATE_WINDOW   = 60;   // 时间窗口（秒）
 
     // 自动封禁：7 天内触发次数 >= BAN_THRESHOLD 且单次评分 >= BAN_MIN_SCORE 时封禁
-    const BAN_THRESHOLD  = 3;   // 7 天内最多允许触发几次
+    const BAN_THRESHOLD  = 5;   // 7 天内最多允许触发几次
     const BAN_MIN_SCORE  = 60;  // 触发封禁的最低单次评分
     const BAN_WINDOW     = 7;   // 累计统计窗口（天）
 
