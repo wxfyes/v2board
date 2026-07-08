@@ -24,7 +24,7 @@ class SubscribeRiskControl
     // ===================== 配置区 =====================
 
     // 频率限制
-    const RATE_LIMIT    = 5;    // 时间窗口内最大请求次数
+    const RATE_LIMIT    = 15;   // 时间窗口内最大请求次数
     const RATE_WINDOW   = 60;   // 时间窗口（秒）
 
     // 自动封禁：7 天内触发次数 >= BAN_THRESHOLD 且单次评分 >= BAN_MIN_SCORE 时封禁
