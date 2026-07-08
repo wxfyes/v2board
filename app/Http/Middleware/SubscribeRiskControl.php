@@ -286,8 +286,8 @@ class SubscribeRiskControl
 
     private function queueTelegram($user, string $ip, string $userAgent, string $reason, int $score, int $triggerCount): void
     {
-        $botToken = env('TELEGRAM_BOT_TOKEN');
-        $chatId   = env('TELEGRAM_CHAT_ID');
+        $botToken = config('services.telegram.bot_token') ?: env('TELEGRAM_BOT_TOKEN');
+        $chatId   = config('services.telegram.chat_id') ?: env('TELEGRAM_CHAT_ID');
 
         if (!$botToken || !$chatId) return;
 
@@ -309,8 +309,8 @@ class SubscribeRiskControl
 
     private function pushTelegram(string $text): void
     {
-        $botToken = env('TELEGRAM_BOT_TOKEN');
-        $chatId   = env('TELEGRAM_CHAT_ID');
+        $botToken = config('services.telegram.bot_token') ?: env('TELEGRAM_BOT_TOKEN');
+        $chatId   = config('services.telegram.chat_id') ?: env('TELEGRAM_CHAT_ID');
 
         try {
             Http::timeout(5)->post(
