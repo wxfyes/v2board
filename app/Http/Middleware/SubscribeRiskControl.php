@@ -262,8 +262,10 @@ class SubscribeRiskControl
         // 3. 累计风险计数 (此处只做计数，不再进行任何自动封禁行为)
         $triggerCount = $this->incrementRiskCount($user->id);
 
-        // 4. Telegram 推送通知，由管理员在 TG 机器人上点击按钮确认封禁
-        $this->sendTelegram($user, $ip, $userAgent, $reason, $score, $triggerCount);
+        // 4. Telegram 推送通知：只有在分数 >= 80 时才发送（过滤掉 60 分的普通代理切换告警）
+        if ($score >= 80) {
+            $this->sendTelegram($user, $ip, $userAgent, $reason, $score, $triggerCount);
+        }
     }
 
     // -------------------------------------------------------------------------
