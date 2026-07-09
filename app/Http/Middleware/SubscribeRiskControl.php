@@ -259,14 +259,10 @@ class SubscribeRiskControl
         // 2. 写日志文件
         $this->writeFile($user, $ip, $userAgent, $reason, $score);
 
-        // 3. 累计风险计数 + 判断是否自动封禁
+        // 3. 累计风险计数 (此处只做计数，不再进行任何自动封禁行为)
         $triggerCount = $this->incrementRiskCount($user->id);
-        // 如果评分等于 100（极其严重的违规），或者累计次数触发了阈值，则直接封禁
-        if ($score >= 100 || ($score >= self::BAN_MIN_SCORE && $triggerCount >= self::BAN_THRESHOLD)) {
-            $this->autoBan($user, $reason, $triggerCount);
-        }
 
-        // 4. Telegram（同步直接发送，确保兼容 Webman/Workerman 容器）
+        // 4. Telegram 推送通知，由管理员在 TG 机器人上点击按钮确认封禁
         $this->sendTelegram($user, $ip, $userAgent, $reason, $score, $triggerCount);
     }
 
@@ -404,9 +400,9 @@ class SubscribeRiskControl
             return;
         }
 
-        $isBanned = ($score >= 100 || ($score >= self::BAN_MIN_SCORE && $triggerCount >= self::BAN_THRESHOLD));
-        $emoji    = $score >= 80 ? '🔴' : ($score >= 60 ? '🟠' : '🟡');
-        $banWarn  = $isBanned ? "\n🍯 已自动导入蜜罐" : '';
+        $inHoneypot = $this->isUserHoneypotted((int)$user->id);
+        $emoji      = $score >= 80 ? '🔴' : ($score >= 60 ? '🟠' : '🟡');
+        $banWarn    = $inHoneypot ? "\n🍯 当前已在蜜罐中" : "\n⚠️ 建议手动放入蜜罐";
 
         $text = implode("\n", [
             "{$emoji} 订阅风控告警{$banWarn}",
@@ -419,11 +415,11 @@ class SubscribeRiskControl
             "🕐 " . now()->toDateTimeString(),
         ]);
 
-        // 构建行内键盘按钮
+        // 构建行内键盘按钮（根据当前是否已经在蜜罐中动态切换文字与回调）
         $keyboard = [
             'inline_keyboard' => [
                 [
-                    $isBanned 
+                    $inHoneypot 
                         ? ['text' => '↩️ 移出蜜罐', 'callback_data' => "unhoneypot:{$user->id}"]
                         : ['text' => '🍯 放入蜜罐', 'callback_data' => "honeypot:{$user->id}"],
                     ['text' => '🛡️ 设为白名单', 'callback_data' => "whitelist:{$user->id}"],
@@ -473,6 +469,25 @@ class SubscribeRiskControl
             }
         } catch (\Throwable $e) {
             Log::channel('risk')->warning('[风控] 校验白名单异常', ['error' => $e->getMessage()]);
+        }
+        return false;
+    }
+
+    /**
+     * 判断用户是否当前已被拉入蜜罐 (封禁)
+     */
+    private function isUserHoneypotted(int $userId): bool
+    {
+        try {
+            $configPath = storage_path('tianque_config.json');
+            if (file_exists($configPath)) {
+                $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                if (isset($config['honeypot_users']) && is_array($config['honeypot_users'])) {
+                    return in_array($userId, array_map('intval', $config['honeypot_users']), true);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::channel('risk')->warning('[风控] 校验蜜罐状态异常', ['error' => $e->getMessage()]);
         }
         return false;
     }
