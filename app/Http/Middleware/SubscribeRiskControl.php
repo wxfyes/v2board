@@ -259,9 +259,9 @@ class SubscribeRiskControl
         // 2. 写日志文件
         $this->writeFile($user, $ip, $userAgent, $reason, $score);
 
-        // 3. 累计风险计数并自动判定是否加入蜜罐
+        // 3. 累计风险计数并自动判定是否加入蜜罐（仅在分值达到 100 分的高危异常下触发自动封禁，排除 7 天累计自动封禁）
         $triggerCount = $this->incrementRiskCount($user->id);
-        if ($score >= 100 || ($score >= self::BAN_MIN_SCORE && $triggerCount >= self::BAN_THRESHOLD)) {
+        if ($score >= 100) {
             $this->autoBan($user, $reason, $triggerCount);
         }
 
