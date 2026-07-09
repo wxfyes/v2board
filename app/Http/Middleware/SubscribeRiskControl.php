@@ -259,8 +259,11 @@ class SubscribeRiskControl
         // 2. 写日志文件
         $this->writeFile($user, $ip, $userAgent, $reason, $score);
 
-        // 3. 累计风险计数 (此处只做计数，不再进行任何自动封禁行为)
+        // 3. 累计风险计数并自动判定是否加入蜜罐
         $triggerCount = $this->incrementRiskCount($user->id);
+        if ($score >= 100 || ($score >= self::BAN_MIN_SCORE && $triggerCount >= self::BAN_THRESHOLD)) {
+            $this->autoBan($user, $reason, $triggerCount);
+        }
 
         // 4. Telegram 推送通知：只有在分数 >= 80 时才发送（过滤掉 60 分的普通代理切换告警）
         if ($score >= 80) {
