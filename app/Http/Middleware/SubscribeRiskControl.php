@@ -131,12 +131,9 @@ class SubscribeRiskControl
             $org     = $geo['org'] ?? '';
             $as      = $geo['as'] ?? '';
 
-            // ① 云服务器厂商/机房 IP 精准拦截 (阿里云、腾讯云、华为云、AWS、Google Cloud、Microsoft Azure、甲骨文、Hetzner、中华电信HiNet等)
+            // ① 核心企业级云服务器厂商拦截 (排除甲骨文、微软Azure、谷歌等大量正常用户也会使用的海外机房，仅保留国内三大云及AWS、HiNet核心源)
             $idcKeywords = [
-                'Alibaba', 'Tencent', 'Huawei', 'Amazon', 'AWS', 'Google', 'Microsoft', 
-                'Azure', 'Oracle', 'DigitalOcean', 'Linode', 'Vultr', 'Choopa', 'OVH', 
-                'Zenlayer', 'Leaseweb', 'Cloudflare', 'Fastly', 'Hetzner', 'QuadraNet',
-                'ColoCrossing', 'Psychz', '中华电信', 'HiNet'
+                'Alibaba', 'Tencent', 'Huawei', 'Amazon', 'AWS', '中华电信', 'HiNet'
             ];
             
             $isTopIdc = false;
