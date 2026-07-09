@@ -48,6 +48,11 @@ class SubscribeRiskControl
             return $next($request);
         }
 
+        // 🛡️ 校验天阙白名单（若在白名单中则直接放行）
+        if ($this->isUserWhitelisted($user)) {
+            return $next($request);
+        }
+
         $ip        = $this->getRealIp($request);
         $userAgent = $request->userAgent() ?? 'unknown';
 
@@ -405,5 +410,36 @@ class SubscribeRiskControl
         } catch (\Throwable $e) {
             Log::channel('risk')->warning('[风控] Telegram 推送失败', ['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * 判断用户是否在天阙安全白名单中
+     */
+    private function isUserWhitelisted($user): bool
+    {
+        try {
+            $configPath = storage_path('tianque_config.json');
+            if (file_exists($configPath)) {
+                $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                if (isset($config['whitelist_users']) && is_array($config['whitelist_users'])) {
+                    $userId = (int)$user->id;
+                    $userEmail = strtolower($user->email);
+                    
+                    foreach ($config['whitelist_users'] as $item) {
+                        // 匹配用户 ID
+                        if (is_numeric($item) && (int)$item === $userId) {
+                            return true;
+                        }
+                        // 匹配邮箱
+                        if (is_string($item) && strtolower($item) === $userEmail) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::channel('risk')->warning('[风控] 校验白名单异常', ['error' => $e->getMessage()]);
+        }
+        return false;
     }
 }

@@ -567,6 +567,11 @@ class UserController extends Controller
 
         @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
+        if ($status === 1) {
+            $user->banned = 0;
+            $user->save();
+        }
+
         return response([
             'data' => [
                 'status' => $status

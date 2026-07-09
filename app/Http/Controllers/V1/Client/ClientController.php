@@ -381,35 +381,92 @@ class ClientController extends Controller
                         // 过滤并净化订阅中的广告词与品牌敏感词
                         $cachedContent = $this->sanitizeBaitContent($cachedContent, $isClash);
 
+                        // 🛡️ 针对自研加密客户端的安全适配：
+                        // 如果拉取成功，但客户端需要加密流，这里必须经过 AES 加密后再下发，防止解密报错导致节点全空
+                        if ($request->input('security') == '1') {
+                            $key = 'MOMclashSafeKey2026SecureGCM8888';
+                            $iv = openssl_random_pseudo_bytes(12);
+                            $tag = "";
+                            $encrypted = openssl_encrypt($cachedContent, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+                            return response($iv . $tag . $encrypted)
+                                ->header('Content-Type', 'application/octet-stream')
+                                ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
+                        }
+
                         $contentType = $isClash ? 'application/yaml; charset=utf-8' : 'text/plain; charset=utf-8';
                         return response($cachedContent)
                             ->header('Content-Type', $contentType)
                             ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
                     }
 
-                    // 若拉取异常或被对方 403 拦截拦截，这里执行强健的本地兜底，直接返回纯净警告 YAML 文本，保证 Clash 100% 不弹 invalid yaml 报错
-                    if ($isClash) {
-                        $cleanYaml = "mixed-port: 7890\nallow-lan: false\nmode: rule\nlog-level: info\nproxies:\n  - name: \"⚠️ 订阅拉取异常，请联系客服获取最新客户端\"\n    type: ss\n    server: 127.0.0.1\n    port: 10086\n    cipher: aes-128-gcm\n    password: \"tianquegemiji\"\nproxy-groups:\n  - name: \"Proxy\"\n    type: select\n    proxies:\n      - \"⚠️ 订阅拉取异常，请联系客服获取最新客户端\"\nrules:\n  - MATCH,Proxy";
-                        return response($cleanYaml)
-                            ->header('Content-Type', 'application/yaml; charset=utf-8')
-                            ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
-                    }
-
-                    // 否则（如 v2rayN 等通用客户端），降级下发通用 Base64 格式
+                    // 若外部拉取异常或转换失败，这里执行高隐蔽性本地伪装兜底，下发一整套逼真的多地区假节点列表
+                    // 确保匹配 Clash 策略组中的国家/地区正则，避免级联收敛导致所有组变空被剔除
                     $servers = [
                         [
-                            'id' => 99991,
-                            'name' => '⚠️ 订阅拉取异常，请联系客服获取最新客户端',
+                            'id' => 90001,
+                            'name' => '🇭🇰 深圳-香港 01 | IPLC [专线]',
                             'type' => 'shadowsocks',
-                            'host' => '127.0.0.1',
-                            'port' => 10086,
-                            'server_port' => 10086,
+                            'host' => '103.85.224.54',
+                            'port' => 443,
+                            'server_port' => 443,
                             'cipher' => 'aes-128-gcm',
                             'obfs' => null,
                             'obfs_settings' => null,
                             'tags' => [],
                             'show' => 1,
-                        ]
+                        ],
+                        [
+                            'id' => 90002,
+                            'name' => '🇭🇰 广港 02 | BGP [专线]',
+                            'type' => 'shadowsocks',
+                            'host' => '103.85.225.12',
+                            'port' => 443,
+                            'server_port' => 443,
+                            'cipher' => 'aes-128-gcm',
+                            'obfs' => null,
+                            'obfs_settings' => null,
+                            'tags' => [],
+                            'show' => 1,
+                        ],
+                        [
+                            'id' => 90003,
+                            'name' => '🇯🇵 东京 01 | CN2 [高速]',
+                            'type' => 'shadowsocks',
+                            'host' => '185.186.245.19',
+                            'port' => 443,
+                            'server_port' => 443,
+                            'cipher' => 'aes-128-gcm',
+                            'obfs' => null,
+                            'obfs_settings' => null,
+                            'tags' => [],
+                            'show' => 1,
+                        ],
+                        [
+                            'id' => 90004,
+                            'name' => '🇸🇬 新加坡 01 | 跨界专线',
+                            'type' => 'shadowsocks',
+                            'host' => '194.56.220.89',
+                            'port' => 443,
+                            'server_port' => 443,
+                            'cipher' => 'aes-128-gcm',
+                            'obfs' => null,
+                            'obfs_settings' => null,
+                            'tags' => [],
+                            'show' => 1,
+                        ],
+                        [
+                            'id' => 90005,
+                            'name' => '🇺🇸 洛杉矶 01 | GIA [直连]',
+                            'type' => 'shadowsocks',
+                            'host' => '45.142.198.22',
+                            'port' => 443,
+                            'server_port' => 443,
+                            'cipher' => 'aes-128-gcm',
+                            'obfs' => null,
+                            'obfs_settings' => null,
+                            'tags' => [],
+                            'show' => 1,
+                        ],
                     ];
                     $isBannedBait = true;
                 } else {
