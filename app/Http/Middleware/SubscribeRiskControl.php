@@ -127,8 +127,42 @@ class SubscribeRiskControl
 
             $country = $geo['countryCode'];
             $region  = $geo['region'] ?? ''; // 省份代码，如 GD, SH, SN
+            $hosting = $geo['hosting'] ?? false;
+            $org     = $geo['org'] ?? '';
+            $as      = $geo['as'] ?? '';
 
-            // ① 跨国检测（配合 UA 检测进行白名单放行，彻底防止同设备换代理误封）
+            // ① 云服务器厂商/机房 IP 精准拦截 (阿里云、腾讯云、华为云、AWS、Google Cloud、Microsoft Azure、甲骨文、Hetzner、中华电信HiNet等)
+            $idcKeywords = [
+                'Alibaba', 'Tencent', 'Huawei', 'Amazon', 'AWS', 'Google', 'Microsoft', 
+                'Azure', 'Oracle', 'DigitalOcean', 'Linode', 'Vultr', 'Choopa', 'OVH', 
+                'Zenlayer', 'Leaseweb', 'Cloudflare', 'Fastly', 'Hetzner', 'QuadraNet',
+                'ColoCrossing', 'Psychz', '中华电信', 'HiNet'
+            ];
+            
+            $isTopIdc = false;
+            $orgLower = strtolower($org);
+            $asLower  = strtolower($as);
+            foreach ($idcKeywords as $kw) {
+                $kwLower = strtolower($kw);
+                if (strpos($orgLower, $kwLower) !== false || strpos($asLower, $kwLower) !== false) {
+                    $isTopIdc = true;
+                    break;
+                }
+            }
+
+            if ($isTopIdc) {
+                $reason = "机房/中转IP封禁：检测到拉取源属于顶级IDC [{$org} | {$as}]";
+                // 顶级 IDC 无论国内外，直接 100 分秒封入蜜罐
+                $this->alert($user, $ip, $userAgent, $reason, 100, $request);
+                return;
+            }
+
+            // ② 核心体验优化：如果不是机房托管IP（即普通住宅/移动网络），直接绿灯放行，不再做跨国/跨省检测，彻底根治误报
+            if (!$hosting) {
+                return;
+            }
+
+            // ③ 跨国检测（配合 UA 检测进行白名单放行，彻底防止同设备换代理误封）
             $countryCacheKey = "sub_region:{$user->id}";
             $lastCountry     = null;
             try {
@@ -147,12 +181,12 @@ class SubscribeRiskControl
 
                 // 只有当国家发生了变动，且客户端的 User-Agent 也变动了，才计入跨国异常（防止自己切代理误封）
                 if ($lastUa && $lastUa !== $userAgent) {
-                    $reason = "IP 跨国界异设备：{$lastCountry}({$lastUa}) → {$country}({$userAgent})";
+                    $reason = "IP 跨国界异设备(机房源)：{$lastCountry}({$lastUa}) → {$country}({$userAgent}) [机房: {$org}]";
                     $this->alert($user, $ip, $userAgent, $reason, 60, $request);
                 }
             }
 
-            // ② 国内跨省检测（24小时内拉取 IP 覆盖省份数量 >= 3 直接拉闸秒封）
+            // ④ 国内跨省检测（24小时内拉取 IP 覆盖省份数量 >= 3 直接拉闸秒封）
             if ($country === 'CN' && $region) {
                 $provCacheKey = "sub_provinces:{$user->id}";
                 try {
@@ -166,7 +200,7 @@ class SubscribeRiskControl
                         if ((int)$card >= 3) {
                             $provinces = Redis::smembers($provCacheKey);
                             $provList  = implode(', ', $provinces);
-                            $reason    = "24小时内国内跨省异常：已覆盖 {$card} 个省份 ({$provList})";
+                            $reason    = "24小时内国内跨省异常(机房源)：已覆盖 {$card} 个省份 ({$provList})";
                             // 扣 100 分直接秒封
                             $this->alert($user, $ip, $userAgent, $reason, 100, $request);
                         }
@@ -199,7 +233,7 @@ class SubscribeRiskControl
 
         try {
             $res = Http::timeout(2)
-                ->get("http://ip-api.com/json/{$ip}", ['fields' => 'status,countryCode,region'])
+                ->get("http://ip-api.com/json/{$ip}", ['fields' => 'status,countryCode,region,hosting,org,as'])
                 ->json();
 
             if (($res['status'] ?? '') === 'success') {
