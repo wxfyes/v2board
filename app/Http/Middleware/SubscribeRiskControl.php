@@ -285,6 +285,13 @@ class SubscribeRiskControl
                 'detected_at'=> now(),
                 'created_at' => now(),
             ]);
+
+            // 🧹 概率垃圾回收 (GC)：每次写入有 1% 的几率触发清理 15 天前的历史旧日志，防止数据库无限膨胀
+            if (mt_rand(1, 100) === 1) {
+                DB::table('risk_logs')
+                    ->where('detected_at', '<', now()->subDays(15))
+                    ->delete();
+            }
         } catch (\Throwable $e) {
             Log::channel('risk')->error('[风控] 写库失败', ['error' => $e->getMessage()]);
         }
