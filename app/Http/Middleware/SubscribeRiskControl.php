@@ -259,9 +259,18 @@ class SubscribeRiskControl
         // 2. 写日志文件
         $this->writeFile($user, $ip, $userAgent, $reason, $score);
 
-        // 3. 累计风险计数并自动判定是否加入蜜罐（仅在分值达到 100 分的高危异常下触发自动封禁，排除 7 天累计自动封禁）
+        // 3. 累计风险计数并自动判定是否加入蜜罐
         $triggerCount = $this->incrementRiskCount($user->id);
-        if ($score >= 100) {
+        
+        // 🚀 核心优化：任何海外IP（非 CN 国家代码）均不执行自动封禁，只推送 TG 供您手动确认封禁！
+        // 只有当确认为国内 IP（CN）且分值达到 100 分（如国内多省机房盗刷）时，才直接秒封。
+        $ipCountry = null;
+        try {
+            $geo = $this->getGeoInfo($ip);
+            $ipCountry = $geo['countryCode'] ?? null;
+        } catch (\Throwable $e) {}
+
+        if ($score >= 100 && $ipCountry === 'CN') {
             $this->autoBan($user, $reason, $triggerCount);
         }
 
