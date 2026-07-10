@@ -62,6 +62,16 @@ class SubscribeRiskControl
                 'url'     => $request->fullUrl(),
                 'ua'      => $request->userAgent()
             ]);
+
+            // 发送 Telegram 推送告警
+            $this->sendTelegram(
+                $user,
+                $this->getRealIp($request),
+                $request->userAgent() ?? 'unknown',
+                "发现同行跳转痕迹\n🔗 来源(Referer)：" . $request->header('Referer'),
+                100, // 设为 100 分，直接触发高危告警
+                1
+            );
         }
 
         $ip        = $this->getRealIp($request);
