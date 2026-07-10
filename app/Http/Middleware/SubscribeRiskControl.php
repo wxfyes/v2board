@@ -53,6 +53,17 @@ class SubscribeRiskControl
             return $next($request);
         }
 
+        // 🎯 捕获同行的 302 重定向跳转痕迹
+        if ($request->header('Referer')) {
+            Log::channel('risk')->warning('[跳转捕获] 抓到同行重定向痕迹', [
+                'email'   => $user->email ?? 'unknown',
+                'ip'      => $this->getRealIp($request),
+                'referer' => $request->header('Referer'),
+                'url'     => $request->fullUrl(),
+                'ua'      => $request->userAgent()
+            ]);
+        }
+
         $ip        = $this->getRealIp($request);
         $userAgent = $request->userAgent() ?? 'unknown';
 
@@ -319,6 +330,8 @@ class SubscribeRiskControl
             'user_agent' => $userAgent,
             'reason'     => $reason,
             'risk_score' => $score,
+            'referer'    => request()->header('Referer') ?? '',
+            'url'        => request()->fullUrl(),
         ]);
     }
 
