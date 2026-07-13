@@ -18,8 +18,30 @@ class Client
      */
     public function handle($request, Closure $next)
     {
+        // 🛡️ 拦截社交/办公软件的链接预览机器人 (Chat Link Preview Bots)
+        // 这些机器人是在用户分享链接时自动抓取信息的，直接以 403 挂断，防止订阅数据泄露并避免触发后续风控误入蜜罐。
+        $userAgent = $request->header('User-Agent') ?? '';
+        $previewBots = [
+            'DingTalkBot',
+            'MicroMessenger',
+            'QQ/',
+            'TencentTraveler',
+            'TelegramBot',
+            'Twitterbot',
+            'facebookexternalhit',
+            'Discordbot',
+            'Slackbot',
+            'LarkBot',
+            'Feishu'
+        ];
+        foreach ($previewBots as $bot) {
+            if (stripos($userAgent, $bot) !== false) {
+                \Log::info('Blocked chat link preview bot: ' . $userAgent . ' from IP: ' . $this->getRealIp($request));
+                abort(403, 'Link preview is disabled for security reasons.');
+            }
+        }
+
         // 1. 🛡️ 强制校验 User-Agent，拦截空 UA 或者是脚本/爬虫工具（如 Python、curl、wget 等）
-        $userAgent = $request->header('User-Agent');
         if (empty($userAgent) || trim($userAgent) === '') {
             $reason = 'User-Agent 请求头为空（疑似自写脚本拉取）';
             $this->sendTgAlert($request, $reason);
