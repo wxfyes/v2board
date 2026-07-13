@@ -23,7 +23,7 @@ class Client
         if (empty($userAgent) || trim($userAgent) === '') {
             $reason = 'User-Agent 请求头为空（疑似自写脚本拉取）';
             $this->sendTgAlert($request, $reason);
-            \Log::warning('Blocked subscription request due to EMPTY User-Agent from IP: ' . $request->ip());
+            \Log::warning('Blocked subscription request due to EMPTY User-Agent from IP: ' . $this->getRealIp($request));
             abort(400, 'Invalid User-Agent');
         }
 
@@ -33,7 +33,7 @@ class Client
             if (strpos($uaLower, $bannedUa) !== false) {
                 $reason = "使用命令行/开发库 UA 请求: {$userAgent}";
                 $this->sendTgAlert($request, $reason);
-                \Log::warning('Blocked script/crawler subscription request. UA: ' . $userAgent . ' from IP: ' . $request->ip());
+                \Log::warning('Blocked script/crawler subscription request. UA: ' . $userAgent . ' from IP: ' . $this->getRealIp($request));
                 abort(403, 'Access Denied');
             }
         }
@@ -116,7 +116,7 @@ class Client
     private function sendTgAlert($request, $reason)
     {
         try {
-            $ip = $request->ip();
+            $ip = $this->getRealIp($request);
             $ua = $request->header('User-Agent') ?? '无';
             $path = $request->getRequestUri();
             
@@ -205,5 +205,21 @@ class Client
         } catch (\Exception $e) {
             \Log::error('Send TG Alert Error: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * 穿透 CDN 与反向代理获取真实用户公网 IP
+     */
+    private function getRealIp($request)
+    {
+        if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+            return $_SERVER['HTTP_CF_CONNECTING_IP'];
+        } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            return trim($ips[0]);
+        } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
+            return $_SERVER['HTTP_X_REAL_IP'];
+        }
+        return $request->ip();
     }
 }
