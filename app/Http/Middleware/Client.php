@@ -156,7 +156,12 @@ class Client
         $user = User::where('token', $token)->first();
         if (!$user) {
             $reason = "Token 未匹配到任何系统有效用户 (Token: {$token})";
-            $this->sendTgAlert($request, $reason);
+            // 🛡️ 限制同一个失效 Token 24小时内只向 TG 报警一次，防止被已删除/重置的旧客户端拉取刷屏
+            $cacheKey = "tg_alert_invalid_token_" . md5($token);
+            if (!\Cache::has($cacheKey)) {
+                $this->sendTgAlert($request, $reason);
+                \Cache::put($cacheKey, 1, 86400); // 缓存 24 小时
+            }
             abort(403, 'token is error');
         }
         $request->merge([
