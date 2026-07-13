@@ -157,7 +157,7 @@ class Client
                 }
             }
             
-            // 如果通过 Token 没查出来，或者没带 Token，尝试从登录态（JWT）中反查泄露的账号！
+            // 如果通过 Token 没查出来，或者没带 Token，尝试从登录态（JWT）或授权头部反查泄露的账号！
             if ($userId === '未知') {
                 $authorization = $request->input('auth_data') ?? $request->header('authorization');
                 if ($authorization) {
@@ -165,19 +165,30 @@ class Client
                     if (stripos($authorization, 'bearer ') === 0) {
                         $authorization = trim(substr($authorization, 7));
                     }
-                    try {
-                        if (class_exists('App\Services\AuthService')) {
-                            $decryptedUser = \App\Services\AuthService::decryptAuthData($authorization);
-                            if ($decryptedUser && isset($decryptedUser['id'])) {
-                                $user = User::find($decryptedUser['id']);
-                                if ($user) {
-                                    $userEmail = $user->email . ' (网页JWT反查)';
-                                    $userId = $user->id;
+                    
+                    // 1. 兼容性判定：如果是一串 32 位的 hex，极有可能是用户测试时误将订阅 Token 写到了 Authorization 中
+                    if (strlen($authorization) === 32 && preg_match('/^[a-fA-F0-9]{32}$/', $authorization)) {
+                        $user = User::where('token', $authorization)->first();
+                        if ($user) {
+                            $userEmail = $user->email . ' (自订阅Token反查)';
+                            $userId = $user->id;
+                        }
+                    } else {
+                        // 2. 正常进行 JWT 解析
+                        try {
+                            if (class_exists('App\Services\AuthService')) {
+                                $decryptedUser = \App\Services\AuthService::decryptAuthData($authorization);
+                                if ($decryptedUser && isset($decryptedUser['id'])) {
+                                    $user = User::find($decryptedUser['id']);
+                                    if ($user) {
+                                        $userEmail = $user->email . ' (网页JWT反查)';
+                                        $userId = $user->id;
+                                    }
                                 }
                             }
+                        } catch (\Exception $e) {
+                            // 忽略 JWT 解析错误
                         }
-                    } catch (\Exception $e) {
-                        // 忽略 JWT 解析错误
                     }
                 }
             }
