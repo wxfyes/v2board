@@ -18,26 +18,59 @@ class Client
      */
     public function handle($request, Closure $next)
     {
-        // 🛡️ 拦截社交/办公软件的链接预览机器人 (Chat Link Preview Bots)
-        // 这些机器人是在用户分享链接时自动抓取信息的，直接以 403 挂断，防止订阅数据泄露并避免触发后续风控误入蜜罐。
+        // 🛡️ 拦截社交软件链接预览、搜索引擎爬虫、SEO审计工具及网页归档机器人 (All Web Bots & Crawlers)
+        // 彻底切断任何机器爬虫爬取订阅数据、泄露节点的途径，同时避免触发后续风控误入蜜罐。
         $userAgent = $request->header('User-Agent') ?? '';
-        $previewBots = [
-            'DingTalkBot',
-            'MicroMessenger',
-            'QQ/',
-            'TencentTraveler',
-            'TelegramBot',
-            'Twitterbot',
-            'facebookexternalhit',
-            'Discordbot',
-            'Slackbot',
-            'LarkBot',
-            'Feishu'
+        $blockedBots = [
+            // 1. 社交与办公软件链接预览 (Chat & Social Media Bots)
+            'DingTalkBot',          // 钉钉
+            'MicroMessenger',       // 微信
+            'QQ/',                  // QQ/TIM
+            'TencentTraveler',      // 腾讯
+            'TelegramBot',          // Telegram
+            'Twitterbot',           // Twitter
+            'facebookexternalhit',  // Facebook
+            'Discordbot',           // Discord
+            'Slackbot',             // Slack
+            'LarkBot',              // 飞书
+            'Feishu',               // 飞书
+            'WhatsApp',             // WhatsApp
+            'Line/',                // LINE
+            'Skype',                // Skype
+            'LinkedInBot',          // LinkedIn
+            'Applebot',             // Apple/Siri Link Preview
+            'redditbot',            // Reddit
+            'Pinterest',            // Pinterest
+            'Tumblr',               // Tumblr
+
+            // 2. 搜索引擎爬虫 (Search Engine Spiders)
+            'Googlebot',            // Google
+            'Baiduspider',          // 百度
+            'Bingbot',              // 必应
+            'Yandex',               // 俄罗斯Yandex
+            'Sogou',                // 搜狗
+            '360Spider',            // 360搜索
+            'Yahoo',                // 雅虎
+            'DuckDuck',             // DuckDuckGo
+            'ByteSpider',           // 字节跳动/今日头条/抖音
+            'Shenma',               // 神马搜索
+            'YisouSpider',          // 阿里神马
+
+            // 3. 网页历史归档与数据搜刮机器人 (Web Archivers)
+            'ia_archiver',          // 互联网档案馆 Wayback Machine
+            'archive.org',          // 互联网档案馆
+
+            // 4. 商业 SEO 审计与漏洞扫描器 (SEO & Security Auditing Spiders)
+            'semrush',              // Semrush SEO审计
+            'dotbot',               // SEO爬虫
+            'mj12bot',              // Majestic SEO
+            'ahrefs',               // Ahrefs SEO审计
+            'rogerbot',             // Moz SEO爬虫
         ];
-        foreach ($previewBots as $bot) {
+        foreach ($blockedBots as $bot) {
             if (stripos($userAgent, $bot) !== false) {
-                \Log::info('Blocked chat link preview bot: ' . $userAgent . ' from IP: ' . $this->getRealIp($request));
-                abort(403, 'Link preview is disabled for security reasons.');
+                \Log::info('Blocked bot request: ' . $userAgent . ' from IP: ' . $this->getRealIp($request));
+                abort(403, 'Resource preview or crawling is disabled for security reasons.');
             }
         }
 
