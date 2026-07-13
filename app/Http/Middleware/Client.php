@@ -157,6 +157,31 @@ class Client
                 }
             }
             
+            // 如果通过 Token 没查出来，或者没带 Token，尝试从登录态（JWT）中反查泄露的账号！
+            if ($userId === '未知') {
+                $authorization = $request->input('auth_data') ?? $request->header('authorization');
+                if ($authorization) {
+                    // 去除 Bearer 前缀
+                    if (stripos($authorization, 'bearer ') === 0) {
+                        $authorization = trim(substr($authorization, 7));
+                    }
+                    try {
+                        if (class_exists('App\Services\AuthService')) {
+                            $decryptedUser = \App\Services\AuthService::decryptAuthData($authorization);
+                            if ($decryptedUser && isset($decryptedUser['id'])) {
+                                $user = User::find($decryptedUser['id']);
+                                if ($user) {
+                                    $userEmail = $user->email . ' (网页JWT反查)';
+                                    $userId = $user->id;
+                                }
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // 忽略 JWT 解析错误
+                    }
+                }
+            }
+            
             $msg = "🚨 【天阙订阅拦截警报】\n"
                  . "发现并精准拦截了一次违规拉取订阅请求！\n\n"
                  . "👤 关联账号: `{$userEmail}` (ID: {$userId})\n"
