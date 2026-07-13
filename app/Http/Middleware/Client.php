@@ -116,7 +116,13 @@ class Client
     private function sendTgAlert($request, $reason)
     {
         try {
-            $ip = $this->getRealIp($request);
+            $realIp = $this->getRealIp($request);
+            $directIp = $request->ip();
+            $ipDisplay = $realIp;
+            if ($directIp && $directIp !== $realIp) {
+                $ipDisplay .= " (反代: {$directIp})";
+            }
+            
             $ua = $request->header('User-Agent') ?? '无';
             $path = $request->getRequestUri();
             
@@ -154,7 +160,7 @@ class Client
             $msg = "🚨 【天阙订阅拦截警报】\n"
                  . "发现并精准拦截了一次违规拉取订阅请求！\n\n"
                  . "👤 关联账号: `{$userEmail}` (ID: {$userId})\n"
-                 . "🌐 请求 IP: `{$ip}`\n"
+                 . "🌐 请求 IP: `{$ipDisplay}`\n"
                  . "📝 请求路径: `{$path}`\n"
                  . "💻 User-Agent: `{$ua}`\n"
                  . "❌ 拦截原因: `{$reason}`\n"
