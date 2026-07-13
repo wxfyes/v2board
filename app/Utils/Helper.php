@@ -58,6 +58,77 @@ class Helper
         return $str;
     }
 
+    public static function blockCrawlers()
+    {
+        $userAgent = request()->header('User-Agent') ?? '';
+        
+        // 🛡️ 强制拦截没有 User-Agent 的扫描工具
+        if (empty($userAgent) || trim($userAgent) === '') {
+            abort(400, 'Invalid User-Agent');
+        }
+
+        $uaLower = strtolower($userAgent);
+        $bannedUAs = ['python', 'curl', 'wget', 'go-http-client', 'okhttp', 'postman', 'urllib', 'aiohttp', 'scrapy', 'node-fetch', 'axios', 'libcurl', 'java'];
+        foreach ($bannedUAs as $bannedUa) {
+            if (strpos($uaLower, $bannedUa) !== false) {
+                abort(403, 'Access Denied');
+            }
+        }
+
+        // 🛡️ 拦截常见的扫描器、爬虫及搜索引擎蜘蛛
+        $blockedBots = [
+            'DingTalkBot',
+            'MicroMessenger',
+            'QQ/',
+            'TencentTraveler',
+            'TelegramBot',
+            'Twitterbot',
+            'facebookexternalhit',
+            'Discordbot',
+            'Slackbot',
+            'LarkBot',
+            'Feishu',
+            'WhatsApp',
+            'Line/',
+            'Skype',
+            'LinkedInBot',
+            'Applebot',
+            'redditbot',
+            'Pinterest',
+            'Tumblr',
+            'Googlebot',
+            'Baiduspider',
+            'Bingbot',
+            'Yandex',
+            'Sogou',
+            '360Spider',
+            'Yahoo',
+            'DuckDuck',
+            'ByteSpider',
+            'Shenma',
+            'YisouSpider',
+            'ia_archiver',
+            'archive.org',
+            'semrush',
+            'dotbot',
+            'mj12bot',
+            'ahrefs',
+            'rogerbot',
+            'shodan',
+            'censys',
+            'zoomeye',
+            'project_sonar',
+            'zgrab',
+            'nmap',
+            'masscan'
+        ];
+        foreach ($blockedBots as $bot) {
+            if (stripos($userAgent, $bot) !== false) {
+                abort(403, 'Resource preview or crawling is disabled for security reasons.');
+            }
+        }
+    }
+
     public static function multiPasswordVerify($algo, $salt, $password, $hash)
     {
         switch($algo) {

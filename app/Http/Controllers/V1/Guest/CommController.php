@@ -4,12 +4,14 @@ namespace App\Http\Controllers\V1\Guest;
 
 use App\Http\Controllers\Controller;
 use App\Utils\Dict;
+use App\Utils\Helper;
 use Illuminate\Support\Facades\Http;
 
 class CommController extends Controller
 {
     public function config()
     {
+        Helper::blockCrawlers();
         return response([
             'data' => [
                 'tos_url' => config('v2board.tos_url'),

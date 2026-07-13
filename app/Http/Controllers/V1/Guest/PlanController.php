@@ -5,12 +5,14 @@ namespace App\Http\Controllers\V1\Guest;
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
 use App\Services\PlanService;
+use App\Utils\Helper;
 use Illuminate\Http\Request;
 
 class PlanController extends Controller
 {
     public function fetch(Request $request)
     {
+        Helper::blockCrawlers();
         $counts = PlanService::countActiveUsers();
         $plans = Plan::where('show', 1)
             ->orderBy('sort', 'ASC')
