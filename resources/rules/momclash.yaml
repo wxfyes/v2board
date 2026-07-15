@@ -144,7 +144,7 @@ proxy-groups:
   - name: 🇭🇰 香港自动
     type: url-test
     url: http://www.google.com/generate_204
-    interval: 300
+    interval: 1800
     tolerance: 50
     proxies:
       - "/(?i)(HK|Hong|Kong|香港)/u"
@@ -152,7 +152,7 @@ proxy-groups:
   - name: 🇹🇼 台湾自动
     type: url-test
     url: http://www.google.com/generate_204
-    interval: 300
+    interval: 1800
     tolerance: 50
     proxies:
       - "/(?i)(TW|Tai|Wan|台湾)/u"
@@ -160,7 +160,7 @@ proxy-groups:
   - name: 🇯🇵 日本自动
     type: url-test
     url: http://www.google.com/generate_204
-    interval: 300
+    interval: 1800
     tolerance: 50
     proxies:
       - "/(?i)(JP|Japan|日本)/u"
@@ -168,7 +168,7 @@ proxy-groups:
   - name: 🇸🇬 新加坡自动
     type: url-test
     url: http://www.google.com/generate_204
-    interval: 300
+    interval: 1800
     tolerance: 50
     proxies:
       - "/(?i)(SG|Singapore|狮城|新加坡)/u"
@@ -176,7 +176,7 @@ proxy-groups:
   - name: 🇺🇸 美国自动
     type: url-test
     url: http://www.google.com/generate_204
-    interval: 300
+    interval: 1800
     tolerance: 50
     proxies:
       - "/(?i)(US|United|States|美国)/u"
@@ -184,7 +184,7 @@ proxy-groups:
   - name: 🇰🇷 韩国自动
     type: url-test
     url: http://www.google.com/generate_204
-    interval: 300
+    interval: 1800
     tolerance: 50
     proxies:
       - "/(?i)(KR|Korea|韩国)/u"
@@ -213,7 +213,7 @@ proxy-groups:
   - name: ♻️ 自动选择
     type: url-test
     url: http://www.gstatic.com/generate_204
-    interval: 300
+    interval: 1800
     tolerance: 50
     proxies:
       - "/^(?!.*(剩余|到期|过期|时间|有效|群|官网)).*$/u"
@@ -221,7 +221,7 @@ proxy-groups:
   - name: 🚑 故障转移
     type: fallback
     url: http://www.gstatic.com/generate_204
-    interval: 300
+    interval: 1800
     proxies:
       - "/^(?!.*(剩余|到期|过期|时间|有效|群|官网)).*$/u"
 
