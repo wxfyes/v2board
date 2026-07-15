@@ -63,8 +63,6 @@ dns:
   proxy-server-nameserver:
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
-    - 8.8.8.8
-    - tls://8.8.4.4:853
     - https://hellokity.808622.xyz:9441/dns-query
     - https://kityhello.808622.xyz:9443/dns-query
 
@@ -240,18 +238,19 @@ proxy-groups:
     type: select
     proxies:
       - 🚀 节点选择
-      - 🇭🇰 香港自动
-      - 🇸🇬 新加坡自动
-      - 🇺🇸 美国自动
+      - 🇭🇰 香港节点
+      - 🇸🇬 新加坡节点
+      - 🇺🇸 美国节点
+      - DIRECT
 
   - name: 🤖 人工智能
     type: select
     proxies:
       - 🚀 节点选择
-      - 🇺🇸 美国自动
-      - 🇯🇵 日本自动
-      - 🇸🇬 新加坡自动
-      - 🇹🇼 台湾自动
+      - 🇺🇸 美国节点
+      - 🇯🇵 日本节点
+      - 🇸🇬 新加坡节点
+      - 🇹🇼 台湾节点
 
   # ------------------------------------------
   # 🎵 TikTok 专属组 (修正版：彻底打破死循环)
