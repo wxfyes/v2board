@@ -63,16 +63,12 @@ dns:
   proxy-server-nameserver:
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
-    - https://hellokity.808622.xyz:9441/dns-query
-    - https://kityhello.808622.xyz:9443/dns-query
 
   nameserver:
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
 
   fallback:
-    - https://hellokity.808622.xyz:9441/dns-query
-    - https://kityhello.808622.xyz:9443/dns-query
     - https://1.1.1.1/dns-query
     - https://8.8.8.8/dns-query
     - https://dns.google/dns-query
