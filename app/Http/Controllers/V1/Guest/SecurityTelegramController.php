@@ -647,16 +647,84 @@ class SecurityTelegramController extends Controller
             return response()->json(['status' => 'unauthorized']);
         }
 
-        // 解析动作和用户ID，格式为: action:userId
+        // 解析动作和用户ID，格式为: action:param 或 action:ip:userId
         $parts = explode(':', $callbackData);
-        if (count($parts) !== 2) {
+        if (count($parts) < 2) {
             $this->answerCallbackQuery($botToken, $callbackQueryId, "❌ 无效的数据格式");
             return response()->json(['status' => 'invalid_data']);
         }
 
         $action = $parts[0];
-        $userId = (int)$parts[1];
 
+        // 🎯 特判 ignore_ip 动作：它不需要强制查询 User 表，其第二个参数是 IP，第三个是 userId
+        if ($action === 'ignore_ip') {
+            $ip = trim($parts[1]);
+            $userId = isset($parts[2]) ? (int)$parts[2] : 0;
+            
+            // 写入 IP 免审白名单
+            $configPath = storage_path('tianque_config.json');
+            if (!file_exists($configPath)) {
+                @file_put_contents($configPath, json_encode([]));
+            }
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+            if (!isset($config['ignore_ips']) || !is_array($config['ignore_ips'])) {
+                $config['ignore_ips'] = [];
+            }
+            if (!in_array($ip, $config['ignore_ips'], true)) {
+                $config['ignore_ips'][] = $ip;
+                @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            }
+
+            $actionResultStr = "【已将 IP {$ip} 加入免审白名单】";
+            
+            // 提示操作成功
+            $this->answerCallbackQuery($botToken, $callbackQueryId, "✅ 操作成功: {$actionResultStr}");
+
+            // 修改电报原始消息
+            $newText = $originalText;
+            if (preg_match('/⚙️ 执行动作:.*$/m', $newText)) {
+                $newText = preg_replace('/⚙️ 执行动作:.*$/m', "⚙️ 执行动作: {$actionResultStr} (管理员 via TG)", $newText);
+            } elseif (preg_match('/执行动作:.*$/m', $newText)) {
+                $newText = preg_replace('/执行动作:.*$/m', "执行动作: {$actionResultStr} (管理员 via TG)", $newText);
+            } else {
+                $newText .= "\n⚙️ 执行动作: {$actionResultStr} (管理员 via TG)";
+            }
+
+            // 重新获取该用户最新的蜜罐与封禁状态以生成键盘，如果不传入 userId 则置空键盘
+            $newKeyboard = [];
+            if ($userId > 0) {
+                $user = User::find($userId);
+                if ($user) {
+                    $newInHoneypot = false;
+                    $honeypots = array_map('intval', $config['honeypot_users'] ?? []);
+                    if (in_array($userId, $honeypots, true)) {
+                        $newInHoneypot = true;
+                    }
+                    $newIsBanned = (bool)$user->banned;
+                    
+                    // 这里去掉“忽略此IP”按钮，仅保留用户的其他状态操作按钮
+                    $newKeyboard = [
+                        'inline_keyboard' => [
+                            [
+                                $newInHoneypot 
+                                    ? ['text' => '↩️ 移出蜜罐', 'callback_data' => "unhoneypot:{$userId}"]
+                                    : ['text' => '🍯 放入蜜罐', 'callback_data' => "honeypot:{$userId}"],
+                                $newIsBanned
+                                    ? ['text' => '🟢 解除封禁', 'callback_data' => "unban:{$userId}"]
+                                    : ['text' => '🚫 封禁账号', 'callback_data' => "ban:{$userId}"],
+                                ['text' => '🔄 重置订阅', 'callback_data' => "reset:{$userId}"]
+                            ]
+                        ]
+                    ];
+                }
+            }
+
+            $this->editMessageText($botToken, $chatId, $messageId, $newText, $newKeyboard);
+            return response()->json(['status' => 'ok']);
+        }
+
+        // 其他动作依然走原有的 action:userId 校验逻辑
+        $userId = (int)$parts[1];
         $user = User::find($userId);
         if (!$user) {
             $this->answerCallbackQuery($botToken, $callbackQueryId, "❌ 未找到该用户 (ID: {$userId})");

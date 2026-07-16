@@ -48,8 +48,14 @@ class SubscribeRiskControl
             return $next($request);
         }
 
-        // 🛡️ 校验天阙白名单（若在白名单中则直接放行）
+        // 🛡️ 校验天阙用户白名单（若在白名单中则直接放行）
         if ($this->isUserWhitelisted($user)) {
+            return $next($request);
+        }
+
+        // 🛡️ 校验节点 IP 免审白名单（若当前请求 IP 在免审白名单中则放行）
+        $ip = $this->getRealIp($request);
+        if ($this->isIpIgnored($ip)) {
             return $next($request);
         }
 
@@ -465,6 +471,9 @@ class SubscribeRiskControl
                         : ['text' => '🍯 放入蜜罐', 'callback_data' => "honeypot:{$user->id}"],
                     ['text' => '🛡️ 设为白名单', 'callback_data' => "whitelist:{$user->id}"],
                     ['text' => '🔄 重置订阅', 'callback_data' => "reset:{$user->id}"]
+                ],
+                [
+                    ['text' => "🌐 忽略此 IP ({$ip})", 'callback_data' => "ignore_ip:{$ip}:{$user->id}"]
                 ]
             ]
         ];
@@ -531,5 +540,52 @@ class SubscribeRiskControl
             Log::channel('risk')->warning('[风控] 校验蜜罐状态异常', ['error' => $e->getMessage()]);
         }
         return false;
+    }
+
+    /**
+     * 判断当前请求 IP 是否在免审 IP/网段白名单中
+     */
+    private function isIpIgnored(string $ip): bool
+    {
+        try {
+            $configPath = storage_path('tianque_config.json');
+            if (file_exists($configPath)) {
+                $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                if (isset($config['ignore_ips']) && is_array($config['ignore_ips'])) {
+                    foreach ($config['ignore_ips'] as $pattern) {
+                        $pattern = trim($pattern);
+                        if (empty($pattern)) continue;
+
+                        // 1. 直接相等匹配 (支持域名或 IP 字符串直接匹配)
+                        if ($ip === $pattern) {
+                            return true;
+                        }
+
+                        // 2. CIDR 网段匹配 (如 13.214.212.0/24)
+                        if (strpos($pattern, '/') !== false) {
+                            if ($this->ipInCidr($ip, $pattern)) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::channel('risk')->warning('[风控] 校验免审 IP 异常', ['error' => $e->getMessage()]);
+        }
+        return false;
+    }
+
+    /**
+     * 判断 IP 是否属于指定的 CIDR 网段
+     */
+    private function ipInCidr(string $ip, string $cidr): bool
+    {
+        list($subnet, $bits) = explode('/', $cidr);
+        $ip = ip2long($ip);
+        $subnet = ip2long($subnet);
+        $mask = -1 << (32 - $bits);
+        $subnet &= $mask;
+        return ($ip & $mask) == $subnet;
     }
 }
