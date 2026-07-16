@@ -99,7 +99,16 @@ class Client
         // 🛡️ 静默拦截已失效/被重置的废弃旧 Token（直接 403 丢弃，绝不发送 TG 警报）
         $bannedTokens = [
             '82f3fb9d124f6cbec8bf21b1f432af9c', // 截图中的失效旧 Token
-            // 以后如果有其他失效的 Token 不想看到它报警，可以直接塞进这个数组里
+            '2ed05370337afea422eea5845272de4a',
+            '08e41124515e3cc993441b72738df335',
+            '936f60680f9802d8f5af21a80bd6c3fa',
+            '912cbe918e5983c56500778b3a0f6b22',
+            '0cd795a0e776fa219582732f966d9b23',
+            'c1975aaed0c88abfc61589edbb1b63a1',
+            'b90b89e53bd8840620bb6f0046859cd7',
+            'a930e94464730e151f7e9de9499a096b',
+            'ae58656cee785c27db9f757eb3efe4dc',
+            'c3fa81e908399c2f5d7b4cb07375774d',
         ];
         if (in_array($token, $bannedTokens, true)) {
             abort(403, 'token is disabled');
