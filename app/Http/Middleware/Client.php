@@ -95,6 +95,16 @@ class Client
 
         // 2. 🛡️ 彻底关闭 JWT 登录态越权拉取订阅的后门，强制拉取订阅时必须携带 token 参数
         $token = $request->input('token');
+
+        // 🛡️ 静默拦截已失效/被重置的废弃旧 Token（直接 403 丢弃，绝不发送 TG 警报）
+        $bannedTokens = [
+            '82f3fb9d124f6cbec8bf21b1f432af9c', // 截图中的失效旧 Token
+            // 以后如果有其他失效的 Token 不想看到它报警，可以直接塞进这个数组里
+        ];
+        if (in_array($token, $bannedTokens, true)) {
+            abort(403, 'token is disabled');
+        }
+
         if (empty($token)) {
             $reason = '拉取订阅请求中未携带 token 参数';
             $this->sendTgAlert($request, $reason);
