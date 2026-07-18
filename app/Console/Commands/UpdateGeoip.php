@@ -13,8 +13,8 @@ class UpdateGeoip extends Command
     public function handle()
     {
         $files = [
-            'GeoLite2-City.mmdb' => 'https://mirror.ghproxy.com/https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb',
-            'GeoLite2-ASN.mmdb'  => 'https://mirror.ghproxy.com/https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-ASN.mmdb',
+            'GeoLite2-City.mmdb' => 'https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb',
+            'GeoLite2-ASN.mmdb'  => 'https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-ASN.mmdb',
         ];
 
         $storagePath = storage_path('app/');
@@ -37,20 +37,7 @@ class UpdateGeoip extends Command
                     $this->error("Failed to download {$filename}. Status code: " . $response->status());
                 }
             } catch (\Throwable $e) {
-                // 如果 ghproxy 加速节点报错，尝试直接用原始 GitHub 链接下载
-                $this->warn("Mirror download failed, trying direct github URL...");
-                $directUrl = str_replace('https://mirror.ghproxy.com/', '', $url);
-                try {
-                    $response = Http::timeout(120)->get($directUrl);
-                    if ($response->successful()) {
-                        file_put_contents($dest, $response->body());
-                        $this->info("Successfully downloaded {$filename} directly from GitHub!");
-                    } else {
-                        $this->error("Direct download failed too. Status code: " . $response->status());
-                    }
-                } catch (\Throwable $ex) {
-                    $this->error("Failed to download {$filename}: " . $ex->getMessage());
-                }
+                $this->error("Failed to download {$filename}: " . $e->getMessage());
             }
         }
 
