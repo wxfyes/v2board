@@ -13,8 +13,8 @@ class UpdateGeoip extends Command
     public function handle()
     {
         $files = [
-            'GeoLite2-City.mmdb' => 'https://mirror.ghproxy.com/https://github.com/P3TERX/GeoLite2-Rules/releases/download/latest/GeoLite2-City.mmdb',
-            'GeoLite2-ASN.mmdb'  => 'https://mirror.ghproxy.com/https://github.com/P3TERX/GeoLite2-Rules/releases/download/latest/GeoLite2-ASN.mmdb',
+            'GeoLite2-City.mmdb' => 'https://mirror.ghproxy.com/https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb',
+            'GeoLite2-ASN.mmdb'  => 'https://mirror.ghproxy.com/https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-ASN.mmdb',
         ];
 
         $storagePath = storage_path('app/');
