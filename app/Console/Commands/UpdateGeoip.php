@@ -27,8 +27,8 @@ class UpdateGeoip extends Command
             $dest = $storagePath . $filename;
 
             try {
-                // 15 秒连接超时，120 秒传输超时
-                $response = Http::timeout(120)->connectTimeout(15)->get($url);
+                // 120 秒传输超时
+                $response = Http::timeout(120)->get($url);
 
                 if ($response->successful()) {
                     file_put_contents($dest, $response->body());
@@ -41,7 +41,7 @@ class UpdateGeoip extends Command
                 $this->warn("Mirror download failed, trying direct github URL...");
                 $directUrl = str_replace('https://mirror.ghproxy.com/', '', $url);
                 try {
-                    $response = Http::timeout(120)->connectTimeout(15)->get($directUrl);
+                    $response = Http::timeout(120)->get($directUrl);
                     if ($response->successful()) {
                         file_put_contents($dest, $response->body());
                         $this->info("Successfully downloaded {$filename} directly from GitHub!");
