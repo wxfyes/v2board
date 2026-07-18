@@ -250,22 +250,70 @@ class SubscribeRiskControl
             return null;
         }
 
+        // 1. 优先读取 Redis 缓存
         try {
             $cached = Redis::get("ip_geo:{$ip}");
             if ($cached) return json_decode($cached, true);
         } catch (\Throwable $e) {}
 
+        // 2. 尝试读取本地的 GeoIP mmdb 离线库 (优先)
+        $mmdbPath = storage_path('app/GeoLite2-City.mmdb');
+        if (file_exists($mmdbPath) && class_exists('\GeoIp2\Database\Reader')) {
+            try {
+                $reader = new \GeoIp2\Database\Reader($mmdbPath);
+                $record = $reader->city($ip);
+                
+                $res = [
+                    'status' => 'success',
+                    'countryCode' => $record->country->isoCode,
+                    'region' => $record->mostSpecificSubdivision->isoCode,
+                    'hosting' => false,
+                    'org' => '',
+                    'as' => ''
+                ];
+
+                // 尝试解析 ASN 离线库以获取 hosting / org 信息
+                $asnPath = storage_path('app/GeoLite2-ASN.mmdb');
+                if (file_exists($asnPath)) {
+                    try {
+                        $asnReader = new \GeoIp2\Database\Reader($asnPath);
+                        $asnRecord = $asnReader->asn($ip);
+                        $res['as'] = 'AS' . $asnRecord->autonomousSystemNumber;
+                        $res['org'] = $asnRecord->autonomousSystemOrganization;
+                        
+                        // 判定是否为机房托管
+                        $orgLower = strtolower($res['org']);
+                        $idcKeywords = ['alibaba', 'tencent', 'huawei', 'amazon', 'aws', 'hinet', 'ovh', 'choopa', 'digitalocean', 'linode', 'vultr', 'cloudflare', 'idc', 'server', 'hosting', 'datacenter', 'psychz', 'quadranet', 'leaseweb', 'zenlayer', 'sakura', 'anchnet', 'ucloud', 'ksyun', 'baidubce'];
+                        foreach ($idcKeywords as $kw) {
+                            if (strpos($orgLower, $kw) !== false) {
+                                $res['hosting'] = true;
+                                break;
+                            }
+                        }
+                    } catch (\Throwable $e) {}
+                }
+
+                // 写入 Redis 缓存，有效期延长为 1 天 (86400 秒)
+                try { Redis::setex("ip_geo:{$ip}", 86400, json_encode($res)); } catch (\Throwable $e) {}
+                return $res;
+            } catch (\Throwable $e) {
+                Log::channel('risk')->warning('[风控] 本地 GeoIP 查询失败，将回退到 API 接口', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // 3. 兜底回退：若离线库文件不存在或读取报错，则请求 ip-api.com 接口
         try {
             $res = Http::timeout(2)
                 ->get("http://ip-api.com/json/{$ip}", ['fields' => 'status,countryCode,region,hosting,org,as'])
                 ->json();
 
             if (($res['status'] ?? '') === 'success') {
-                try { Redis::setex("ip_geo:{$ip}", 3600, json_encode($res)); } catch (\Throwable $e) {}
+                // 写入 Redis 缓存，有效期延长为 1 天 (86400 秒)
+                try { Redis::setex("ip_geo:{$ip}", 86400, json_encode($res)); } catch (\Throwable $e) {}
                 return $res;
             }
         } catch (\Throwable $e) {
-            Log::channel('risk')->info('[风控] IP 地理查询失败（跳过）', ['ip' => $ip]);
+            Log::channel('risk')->info('[风控] IP 地理 API 查询失败（跳过）', ['ip' => $ip]);
         }
 
         return null;
