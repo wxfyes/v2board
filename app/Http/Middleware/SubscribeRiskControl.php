@@ -32,6 +32,10 @@ class SubscribeRiskControl
     const BAN_MIN_SCORE  = 80;  // 触发封禁的最低单次评分，调高至 80（跨国 60 分只告警不自动封禁）
     const BAN_WINDOW     = 7;   // 累计统计窗口（天）
 
+    // 静态变量缓存 Reader，防止常驻内存框架（Webman）在每个请求中重复打开大二进制文件
+    private static $_reader = null;
+    private static $_asnReader = null;
+
     // ==================================================
 
 
@@ -260,8 +264,10 @@ class SubscribeRiskControl
         $mmdbPath = storage_path('app/GeoLite2-City.mmdb');
         if (file_exists($mmdbPath) && class_exists('\GeoIp2\Database\Reader')) {
             try {
-                $reader = new \GeoIp2\Database\Reader($mmdbPath);
-                $record = $reader->city($ip);
+                if (self::$_reader === null) {
+                    self::$_reader = new \GeoIp2\Database\Reader($mmdbPath);
+                }
+                $record = self::$_reader->city($ip);
                 
                 $res = [
                     'status' => 'success',
@@ -274,10 +280,12 @@ class SubscribeRiskControl
 
                 // 尝试解析 ASN 离线库以获取 hosting / org 信息
                 $asnPath = storage_path('app/GeoLite2-ASN.mmdb');
-                if (file_exists($asnPath)) {
+                if (file_exists($asnPath) && class_exists('\GeoIp2\Database\Reader')) {
                     try {
-                        $asnReader = new \GeoIp2\Database\Reader($asnPath);
-                        $asnRecord = $asnReader->asn($ip);
+                        if (self::$_asnReader === null) {
+                            self::$_asnReader = new \GeoIp2\Database\Reader($asnPath);
+                        }
+                        $asnRecord = self::$_asnReader->asn($ip);
                         $res['as'] = 'AS' . $asnRecord->autonomousSystemNumber;
                         $res['org'] = $asnRecord->autonomousSystemOrganization;
                         
