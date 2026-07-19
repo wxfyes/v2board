@@ -604,4 +604,43 @@ class Helper
             $config['downloadSettings'] = json_encode($downloadSettings, JSON_UNESCAPED_SLASHES);
         }
     }
+
+    public static function verifyCaptcha($recaptchaData, $ip = null)
+    {
+        if (empty($recaptchaData)) {
+            return false;
+        }
+
+        $secret = config('v2board.recaptcha_key');
+        if (empty($secret)) {
+            return false;
+        }
+
+        // 自动识别：Cloudflare Turnstile Token 通常以 "0." 开头
+        if (strpos($recaptchaData, '0.') === 0) {
+            try {
+                $response = \Illuminate\Support\Facades\Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                    'secret' => $secret,
+                    'response' => $recaptchaData,
+                    'remoteip' => $ip
+                ]);
+                if ($response->successful() && $response->json('success')) {
+                    return true;
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Turnstile verification failed: " . $e->getMessage());
+            }
+            return false;
+        }
+
+        // 默认走谷歌 reCAPTCHA 验证
+        try {
+            $recaptcha = new \ReCaptcha\ReCaptcha($secret);
+            $recaptchaResp = $recaptcha->verify($recaptchaData, $ip);
+            return $recaptchaResp->isSuccess();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("reCAPTCHA verification failed: " . $e->getMessage());
+            return false;
+        }
+    }
 }
