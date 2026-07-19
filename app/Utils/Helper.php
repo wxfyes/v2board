@@ -607,6 +607,20 @@ class Helper
 
     public static function verifyCaptcha($recaptchaData, $ip = null)
     {
+        // 🛡️ 客户端 APP 豁免逻辑：如果是来自 Flutter 客户端的请求，免除人机验证
+        $userAgent = request()->userAgent();
+        $requestedWith = request()->header('X-Requested-With');
+        if (
+            $requestedWith === 'com.tianque.app' || 
+            ($userAgent && (
+                strpos($userAgent, 'ClashMeta/') !== false || 
+                strpos($userAgent, 'Dart/') !== false
+            ))
+        ) {
+            \Illuminate\Support\Facades\Log::info("verifyCaptcha bypassed for app client: UA={$userAgent}, RequestedWith={$requestedWith}");
+            return true;
+        }
+
         $secret = config('v2board.recaptcha_key');
         \Illuminate\Support\Facades\Log::info("verifyCaptcha debug: token=" . substr($recaptchaData, 0, 15) . "..., secret=" . substr($secret, 0, 10) . "...");
 
