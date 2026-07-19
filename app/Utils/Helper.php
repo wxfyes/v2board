@@ -621,14 +621,15 @@ class Helper
             try {
                 $response = \Illuminate\Support\Facades\Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
                     'secret' => $secret,
-                    'response' => $recaptchaData,
-                    'remoteip' => $ip
+                    'response' => $recaptchaData
                 ]);
-                if ($response->successful() && $response->json('success')) {
+                $resJson = $response->json();
+                if ($response->successful() && isset($resJson['success']) && $resJson['success']) {
                     return true;
                 }
+                \Illuminate\Support\Facades\Log::error("Turnstile verification failed response: " . json_encode($resJson));
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error("Turnstile verification failed: " . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error("Turnstile verification failed exception: " . $e->getMessage());
             }
             return false;
         }
