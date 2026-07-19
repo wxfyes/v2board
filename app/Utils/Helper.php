@@ -623,7 +623,7 @@ class Helper
         // 自动识别：Cloudflare Turnstile Token 通常以 "0." 开头
         if (strpos($recaptchaData, '0.') === 0) {
             try {
-                $response = \Illuminate\Support\Facades\Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                $response = \Illuminate\Support\Facades\Http::withoutVerifying()->asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
                     'secret' => $secret,
                     'response' => $recaptchaData
                 ]);
