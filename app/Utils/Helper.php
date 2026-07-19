@@ -607,12 +607,16 @@ class Helper
 
     public static function verifyCaptcha($recaptchaData, $ip = null)
     {
+        $secret = config('v2board.recaptcha_key');
+        \Illuminate\Support\Facades\Log::info("verifyCaptcha debug: token=" . substr($recaptchaData, 0, 15) . "..., secret=" . substr($secret, 0, 10) . "...");
+
         if (empty($recaptchaData)) {
+            \Illuminate\Support\Facades\Log::warning("verifyCaptcha failed: token is empty");
             return false;
         }
 
-        $secret = config('v2board.recaptcha_key');
         if (empty($secret)) {
+            \Illuminate\Support\Facades\Log::warning("verifyCaptcha failed: secret config is empty");
             return false;
         }
 
