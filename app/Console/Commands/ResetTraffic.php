@@ -153,18 +153,16 @@ class ResetTraffic extends Command
 
     private function resetByExpireDay($builder): void
     {
+        date_default_timezone_set(config('app.timezone', 'Asia/Shanghai'));
         $lastDay = date('t');
         $users = [];
         $today = date('d');
         foreach ($builder->get() as $item) {
             $expireDay = date('d', $item->expired_at);
 
-            if (($expireDay === $today) ||(($today === $lastDay) && $expireDay >= $lastDay)) {
-                if (time() < $item->expired_at - 2160000) {
-                    array_push($users, $item->id);
-                }
+            if (($expireDay === $today) || (($today === $lastDay) && $expireDay >= $lastDay)) {
+                array_push($users, $item->id);
             }
-
         }
         $this->retryTransaction(function () use ($users) {
             User::whereIn('id', $users)->update([
