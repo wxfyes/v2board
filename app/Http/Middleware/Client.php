@@ -357,10 +357,35 @@ class Client
             
             if (!empty($customToken) && !empty($customChat)) {
                 $url = "https://api.telegram.org/bot{$customToken}/sendMessage";
+                $keyboard = [];
+                if ($userId !== '未知') {
+                    $keyboard = [
+                        'inline_keyboard' => [
+                            [
+                                ['text' => '🍯 放入蜜罐', 'callback_data' => "honeypot:{$userId}"],
+                                ['text' => '🛡️ 设为白名单', 'callback_data' => "whitelist:{$userId}"],
+                                ['text' => '🔄 重置订阅', 'callback_data' => "reset:{$userId}"]
+                            ],
+                            [
+                                ['text' => "🌐 忽略此 IP ({$realIp})", 'callback_data' => "ignore_ip:{$realIp}:{$userId}"]
+                            ]
+                        ]
+                    ];
+                } else {
+                    $keyboard = [
+                        'inline_keyboard' => [
+                            [
+                                ['text' => "🌐 忽略此 IP ({$realIp})", 'callback_data' => "ignore_ip:{$realIp}:0"]
+                            ]
+                        ]
+                    ];
+                }
+
                 $postData = [
                     'chat_id' => $customChat,
                     'text' => $msg,
-                    'parse_mode' => 'Markdown'
+                    'parse_mode' => 'Markdown',
+                    'reply_markup' => json_encode($keyboard)
                 ];
                 
                 $ch = curl_init();
