@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Cache;
 
 class Client
 {
+    private static $_asnReader = null;
+
     /**
      * Handle an incoming request.
      *
@@ -91,6 +93,59 @@ class Client
                 \Log::warning('Blocked script/crawler subscription request. UA: ' . $userAgent . ' from IP: ' . $this->getRealIp($request));
                 abort(403, 'Access Denied');
             }
+        }
+
+        // 🎯 专属防线：内鬼测活精准狙击（特定客户端 UA + 特定云厂商机房 IP 联合封杀）
+        $exactBlockedUAs = [
+            'clash',
+            'ClashMetaForAndroid/733'
+        ];
+        
+        $isTargetUa = false;
+        foreach ($exactBlockedUAs as $blockedUa) {
+            if ($userAgent === $blockedUa) {
+                $isTargetUa = true;
+                break;
+            }
+        }
+
+        $ip = $this->getRealIp($request);
+        $isTargetOrg = false;
+        $org = '';
+        $asnPath = storage_path('app/GeoLite2-ASN.mmdb');
+        if (file_exists($asnPath) && class_exists('\GeoIp2\Database\Reader')) {
+            try {
+                if (self::$_asnReader === null) {
+                    self::$_asnReader = new \GeoIp2\Database\Reader($asnPath);
+                }
+                $asnRecord = self::$_asnReader->asn($ip);
+                $org = $asnRecord->autonomousSystemOrganization ?? '';
+                
+                // 内鬼常用的测活云机房特征词
+                $targetOrgs = ['Alibaba', 'Aliyun']; 
+                
+                foreach ($targetOrgs as $targetOrg) {
+                    if (stripos($org, $targetOrg) !== false) {
+                        $isTargetOrg = true;
+                        break;
+                    }
+                }
+            } catch (\Exception $e) {
+                // 解析 ASN 失败则忽略，不阻断正常业务流程
+            }
+        }
+
+        // 单命中即拦截 (OR 关系)
+        if ($isTargetUa || $isTargetOrg) {
+            $hitType = [];
+            if ($isTargetUa) $hitType[] = "特征UA [{$userAgent}]";
+            if ($isTargetOrg) $hitType[] = "云机房 [{$org}]";
+            $hitReason = implode('，', $hitType);
+            
+            $reason = "🚨 内鬼节点测活拦截：命中 {$hitReason}";
+            $this->sendTgAlert($request, $reason);
+            \Log::warning($reason . ' from IP: ' . $ip);
+            abort(403, 'Subscription access denied.');
         }
 
         // 2. 🛡️ 彻底关闭 JWT 登录态越权拉取订阅的后门，强制拉取订阅时必须携带 token 参数
