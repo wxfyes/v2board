@@ -179,10 +179,10 @@ class SubscribeRiskControl
             }
 
             if ($isTopIdc) {
-                $reason = "机房/中转IP封禁：检测到拉取源属于顶级IDC [{$org} | {$as}]";
-                // 顶级 IDC 无论国内外，直接 100 分秒封入蜜罐
-                $this->alert($user, $ip, $userAgent, $reason, 100, $request);
-                return;
+                $reason = "🚨 内鬼节点测活拦截：检测到拉取源属于顶级IDC [{$org} | {$as}]";
+                // 不计入蜜罐（扣 0 分只作 TG 告警和日志），但强行阻断本次拉取！
+                $this->alert($user, $ip, $userAgent, $reason, 0, $request);
+                abort(403, 'Subscription access denied due to IDC IP.');
             }
 
             // ② 核心体验优化：如果不是机房托管IP（即普通住宅/移动网络），直接绿灯放行，不再做跨国/跨省检测，彻底根治误报
