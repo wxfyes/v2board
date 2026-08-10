@@ -235,13 +235,10 @@ class Client
         }
         $user = User::where('token', $token)->first();
         if (!$user) {
-            $reason = "Token 未匹配到任何系统有效用户 (Token: {$token})";
-            // 🛡️ 限制同一个失效 Token 24小时内只向 TG 报警一次，防止被已删除/重置的旧客户端拉取刷屏
-            $cacheKey = "tg_alert_invalid_token_" . md5($token);
-            if (!\Cache::has($cacheKey)) {
-                $this->sendTgAlert($request, $reason);
-                \Cache::put($cacheKey, 1, 86400); // 缓存 24 小时
-            }
+            // Token 不存在通常是因为用户重置了订阅，但旧设备还在后台自动拉取。
+            // 这种情况下数据库里查不到，发 TG 报警也毫无意义且制造焦虑。
+            // 因此这里【彻底移除 TG 报警】，只在本地日志记录一下即可。
+            \Log::warning("Blocked subscription request with unknown Token: {$token} from IP: " . $this->getRealIp($request));
             abort(403, 'token is error');
         }
         $request->merge([
