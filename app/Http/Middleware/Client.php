@@ -95,10 +95,11 @@ class Client
             }
         }
 
-        // 🎯 专属防线：内鬼测活精准狙击（特定客户端 UA + 特定云厂商机房 IP 联合封杀）
+        // 🎯 专属防线：内鬼测活精准狙击
         $exactBlockedUAs = [
             'clash',
-            'ClashMetaForAndroid/733'
+            'ClashMetaForAndroid/733',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36'
         ];
         
         $isTargetUa = false;
@@ -107,6 +108,11 @@ class Client
                 $isTargetUa = true;
                 break;
             }
+        }
+
+        // 模糊匹配：拦截包含 autobuild 等特征的自定义编译版本，防止内鬼修改版本号和日期绕过
+        if (!$isTargetUa && stripos($userAgent, 'autobuild') !== false) {
+            $isTargetUa = true;
         }
 
         $ip = $this->getRealIp($request);

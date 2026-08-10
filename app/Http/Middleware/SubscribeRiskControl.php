@@ -185,12 +185,58 @@ class SubscribeRiskControl
                 abort(403, 'Subscription access denied due to IDC IP.');
             }
 
-            // ② 核心体验优化：如果不是机房托管IP（即普通住宅/移动网络），直接绿灯放行，不再做跨国/跨省检测，彻底根治误报
+            // ② 国内跨省检测（24小时内拉取 IP 覆盖省份数量 >= 3 直接拉闸秒封）
+            // ⚠️ 核心防线：此检测必须放在 `$hosting` 过滤之前！因为内鬼常使用国内“秒拨”动态住宅IP（非机房）进行测活。
+            if ($country === 'CN' && $region) {
+                // 1. 物理极速跨省检测 (防秒拨代理池短时间内并发拉取)
+                $lastProvDataKey = "sub_last_prov_data:{$user->id}";
+                try {
+                    $lastProvData = Redis::get($lastProvDataKey);
+                    if ($lastProvData) {
+                        $lastProvInfo = json_decode($lastProvData, true);
+                        if (is_array($lastProvInfo) && isset($lastProvInfo['region']) && $lastProvInfo['region'] !== $region) {
+                            $timeDiff = time() - (int)$lastProvInfo['time'];
+                            // 规则：如果两次跨省拉取时间小于 2 小时 (7200秒)，且两次都不是机房IP（排除用户开关VPN导致），物理上绝无可能，必定是代理池
+                            if ($timeDiff < 7200 && !$hosting && !$lastProvInfo['hosting']) {
+                                $reason = "物理性极速跨省(双端住宅/秒拨)：{$lastProvInfo['region']} -> {$region}，耗时仅 {$timeDiff} 秒！";
+                                // 扣 100 分直接秒封
+                                $this->alert($user, $ip, $userAgent, $reason, 100, $request);
+                            }
+                        }
+                    }
+                    Redis::setex($lastProvDataKey, 86400, json_encode(['region' => $region, 'time' => time(), 'hosting' => $hosting]));
+                } catch (\Throwable $e) {}
+
+                // 2. 24小时累计跨省数量检测
+                $provCacheKey = "sub_provinces:{$user->id}";
+                try {
+                    $isNew = Redis::sadd($provCacheKey, $region);
+                    if ($isNew) {
+                        $card = Redis::scard($provCacheKey);
+                        if ((int)$card === 1) {
+                            Redis::expire($provCacheKey, 86400); // 首次写入，生存期 24 小时
+                        }
+
+                        if ((int)$card >= 3) {
+                            $provinces = Redis::smembers($provCacheKey);
+                            $provList  = implode(', ', $provinces);
+                            $ipType    = $hosting ? '机房IP' : '住宅/秒拨IP';
+                            $reason    = "24小时内国内跨省异常({$ipType})：已覆盖 {$card} 个省份 ({$provList})";
+                            // 扣 100 分直接秒封
+                            $this->alert($user, $ip, $userAgent, $reason, 100, $request);
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::channel('risk')->warning('[风控] 国内省份数量检测异常', ['error' => $e->getMessage()]);
+                }
+            }
+
+            // ③ 核心体验优化：如果不是机房托管IP（即普通住宅/移动网络），则不再进行后续的【跨国】检测，根治误报
             if (!$hosting) {
                 return;
             }
 
-            // ③ 跨国检测（配合 UA 检测进行白名单放行，彻底防止同设备换代理误封）
+            // ④ 跨国检测（配合 UA 检测进行白名单放行，彻底防止同设备换代理误封）
             $countryCacheKey = "sub_region:{$user->id}";
             $lastCountry     = null;
             try {
@@ -211,30 +257,6 @@ class SubscribeRiskControl
                 if ($lastUa && $lastUa !== $userAgent) {
                     $reason = "IP 跨国界异设备(机房源)：{$lastCountry}({$lastUa}) → {$country}({$userAgent}) [机房: {$org}]";
                     $this->alert($user, $ip, $userAgent, $reason, 60, $request);
-                }
-            }
-
-            // ④ 国内跨省检测（24小时内拉取 IP 覆盖省份数量 >= 3 直接拉闸秒封）
-            if ($country === 'CN' && $region) {
-                $provCacheKey = "sub_provinces:{$user->id}";
-                try {
-                    $isNew = Redis::sadd($provCacheKey, $region);
-                    if ($isNew) {
-                        $card = Redis::scard($provCacheKey);
-                        if ((int)$card === 1) {
-                            Redis::expire($provCacheKey, 86400); // 首次写入，生存期 24 小时
-                        }
-
-                        if ((int)$card >= 3) {
-                            $provinces = Redis::smembers($provCacheKey);
-                            $provList  = implode(', ', $provinces);
-                            $reason    = "24小时内国内跨省异常(机房源)：已覆盖 {$card} 个省份 ({$provList})";
-                            // 扣 100 分直接秒封
-                            $this->alert($user, $ip, $userAgent, $reason, 100, $request);
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    Log::channel('risk')->warning('[风控] 国内省份数量检测异常', ['error' => $e->getMessage()]);
                 }
             }
 
