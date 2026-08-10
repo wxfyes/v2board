@@ -330,9 +330,36 @@ class Client
                 }
             }
             
+            $userStatus = '未知';
+            $inHoneypot = false;
+            $isBanned = false;
+            
+            if ($userId !== '未知' && isset($user)) {
+                $isBanned = !empty($user->banned);
+                // 检查是否在蜜罐
+                try {
+                    $configPath = storage_path('tianque_config.json');
+                    if (file_exists($configPath)) {
+                        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                        if (isset($config['honeypot_users']) && is_array($config['honeypot_users'])) {
+                            $inHoneypot = in_array((int)$userId, array_map('intval', $config['honeypot_users']), true);
+                        }
+                    }
+                } catch (\Throwable $e) {}
+                
+                if ($isBanned) {
+                    $userStatus = '🚫 已封禁';
+                } elseif ($inHoneypot) {
+                    $userStatus = '🍯 已在蜜罐中';
+                } else {
+                    $userStatus = '✅ 正常';
+                }
+            }
+            
             $msg = "🚨 【天阙订阅拦截警报】\n"
                  . "发现并精准拦截了一次违规拉取订阅请求！\n\n"
                  . "👤 关联账号: `{$userEmail}` (ID: {$userId})\n"
+                 . "📊 账号状态: {$userStatus}\n"
                  . "🌐 请求 IP: `{$ipDisplay}`\n"
                  . "📝 请求路径: `{$path}`\n"
                  . "💻 User-Agent: `{$ua}`\n"
@@ -362,10 +389,14 @@ class Client
                 $url = "https://api.telegram.org/bot{$customToken}/sendMessage";
                 $keyboard = [];
                 if ($userId !== '未知') {
+                    $honeypotBtn = $inHoneypot 
+                        ? ['text' => '↩️ 移出蜜罐', 'callback_data' => "unhoneypot:{$userId}"] 
+                        : ['text' => '🍯 放入蜜罐', 'callback_data' => "honeypot:{$userId}"];
+                        
                     $keyboard = [
                         'inline_keyboard' => [
                             [
-                                ['text' => '🍯 放入蜜罐', 'callback_data' => "honeypot:{$userId}"],
+                                $honeypotBtn,
                                 ['text' => '🛡️ 设为白名单', 'callback_data' => "whitelist:{$userId}"],
                                 ['text' => '🔄 重置订阅', 'callback_data' => "reset:{$userId}"]
                             ],
