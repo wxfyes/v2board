@@ -110,10 +110,12 @@ class Client
             }
         }
 
-        // 模糊匹配：拦截包含 autobuild 等特征的自定义编译版本，防止内鬼修改版本号和日期绕过
-        if (!$isTargetUa && stripos($userAgent, 'autobuild') !== false) {
-            $isTargetUa = true;
-        }
+        // 模糊匹配：拦截包含 autobuild 等特征的自定义编译版本
+        // 【已废弃】：因为很多正常的开源客户端（如 Clash Verge Rev 的测试版/每日构建版）
+        // 都是通过 GitHub Actions 自动打包的，UA 里天然带有 autobuild 字样，极易造成大规模误伤。
+        // if (!$isTargetUa && stripos($userAgent, 'autobuild') !== false) {
+        //     $isTargetUa = true;
+        // }
 
         $ip = $this->getRealIp($request);
         $isTargetOrg = false;
