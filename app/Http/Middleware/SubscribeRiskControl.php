@@ -199,8 +199,9 @@ class SubscribeRiskControl
                             // 规则：如果两次跨省拉取时间小于 2 小时 (7200秒)，且两次都不是机房IP（排除用户开关VPN导致），物理上绝无可能，必定是代理池
                             if ($timeDiff < 7200 && !$hosting && !$lastProvInfo['hosting']) {
                                 $reason = "物理性极速跨省(双端住宅/秒拨)：{$lastProvInfo['region']} -> {$region}，耗时仅 {$timeDiff} 秒！";
-                                // 扣 100 分直接秒封
-                                $this->alert($user, $ip, $userAgent, $reason, 100, $request);
+                                // 根据要求：对于两省之间互跳给予一次机会，仅扣 80 分（触发 TG 报警但不会自动封禁）
+                                // 如果出现第 3 个省份，将会由下面的 24 小时数量检测捕捉并扣 100 分秒封
+                                $this->alert($user, $ip, $userAgent, $reason, 80, $request);
                             }
                         }
                     }
