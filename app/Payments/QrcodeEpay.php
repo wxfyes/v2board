@@ -248,7 +248,8 @@ class QrcodeEpay
         if (strpos($ua, 'qq/') !== false) {
             return 'qq';
         }
-        return $this->isMobile() ? 'mobile' : 'pc';
+        // Force 'mobile' so upstream always returns a JSON with QR/PayUrl instead of HTML redirect
+        return 'mobile';
     }
 
     private function isMobile()
