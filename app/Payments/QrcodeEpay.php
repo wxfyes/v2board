@@ -128,11 +128,10 @@ class QrcodeEpay
             abort(500, '接口下单成功，但没有返回 qrcode、urlscheme 或 payurl');
         }
 
-        return [
             // V2Board: 0 = render data as QR code, 1 = open data as URL.
-            // Desktop always displays a QR code; mobile opens the returned
-            // QR scheme, URL scheme, or payment URL directly.
-            'type' => $this->isMobile() ? 1 : 0,
+            // Force type 0 for all platforms to display the QR code popup directly,
+            // as the GatewaySnifferDialog (type 1) might be blocked by epay's anti-webview page.
+            'type' => 0,
             'data' => $paymentData,
         ];
     }
