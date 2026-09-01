@@ -227,12 +227,8 @@ class QrcodeEpay
 
     private function clientIp()
     {
-        if (function_exists('request')) {
-            $ip = request()->ip();
-            if (is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
+        // Many EPay gateways crash or reject requests if clientip is an IPv6 address.
+        // Hardcoding to 127.0.0.1 safely bypasses this issue.
         return '127.0.0.1';
     }
 
