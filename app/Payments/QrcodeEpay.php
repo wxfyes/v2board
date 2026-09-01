@@ -130,9 +130,9 @@ class QrcodeEpay
 
         return [
             // V2Board: 0 = render data as QR code, 1 = open data as URL.
-            // Desktop always displays a QR code; mobile opens the returned
-            // QR scheme, URL scheme, or payment URL directly.
-            'type' => $this->isMobile() ? 1 : 0,
+            // Force type 0 for all platforms to display the QR code popup directly,
+            // as the GatewaySnifferDialog (type 1) might be blocked by epay's anti-webview page.
+            'type' => 0,
             'data' => $paymentData,
         ];
     }
@@ -227,12 +227,8 @@ class QrcodeEpay
 
     private function clientIp()
     {
-        if (function_exists('request')) {
-            $ip = request()->ip();
-            if (is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
+        // Many EPay gateways crash or reject requests if clientip is an IPv6 address.
+        // Hardcoding to 127.0.0.1 safely bypasses this issue.
         return '127.0.0.1';
     }
 
@@ -248,7 +244,8 @@ class QrcodeEpay
         if (strpos($ua, 'qq/') !== false) {
             return 'qq';
         }
-        return $this->isMobile() ? 'mobile' : 'pc';
+        // Force 'mobile' so upstream always returns a JSON with QR/PayUrl instead of HTML redirect
+        return 'mobile';
     }
 
     private function isMobile()
