@@ -77,6 +77,15 @@ class QrcodeEpay
             }
         }
 
+        $cacheKey = 'epay_mapi_' . $order['trade_no'];
+        if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+            $paymentData = \Illuminate\Support\Facades\Cache::get($cacheKey);
+            return [
+                'type' => 0,
+                'data' => $paymentData,
+            ];
+        }
+
         $params = [
             'pid' => (string) $this->config['pid'],
             'type' => (string) $this->config['type'],
@@ -127,6 +136,8 @@ class QrcodeEpay
         if ($paymentData === null) {
             abort(500, '接口下单成功，但没有返回 qrcode、urlscheme 或 payurl');
         }
+
+        \Illuminate\Support\Facades\Cache::put($cacheKey, $paymentData, 3600);
 
         return [
             // V2Board: 0 = render data as QR code, 1 = open data as URL.
