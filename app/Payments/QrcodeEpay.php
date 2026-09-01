@@ -128,6 +128,7 @@ class QrcodeEpay
             abort(500, '接口下单成功，但没有返回 qrcode、urlscheme 或 payurl');
         }
 
+        return [
             // V2Board: 0 = render data as QR code, 1 = open data as URL.
             // Force type 0 for all platforms to display the QR code popup directly,
             // as the GatewaySnifferDialog (type 1) might be blocked by epay's anti-webview page.
