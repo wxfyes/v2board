@@ -5,6 +5,8 @@ namespace App\Http\Controllers\V1\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
+use App\Models\User;
+
 class TraitorController extends Controller
 {
     public function fetch(Request $request)
@@ -14,16 +16,25 @@ class TraitorController extends Controller
             return response([
                 'data' => [
                     'emails' => '',
-                    'ips' => ''
+                    'ips' => '',
+                    'match_count' => 0
                 ]
             ]);
         }
         
         $data = json_decode(@file_get_contents($traitorListPath), true);
+        $emails = $data['emails'] ?? [];
+        
+        $matchCount = 0;
+        if (!empty($emails)) {
+            $matchCount = User::whereIn('email', $emails)->count();
+        }
+
         return response([
             'data' => [
-                'emails' => implode("\n", $data['emails'] ?? []),
-                'ips' => implode("\n", $data['ips'] ?? [])
+                'emails' => implode("\n", $emails),
+                'ips' => implode("\n", $data['ips'] ?? []),
+                'match_count' => $matchCount
             ]
         ]);
     }

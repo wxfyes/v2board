@@ -6,6 +6,8 @@
           <div class="header-left">
             <span class="title">内鬼主动防御名单</span>
             <el-tag size="small" type="danger" style="margin-left: 10px;">防守拦截</el-tag>
+            <el-tag v-if="matchCount > 0" size="small" type="warning" style="margin-left: 10px;">发现 {{ matchCount }} 个疑似内鬼注册账号</el-tag>
+            <el-tag v-else-if="matchCount === 0 && emails" size="small" type="success" style="margin-left: 10px;">目前暂无该名单内的注册账号</el-tag>
           </div>
           <el-button type="primary" :icon="Check" :loading="loading" @click="saveConfig">
             保存配置
@@ -69,14 +71,16 @@ import api from '../api';
 const loading = ref(false);
 const emails = ref('');
 const ips = ref('');
+const matchCount = ref(0);
 
 const fetchConfig = async () => {
   try {
     const securePath = getSecurePath();
     const res = await api.get(`/${securePath}/traitor/fetch`);
-    if (res.data && res.data.data) {
-      emails.value = res.data.data.emails || '';
-      ips.value = res.data.data.ips || '';
+    if (res.data) {
+      emails.value = res.data.emails || '';
+      ips.value = res.data.ips || '';
+      matchCount.value = res.data.match_count || 0;
     }
   } catch (err) {
     ElMessage.error(err.response?.data?.message || '获取配置失败');
