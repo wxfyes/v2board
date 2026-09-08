@@ -200,6 +200,9 @@ class AdminRoute
             $router->get ('/card/fetch', 'V1\\Admin\\CardController@fetch');
             $router->post('/card/import', 'V1\\Admin\\CardController@import');
             $router->post('/card/drop', 'V1\\Admin\\CardController@drop');
+            // Traitor List
+            $router->get ('/traitor/fetch', 'V1\\Admin\\TraitorController@fetch');
+            $router->post('/traitor/save', 'V1\\Admin\\TraitorController@save');
         });
     }
 }

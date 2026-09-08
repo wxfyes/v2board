@@ -90,6 +90,10 @@
             <el-icon><Lock /></el-icon>
             <span>安全审计</span>
           </el-menu-item>
+          <el-menu-item index="/traitors">
+            <el-icon><Warning /></el-icon>
+            <span>内鬼名单</span>
+          </el-menu-item>
         </el-sub-menu>
         
         <el-sub-menu index="settings-group">
@@ -259,6 +263,10 @@
           <el-menu-item index="/security-audit">
             <el-icon><Lock /></el-icon>
             <span>安全审计</span>
+          </el-menu-item>
+          <el-menu-item index="/traitors">
+            <el-icon><Warning /></el-icon>
+            <span>内鬼名单</span>
           </el-menu-item>
         </el-sub-menu>
         

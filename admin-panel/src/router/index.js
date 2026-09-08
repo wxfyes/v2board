@@ -21,6 +21,7 @@ const Payments = () => import('../views/Payments.vue');
 const Themes = () => import('../views/Themes.vue');
 const SecurityAudit = () => import('../views/SecurityAudit.vue');
 const Cards = () => import('../views/Cards.vue');
+const Traitors = () => import('../views/Traitors.vue');
 
 const routes = [
   {
@@ -141,6 +142,12 @@ const routes = [
         name: 'SecurityAudit',
         component: SecurityAudit,
         meta: { title: '安全审计', requiresAuth: true }
+      },
+      {
+        path: 'traitors',
+        name: 'Traitors',
+        component: Traitors,
+        meta: { title: '内鬼防御名单', requiresAuth: true }
       }
     ]
   }
