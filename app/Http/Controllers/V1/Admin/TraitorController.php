@@ -57,9 +57,12 @@ class TraitorController extends Controller
             'ips' => array_values(array_unique($ipsArray))
         ];
 
-        if (!@file_put_contents($traitorListPath, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT))) {
+        if (!@file_put_contents($traitorListPath, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX)) {
             abort(500, '保存失败，请检查 storage 目录权限');
         }
+
+        // 主动刷新 Redis 内存缓存，确保立即生效
+        \App\Utils\TraitorDefense::clearCache();
 
         return response([
             'data' => true

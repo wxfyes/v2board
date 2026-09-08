@@ -220,16 +220,12 @@ class ClientController extends Controller
                 }
 
                 // 判断是否需要忽略此 IP 记录 (如本站节点 IP)
-                $configPath = storage_path('tianque_config.json');
                 $shouldRecord = true;
-                if (file_exists($configPath)) {
-                    $tianqueConfig = json_decode(@file_get_contents($configPath), true);
-                    if (is_array($tianqueConfig) && isset($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
-                        foreach ($tianqueConfig['ignore_ips'] as $ignoreRule) {
-                            if ($this->ipInRange($realIp, $ignoreRule)) {
-                                $shouldRecord = false;
-                                break;
-                            }
+                if (is_array($tianqueConfig) && isset($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
+                    foreach ($tianqueConfig['ignore_ips'] as $ignoreRule) {
+                        if ($this->ipInRange($realIp, $ignoreRule)) {
+                            $shouldRecord = false;
+                            break;
                         }
                     }
                 }
@@ -418,45 +414,43 @@ class ClientController extends Controller
                 $servers = array_values($servers);
             }
 
-            // 记录客户端登录时间和类型（所有客户端都记录，保留历史）
-            $userAgent = $request->header('User-Agent') ?? '';
-            $clientType = $this->parseClientType($userAgent);
-            if ($isShadowrocketRoute && ($clientType === '未知' || stripos($userAgent, 'deno') !== false)) {
-                $clientType = 'Shadowrocket';
-            }
-
-            // 获取现有的客户端历史记录
-            $existingData = \DB::table('v2_user')
-                ->where('id', $user['id'])
-                ->value('client_type');
-
-            // 解析现有记录（JSON 格式）
-            $clientHistory = [];
-            if ($existingData) {
-                $decoded = json_decode($existingData, true);
-                if (is_array($decoded)) {
-                    $clientHistory = $decoded;
+            // 记录客户端登录时间和类型（仅对未被拦截的正常客户端记录，避免 triggerBlock 下重复更新 DB）
+            if (!$triggerBlock) {
+                $userAgent = $request->header('User-Agent') ?? '';
+                $clientType = $this->parseClientType($userAgent);
+                if ($isShadowrocketRoute && ($clientType === '未知' || stripos($userAgent, 'deno') !== false)) {
+                    $clientType = 'Shadowrocket';
                 }
-            }
 
-            // 穿透 CDN 与反向代理获取真实用户公网 IP
-            $realIp = null;
-            if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-                $realIp = $_SERVER['HTTP_CF_CONNECTING_IP'];
-            } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-                $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-                $realIp = trim($ips[0]);
-            } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
-                $realIp = $_SERVER['HTTP_X_REAL_IP'];
-            } else {
-                $realIp = $request->ip();
-            }
+                // 获取现有的客户端历史记录
+                $existingData = \DB::table('v2_user')
+                    ->where('id', $user['id'])
+                    ->value('client_type');
 
-            // 判断是否需要忽略此 IP 记录 (如本站节点 IP)
-            $configPath = storage_path('tianque_config.json');
-            $shouldRecord = true;
-            if (file_exists($configPath)) {
-                $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+                // 解析现有记录（JSON 格式）
+                $clientHistory = [];
+                if ($existingData) {
+                    $decoded = json_decode($existingData, true);
+                    if (is_array($decoded)) {
+                        $clientHistory = $decoded;
+                    }
+                }
+
+                // 穿透 CDN 与反向代理获取真实用户公网 IP
+                $realIp = null;
+                if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+                    $realIp = $_SERVER['HTTP_CF_CONNECTING_IP'];
+                } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+                    $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+                    $realIp = trim($ips[0]);
+                } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
+                    $realIp = $_SERVER['HTTP_X_REAL_IP'];
+                } else {
+                    $realIp = $request->ip();
+                }
+
+                // 判断是否需要忽略此 IP 记录 (复用上方已读取的配置，无需读盘)
+                $shouldRecord = true;
                 if (is_array($tianqueConfig) && isset($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
                     foreach ($tianqueConfig['ignore_ips'] as $ignoreRule) {
                         if ($this->ipInRange($realIp, $ignoreRule)) {
@@ -465,27 +459,27 @@ class ClientController extends Controller
                         }
                     }
                 }
+
+                $updateData = [
+                    'client_login_at' => time()
+                ];
+
+                if ($shouldRecord) {
+                    array_unshift($clientHistory, [
+                        'type' => $clientType,
+                        'time' => time(),
+                        'ip' => $realIp,
+                        'ua' => substr($userAgent, 0, 128)
+                    ]);
+                    $clientHistory = array_slice($clientHistory, 0, 5);
+                    $updateData['client_type'] = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
+                }
+
+                // 保存到数据库
+                \DB::table('v2_user')
+                    ->where('id', $user['id'])
+                    ->update($updateData);
             }
-
-            $updateData = [
-                'client_login_at' => time()
-            ];
-
-            if ($shouldRecord) {
-                array_unshift($clientHistory, [
-                    'type' => $clientType,
-                    'time' => time(),
-                    'ip' => $realIp,
-                    'ua' => substr($userAgent, 0, 128)
-                ]);
-                $clientHistory = array_slice($clientHistory, 0, 5);
-                $updateData['client_type'] = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
-            }
-
-            // 保存到数据库
-            \DB::table('v2_user')
-                ->where('id', $user['id'])
-                ->update($updateData);
 
             // --- 🔐 安全加固：核心逻辑 ---
             // 1. 只要带了 security=1，无论什么 UA，一律下发加密流，防止探测器重放 URL 获取明文
@@ -508,9 +502,6 @@ class ClientController extends Controller
                 $class = new \App\Protocols\MOMclash($user, $servers);
                 $yaml = $class->handle();
                 $yaml = $this->sanitizeNormalContent($yaml, $flag);
-                
-                // 🔍 临时日志：直接查看后端在天阙APP返回时的真实内容
-                \Log::info("DEBUG-FP-MOMCLASH: " . substr($yaml, 0, 5000));
 
                 return response($yaml, 200, [
                     'Content-Type' => 'application/yaml; charset=utf-8',
@@ -526,9 +517,6 @@ class ClientController extends Controller
                         if (strpos($flag, $class->flag) !== false) {
                             $resContent = $class->handle();
                             $processed = $this->sanitizeNormalContent($resContent, $flag);
-
-                            // 🔍 临时日志
-                            \Log::info("DEBUG-FP-FLAG: " . substr($processed, 0, 5000));
 
                             return response($processed, 200, [
                                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
@@ -555,9 +543,6 @@ class ClientController extends Controller
                     $resContent = $class->handle();
                     $processed = $this->sanitizeNormalContent($resContent, $flag);
 
-                    // 🔍 临时日志
-                    \Log::info("DEBUG-FP-SINGBOX: " . substr($processed, 0, 5000));
-
                     $appName = config('v2board.app_name', 'V2Board');
                     return response($processed, 200, [
                         'Content-Type' => 'application/json',
@@ -572,9 +557,6 @@ class ClientController extends Controller
             $class = new General($user, $servers);
             $resContent = $class->handle();
             $processed = $this->sanitizeNormalContent($resContent, $flag);
-
-            // 🔍 临时日志
-            \Log::info("DEBUG-FP-GENERAL: " . substr($processed, 0, 5000));
 
             return response($processed, 200, [
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
