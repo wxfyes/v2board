@@ -80,23 +80,28 @@ class TraitorDefense
                 'reasons' => ["内鬼防御系统前置拦截", $reasonStr]
             ];
 
-            @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            // 修复：检查写入是否成功。如果没权限写入，就不要发 TG 报警，否则会无限发导致卡死
+            $writeResult = @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            
+            if ($writeResult !== false) {
+                // 只有成功写入文件后，才清空 session 和发报警
+                try {
+                    $authService = new \App\Services\AuthService($user);
+                    $authService->removeAllSession();
+                } catch (\Throwable $ex) {}
 
-            // 清除可能存在的 session
-            try {
-                $authService = new \App\Services\AuthService($user);
-                $authService->removeAllSession();
-            } catch (\Throwable $ex) {}
+                Log::channel('risk')->warning('[主动防御] 用户已自动导入蜜罐（黑名单触发）', [
+                    'user_id' => $userId,
+                    'email'   => $user->email,
+                    'reason'  => $reasonStr,
+                    'action'  => $action
+                ]);
 
-            Log::channel('risk')->warning('[主动防御] 用户已自动导入蜜罐（黑名单触发）', [
-                'user_id' => $userId,
-                'email'   => $user->email,
-                'reason'  => $reasonStr,
-                'action'  => $action
-            ]);
-
-            // 发送 TG 告警
-            self::sendTelegramAlert($user, $ip, $userAgent, $action, $reasonStr);
+                // 发送 TG 告警 (移交给异步任务或缩短超时时间)
+                self::sendTelegramAlert($user, $ip, $userAgent, $action, $reasonStr);
+            } else {
+                Log::channel('risk')->error('[内鬼防御] tianque_config.json 写入失败，请检查 storage 目录及文件读写权限！');
+            }
         }
     }
 
@@ -121,13 +126,13 @@ class TraitorDefense
             "🛠️ 触发动作：{$action}",
             "⚠️ 命中原因：{$reasonStr}",
             "🌐 IP：{$ip}",
-            "📱 UA：{$userAgent}",
             "🍯 状态：已第一时间打入蜜罐",
             "🕐 " . date('Y-m-d H:i:s'),
         ]);
 
+        // 修复：将发 TG 改为极短的 1 秒超时，且捕获所有异常，彻底防止 API 阻断导致 PHP 卡死
         try {
-            Http::timeout(5)->post(
+            Http::timeout(1)->post(
                 'https://api.telegram.org/bot' . trim($botToken) . '/sendMessage',
                 [
                     'chat_id' => trim($chatId),
