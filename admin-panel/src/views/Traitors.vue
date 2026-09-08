@@ -39,6 +39,7 @@
             <div class="section-title">
               <el-icon><Message /></el-icon>
               <span>内鬼邮箱列表</span>
+              <el-tag size="small" type="info" effect="plain" style="margin-left: 8px;">共 {{ emailCount }} 个</el-tag>
             </div>
             <div class="section-desc">一行一个邮箱，自动转小写并去重去空行</div>
             <el-input
@@ -55,6 +56,7 @@
             <div class="section-title">
               <el-icon><Place /></el-icon>
               <span>内鬼 IP 列表</span>
+              <el-tag size="small" type="info" effect="plain" style="margin-left: 8px;">共 {{ ipCount }} 个</el-tag>
             </div>
             <div class="section-desc">一行一个 IP 地址，建议只填具体的恶意 IP</div>
             <el-input
@@ -71,7 +73,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Check, Message, Place } from '@element-plus/icons-vue';
 import { getSecurePath } from '../api';
@@ -82,6 +84,16 @@ const emails = ref('');
 const ips = ref('');
 const matchCount = ref(0);
 const matchedEmails = ref([]);
+
+const emailCount = computed(() => {
+  if (!emails.value) return 0;
+  return emails.value.split('\n').filter(line => line.trim() !== '').length;
+});
+
+const ipCount = computed(() => {
+  if (!ips.value) return 0;
+  return ips.value.split('\n').filter(line => line.trim() !== '').length;
+});
 
 const fetchConfig = async () => {
   try {
