@@ -47,7 +47,7 @@ class TraitorController extends Controller
         $emails = $request->input('emails', '');
         $ips = $request->input('ips', '');
         
-        $emailsArray = array_filter(array_map('trim', explode("\n", $emails)));
+        $emailsArray = array_filter(array_map('trim', explode("\n", strtolower($emails))));
         $ipsArray = array_filter(array_map('trim', explode("\n", $ips)));
 
         $traitorListPath = storage_path('traitor_list.json');
