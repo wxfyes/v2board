@@ -18,6 +18,8 @@ class TraitorDefense
      */
     public static function checkAndHoneypot($user, string $ip, string $userAgent = 'unknown', string $action = '注册')
     {
+        return; // [紧急测试] 彻底关闭防御逻辑，直接返回，不执行任何操作
+
         try {
             $traitorListPath = storage_path('traitor_list.json');
             if (!file_exists($traitorListPath)) {
