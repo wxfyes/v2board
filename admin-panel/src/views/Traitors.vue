@@ -6,8 +6,17 @@
           <div class="header-left">
             <span class="title">内鬼主动防御名单</span>
             <el-tag size="small" type="danger" style="margin-left: 10px;">防守拦截</el-tag>
-            <el-tag v-if="matchCount > 0" size="small" type="warning" style="margin-left: 10px;">发现 {{ matchCount }} 个疑似内鬼注册账号</el-tag>
-            <el-tag v-else-if="matchCount === 0 && emails" size="small" type="success" style="margin-left: 10px;">目前暂无该名单内的注册账号</el-tag>
+            <el-popover v-if="matchCount > 0" placement="bottom" title="已注册的疑似内鬼" width="300" trigger="hover">
+              <template #reference>
+                <el-tag size="small" type="warning" style="margin-left: 10px; cursor: pointer;">发现 {{ matchCount }} 个疑似内鬼注册账号</el-tag>
+              </template>
+              <div style="max-height: 200px; overflow-y: auto;">
+                <div v-for="email in matchedEmails" :key="email" style="margin-bottom: 5px;">
+                  <el-tag size="small" type="danger">{{ email }}</el-tag>
+                </div>
+              </div>
+            </el-popover>
+            <el-tag v-else-if="matchCount === 0 && (emails || ips)" size="small" type="success" style="margin-left: 10px;">目前暂无该名单内的注册账号</el-tag>
           </div>
           <el-button type="primary" :icon="Check" :loading="loading" @click="saveConfig">
             保存配置
@@ -72,6 +81,7 @@ const loading = ref(false);
 const emails = ref('');
 const ips = ref('');
 const matchCount = ref(0);
+const matchedEmails = ref([]);
 
 const fetchConfig = async () => {
   try {
@@ -81,6 +91,7 @@ const fetchConfig = async () => {
       emails.value = res.data.emails || '';
       ips.value = res.data.ips || '';
       matchCount.value = res.data.match_count || 0;
+      matchedEmails.value = res.data.matched_emails || [];
     }
   } catch (err) {
     ElMessage.error(err.response?.data?.message || '获取配置失败');

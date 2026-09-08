@@ -1,1 +1,0 @@
-import{N as e,S as t,x as n}from"./index-CI3cnTdY.js";function r(){let r=e(typeof window<`u`?window.innerWidth<=768:!1),i=()=>{r.value=window.innerWidth<=768};return t(()=>{window.addEventListener(`resize`,i)}),n(()=>{window.removeEventListener(`resize`,i)}),{isMobile:r}}export{r as t};

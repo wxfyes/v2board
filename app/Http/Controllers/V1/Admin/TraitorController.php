@@ -26,15 +26,18 @@ class TraitorController extends Controller
         $emails = $data['emails'] ?? [];
         
         $matchCount = 0;
+        $matchedEmails = [];
         if (!empty($emails)) {
-            $matchCount = User::whereIn('email', $emails)->count();
+            $matchedEmails = User::whereIn('email', $emails)->pluck('email')->toArray();
+            $matchCount = count($matchedEmails);
         }
 
         return response([
             'data' => [
                 'emails' => implode("\n", $emails),
                 'ips' => implode("\n", $data['ips'] ?? []),
-                'match_count' => $matchCount
+                'match_count' => $matchCount,
+                'matched_emails' => $matchedEmails
             ]
         ]);
     }
