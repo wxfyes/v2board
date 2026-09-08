@@ -60,6 +60,10 @@ class TraitorDefense
             $config['honeypot_times'] = [];
         }
 
+        if (!isset($config['flagged_users']) || !is_array($config['flagged_users'])) {
+            $config['flagged_users'] = [];
+        }
+
         $userId = (int)$user->id;
         $currentHoneypots = array_map('intval', $config['honeypot_users']);
 
@@ -69,12 +73,12 @@ class TraitorDefense
             $config['honeypot_users'] = $currentHoneypots;
             $config['honeypot_times'][(string)$userId] = time();
 
-            // 从疑似标记名单中移出（如果存在）
-            if (isset($config['flagged_users']) && is_array($config['flagged_users'])) {
-                if (isset($config['flagged_users'][(string)$userId])) {
-                    unset($config['flagged_users'][(string)$userId]);
-                }
-            }
+            // 同时记录到 flagged_users 以便在安全审计中展示详细拦截原委
+            $config['flagged_users'][(string)$userId] = [
+                'email' => $user->email,
+                'time' => time(),
+                'reasons' => ["内鬼防御系统前置拦截", $reasonStr]
+            ];
 
             @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
