@@ -63,7 +63,8 @@
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Check, Message, Place } from '@element-plus/icons-vue';
-import axios from 'axios';
+import { getSecurePath } from '../api';
+import api from '../api';
 
 const loading = ref(false);
 const emails = ref('');
@@ -71,10 +72,9 @@ const ips = ref('');
 
 const fetchConfig = async () => {
   try {
-    const res = await axios.get('/api/v1/admin/traitor/fetch', {
-      headers: { Authorization: localStorage.getItem('authorization') }
-    });
-    if (res.data.data) {
+    const securePath = getSecurePath();
+    const res = await api.get(`/${securePath}/traitor/fetch`);
+    if (res.data && res.data.data) {
       emails.value = res.data.data.emails || '';
       ips.value = res.data.data.ips || '';
     }
@@ -86,11 +86,10 @@ const fetchConfig = async () => {
 const saveConfig = async () => {
   loading.value = true;
   try {
-    await axios.post('/api/v1/admin/traitor/save', {
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/traitor/save`, {
       emails: emails.value,
       ips: ips.value
-    }, {
-      headers: { Authorization: localStorage.getItem('authorization') }
     });
     ElMessage.success('保存成功');
     fetchConfig(); // 刷新格式化后的数据
