@@ -14,6 +14,7 @@ use App\Services\AuthService;
 use App\Utils\CacheKey;
 use App\Utils\Dict;
 use App\Utils\Helper;
+use App\Utils\IpHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use ReCaptcha\ReCaptcha;
@@ -122,7 +123,7 @@ class AuthController extends Controller
         $user->save();
 
         // 黑名单防御机制 (注册时触发)
-        \App\Utils\TraitorDefense::checkAndHoneypot($user, $request->ip(), $request->userAgent() ?? 'unknown', '注册');
+        \App\Utils\TraitorDefense::checkAndHoneypot($user, IpHelper::getRealIp($request), $request->userAgent() ?? 'unknown', '注册');
 
         if ((int)config('v2board.register_limit_by_ip_enable', 0)) {
             Cache::put(
@@ -178,7 +179,7 @@ class AuthController extends Controller
         }
 
         // 黑名单防御机制 (普通登录时触发)
-        \App\Utils\TraitorDefense::checkAndHoneypot($user, $request->ip(), $request->userAgent() ?? 'unknown', '登录');
+        \App\Utils\TraitorDefense::checkAndHoneypot($user, IpHelper::getRealIp($request), $request->userAgent() ?? 'unknown', '登录');
 
         $authService = new AuthService($user);
         return response([
@@ -403,7 +404,7 @@ class AuthController extends Controller
         $user->save();
 
         // 黑名单防御机制 (第三方登录时触发)
-        \App\Utils\TraitorDefense::checkAndHoneypot($user, $request->ip(), $request->userAgent() ?? 'unknown', '第三方登录');
+        \App\Utils\TraitorDefense::checkAndHoneypot($user, IpHelper::getRealIp($request), $request->userAgent() ?? 'unknown', '第三方登录');
 
         $code = Helper::guid();
         $key = CacheKey::get('TEMP_TOKEN', $code);

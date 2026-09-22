@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
+use App\Utils\IpHelper;
 
 /**
  * 订阅风控中间件（全功能版）
@@ -108,23 +109,7 @@ class SubscribeRiskControl
 
     private function getRealIp(Request $request): string
     {
-        $cfIp = $request->header('CF-Connecting-IP');
-        if ($cfIp && filter_var(trim($cfIp), FILTER_VALIDATE_IP)) {
-            return trim($cfIp);
-        }
-
-        $xff = $request->header('X-Forwarded-For');
-        if ($xff) {
-            foreach (explode(',', $xff) as $candidate) {
-                $candidate = trim($candidate);
-                if (filter_var($candidate, FILTER_VALIDATE_IP,
-                        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                    return $candidate;
-                }
-            }
-        }
-
-        return $request->ip();
+        return IpHelper::getRealIp($request);
     }
 
     // -------------------------------------------------------------------------

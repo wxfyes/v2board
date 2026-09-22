@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use App\Models\User;
 use App\Utils\Helper;
+use App\Utils\IpHelper;
 use Illuminate\Support\Facades\Cache;
 
 class Client
@@ -449,14 +450,6 @@ class Client
      */
     private function getRealIp($request)
     {
-        if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-            return $_SERVER['HTTP_CF_CONNECTING_IP'];
-        } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-            return trim($ips[0]);
-        } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
-            return $_SERVER['HTTP_X_REAL_IP'];
-        }
-        return $request->ip();
+        return IpHelper::getRealIp($request);
     }
 }

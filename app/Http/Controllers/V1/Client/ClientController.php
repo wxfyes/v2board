@@ -10,6 +10,7 @@ use App\Protocols\ClashMeta;
 use App\Services\ServerService;
 use App\Services\UserService;
 use App\Utils\Helper;
+use App\Utils\IpHelper;
 use Illuminate\Http\Request;
 
 class ClientController extends Controller
@@ -57,20 +58,15 @@ class ClientController extends Controller
         return false;
     }
 
+    private function getRealIp(Request $request)
+    {
+        return IpHelper::getRealIp($request);
+    }
+
     public function subscribe(Request $request)
     {
         // 穿透 CDN 与反向代理获取真实用户公网 IP
-        $realIp = null;
-        if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-            $realIp = $_SERVER['HTTP_CF_CONNECTING_IP'];
-        } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-            $realIp = trim($ips[0]);
-        } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
-            $realIp = $_SERVER['HTTP_X_REAL_IP'];
-        } else {
-            $realIp = $request->ip();
-        }
+        $realIp = $this->getRealIp($request);
 
         // --- 🛡️ 订阅 IP 黑名单拦截 (支持 CIDR 网段) ---
         $configPath = storage_path('tianque_config.json');
@@ -207,17 +203,7 @@ class ClientController extends Controller
                         $clientHistory = $decoded;
                     }
                 }
-                $realIp = null;
-                if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-                    $realIp = $_SERVER['HTTP_CF_CONNECTING_IP'];
-                } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-                    $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-                    $realIp = trim($ips[0]);
-                } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
-                    $realIp = $_SERVER['HTTP_X_REAL_IP'];
-                } else {
-                    $realIp = $request->ip();
-                }
+                $realIp = $this->getRealIp($request);
 
                 // 判断是否需要忽略此 IP 记录 (如本站节点 IP)
                 $shouldRecord = true;
@@ -437,17 +423,7 @@ class ClientController extends Controller
                 }
 
                 // 穿透 CDN 与反向代理获取真实用户公网 IP
-                $realIp = null;
-                if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-                    $realIp = $_SERVER['HTTP_CF_CONNECTING_IP'];
-                } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-                    $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-                    $realIp = trim($ips[0]);
-                } elseif (isset($_SERVER['HTTP_X_REAL_IP'])) {
-                    $realIp = $_SERVER['HTTP_X_REAL_IP'];
-                } else {
-                    $realIp = $request->ip();
-                }
+                $realIp = $this->getRealIp($request);
 
                 // 判断是否需要忽略此 IP 记录 (复用上方已读取的配置，无需读盘)
                 $shouldRecord = true;
