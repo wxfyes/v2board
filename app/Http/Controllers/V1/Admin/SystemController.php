@@ -201,7 +201,7 @@ class SystemController extends Controller
                 }
                 if ($xdbSearcher === null) {
                     $header = \App\Utils\Ip2RegionSearcher::loadHeaderFromFile($xdbPath);
-                    $version = \App\Utils\Ip2RegionSearcher::versionFromHeader($header);
+                    $version = \App\Utils\Util::versionFromHeader($header);
                     $cBuff = \App\Utils\Ip2RegionSearcher::loadContentFromFile($xdbPath);
                     $xdbSearcher = \App\Utils\Ip2RegionSearcher::newWithBuffer($version, $cBuff);
                 }
