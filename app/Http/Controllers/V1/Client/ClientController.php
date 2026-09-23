@@ -147,16 +147,19 @@ class ClientController extends Controller
         try {
             // --- 🛡️ 订阅雷达日志：无限制全量记录所有拉取请求 ---
             try {
-                if (!\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
-                    \Illuminate\Support\Facades\Schema::create('v2_subscribe_log', function ($table) {
-                        $table->increments('id');
-                        $table->integer('user_id');
-                        $table->string('type', 255)->nullable();
-                        $table->string('ip', 255)->nullable();
-                        $table->text('ua')->nullable();
-                        $table->integer('created_at')->nullable();
-                        $table->integer('updated_at')->nullable();
-                    });
+                if (!\Illuminate\Support\Facades\Cache::get('v2_subscribe_log_created')) {
+                    if (!\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
+                        \Illuminate\Support\Facades\Schema::create('v2_subscribe_log', function ($table) {
+                            $table->increments('id');
+                            $table->integer('user_id');
+                            $table->string('type', 255)->nullable();
+                            $table->string('ip', 255)->nullable();
+                            $table->text('ua')->nullable();
+                            $table->integer('created_at')->nullable();
+                            $table->integer('updated_at')->nullable();
+                        });
+                    }
+                    \Illuminate\Support\Facades\Cache::put('v2_subscribe_log_created', true, 86400 * 365);
                 }
                 
                 $tmpUa = $request->header('User-Agent') ?? '';

@@ -421,17 +421,20 @@ class AuthController extends Controller
     private function logLogin(\Illuminate\Http\Request $request, $userId, $email, $type)
     {
         try {
-            if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
-                \Illuminate\Support\Facades\Schema::create('v2_user_login_log', function ($table) {
-                    $table->increments('id');
-                    $table->integer('user_id')->default(0);
-                    $table->string('email', 128)->nullable();
-                    $table->string('ip', 255)->nullable();
-                    $table->string('type', 64)->nullable();
-                    $table->text('ua')->nullable();
-                    $table->integer('created_at')->nullable();
-                    $table->integer('updated_at')->nullable();
-                });
+            if (!\Illuminate\Support\Facades\Cache::get('v2_user_login_log_created')) {
+                if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+                    \Illuminate\Support\Facades\Schema::create('v2_user_login_log', function ($table) {
+                        $table->increments('id');
+                        $table->integer('user_id')->default(0);
+                        $table->string('email', 128)->nullable();
+                        $table->string('ip', 255)->nullable();
+                        $table->string('type', 64)->nullable();
+                        $table->text('ua')->nullable();
+                        $table->integer('created_at')->nullable();
+                        $table->integer('updated_at')->nullable();
+                    });
+                }
+                \Illuminate\Support\Facades\Cache::put('v2_user_login_log_created', true, 86400 * 365);
             }
 
             \Illuminate\Support\Facades\DB::table('v2_user_login_log')->insert([
