@@ -110,4 +110,52 @@ class IpHelper
 
         return false;
     }
+
+    public static function ipLocation(string $ip): string
+    {
+        if (empty($ip) || $ip === '127.0.0.1' || !filter_var($ip, FILTER_VALIDATE_IP)) {
+            return '局域网';
+        }
+
+        $cacheKey = "ip_loc_" . md5($ip);
+        if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+            return \Illuminate\Support\Facades\Cache::get($cacheKey);
+        }
+
+        try {
+            static $xdbSearcher = null;
+            $xdbPath = app_path('Utils/ip2region.xdb');
+            if (file_exists($xdbPath)) {
+                if (!class_exists('\App\Utils\Ip2RegionSearcher')) {
+                    require_once app_path('Utils/Ip2RegionSearcher.php');
+                }
+                if ($xdbSearcher === null) {
+                    $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
+                    $version = \App\Utils\Util::versionFromHeader($header);
+                    $cBuff = \App\Utils\Util::loadContentFromFile($xdbPath);
+                    $xdbSearcher = \App\Utils\Ip2RegionSearcher::newWithBuffer($version, $cBuff);
+                }
+                $region = $xdbSearcher->search($ip);
+                if ($region) {
+                    // ip2region format: 国家|区域|省份|城市|ISP
+                    $parts = explode('|', $region);
+                    $locationParts = [];
+                    foreach ($parts as $part) {
+                        if ($part !== '0' && !empty($part)) {
+                            $locationParts[] = $part;
+                        }
+                    }
+                    $location = implode('-', array_unique($locationParts));
+                    if ($location) {
+                        \Illuminate\Support\Facades\Cache::put($cacheKey, $location, 86400 * 30);
+                        return $location;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('IpLocation Parse Error: ' . $e->getMessage());
+        }
+
+        return '未知';
+    }
 }

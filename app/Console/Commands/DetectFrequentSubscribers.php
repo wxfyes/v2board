@@ -707,39 +707,8 @@ class DetectFrequentSubscribers extends Command
      */
     private function getIpLocation($ip)
     {
-        if (empty($ip) || $ip === '127.0.0.1' || !filter_var($ip, FILTER_VALIDATE_IP)) {
-            return '本地局域网';
-        }
-
-        $cacheKey = "ip_loc_" . md5($ip);
-        if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
-            return \Illuminate\Support\Facades\Cache::get($cacheKey);
-        }
-
-        $url = "http://ip-api.com/json/{$ip}?lang=zh-CN";
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 2);
-        $res = curl_exec($ch);
-        curl_close($ch);
-
-        if ($res) {
-            $data = json_decode($res, true);
-            if (isset($data['status']) && $data['status'] === 'success') {
-                $country = $data['country'] ?? '';
-                $region = $data['regionName'] ?? '';
-                $city = $data['city'] ?? '';
-                $isp = $data['isp'] ?? '';
-                $loc = "{$country} {$region} {$city}" . ($isp ? " ({$isp})" : "");
-                \Illuminate\Support\Facades\Cache::put($cacheKey, $loc, 86400); // 缓存一天
-                return $loc;
-            }
-        }
-
-        return '未知地区';
+        return \App\Utils\IpHelper::ipLocation($ip);
     }
-
     private function filterClientHistory(array $history, array $ignoreIps)
     {
         return array_filter($history, function($item) use ($ignoreIps) {
