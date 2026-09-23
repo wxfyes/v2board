@@ -53,6 +53,13 @@
           </template>
         </el-table-column>
 
+        <el-table-column label="归属地" min-width="180">
+          <template #default="scope">
+            <el-tag type="info" effect="plain" v-if="scope.row.location">{{ scope.row.location }}</el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+
         <el-table-column label="拉取时间" width="180" align="center">
           <template #default="scope">
             <span>{{ formatTime(scope.row.created_at) }}</span>

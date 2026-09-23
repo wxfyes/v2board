@@ -115,12 +115,79 @@ class SystemController extends Controller
         if ($request->input('ua')) $builder->where('ua', 'LIKE', '%'.$request->input('ua').'%');
         $total = $builder->count();
         $res = $builder->forPage($current, $pageSize)->get();
-        // 附加上用户的 Email 以方便查看
+        // 附加上用户的 Email 和 IP归属地 以方便查看
         foreach ($res as $log) {
             $u = \App\Models\User::find($log->user_id);
             $log->email = $u ? $u->email : '未知用户';
+            $log->location = $this->getIpLocation($log->ip);
         }
         return response(['data' => $res, 'total' => $total]);
+    }
+
+    private function getIpLocation($ip)
+    {
+        if (empty($ip) || $ip === '127.0.0.1' || !filter_var($ip, FILTER_VALIDATE_IP)) {
+            return '本地局域网';
+        }
+
+        $cacheKey = "ip_loc_" . md5($ip);
+        if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+            return \Illuminate\Support\Facades\Cache::get($cacheKey);
+        }
+
+        try {
+            $ctx = stream_context_create(['http' => ['timeout' => 1]]);
+            $res = @file_get_contents("http://ip-api.com/json/{$ip}?lang=zh-CN", false, $ctx);
+            if ($res) {
+                $data = json_decode($res, true);
+                if (isset($data['status']) && $data['status'] === 'success') {
+                    $country = $data['country'] ?? '';
+                    $region = $data['regionName'] ?? '';
+                    $city = $data['city'] ?? '';
+                    $isp = $data['isp'] ?? '';
+                    $org = $data['org'] ?? '';
+
+                    $ispLower = strtolower($isp . ' ' . $org);
+                    $ispCn = '';
+                    if (strpos($ispLower, 'chinanet') !== false || strpos($ispLower, 'telecom') !== false) {
+                        $ispCn = '电信';
+                    } elseif (strpos($ispLower, 'unicom') !== false) {
+                        $ispCn = '联通';
+                    } elseif (strpos($ispLower, 'mobile') !== false || strpos($ispLower, 'cmnet') !== false) {
+                        $ispCn = '移动';
+                    } elseif (strpos($ispLower, 'amazon') !== false || strpos($ispLower, 'aws') !== false) {
+                        $ispCn = 'AWS';
+                    } elseif (strpos($ispLower, 'alibaba') !== false || strpos($ispLower, 'aliyun') !== false) {
+                        $ispCn = '阿里云';
+                    } elseif (strpos($ispLower, 'tencent') !== false) {
+                        $ispCn = '腾讯云';
+                    } elseif (strpos($ispLower, 'cloudflare') !== false) {
+                        $ispCn = 'Cloudflare';
+                    } else {
+                        $ispCn = $isp;
+                    }
+
+                    if ($country === '中国') {
+                        $loc = $region;
+                        if ($city && $city !== $region) {
+                            $loc .= '-' . $city;
+                        }
+                        $location = trim('中国-' . $loc . '-' . $ispCn);
+                    } else {
+                        $loc = $country;
+                        if ($region && $region !== $country) {
+                            $loc .= '-' . $region;
+                        }
+                        $location = trim($loc . '-' . $ispCn);
+                    }
+
+                    \Illuminate\Support\Facades\Cache::put($cacheKey, $location, 86400 * 30);
+                    return $location;
+                }
+            }
+        } catch (\Exception $e) {
+        }
+        return '未知位置';
     }
 
     public function getSystemLog(Request $request) {
