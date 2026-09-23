@@ -190,6 +190,7 @@ class AdminRoute
             $router->get ('/system/getQueueMasters', '\\Laravel\\Horizon\\Http\\Controllers\\MasterSupervisorController@index');
             $router->get ('/system/getSystemLog', 'V1\\Admin\\SystemController@getSystemLog');
             $router->get ('/system/getSubscribeLog', 'V1\\Admin\\SystemController@getSubscribeLog');
+            $router->get ('/system/getTopSubscribeUsers', 'V1\\Admin\\SystemController@getTopSubscribeUsers');
             $router->get ('/system/getLoginLog', 'V1\\Admin\\SystemController@getLoginLog');
             // Theme
             $router->get ('/theme/getThemes', 'V1\\Admin\\ThemeController@getThemes');

@@ -244,6 +244,19 @@ class UserController extends Controller
         if ($user->invite_user_id) {
             $user['invite_user'] = User::find($user->invite_user_id);
         }
+        $configPath = storage_path('tianque_config.json');
+        $isHoneypot = false;
+        if (file_exists($configPath)) {
+            $tianqueConfig = json_decode(@file_get_contents($configPath), true);
+            if (is_array($tianqueConfig) && isset($tianqueConfig['honeypot_users'])) {
+                $honeypotUsers = array_map('intval', $tianqueConfig['honeypot_users']);
+                if (in_array((int)$user->id, $honeypotUsers, true)) {
+                    $isHoneypot = true;
+                }
+            }
+        }
+        $user['is_honeypot'] = $isHoneypot;
+
         return response([
             'data' => $user
         ]);

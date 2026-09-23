@@ -142,6 +142,45 @@ class SystemController extends Controller
         return response(['data' => $res, 'total' => $total]);
     }
 
+    public function getTopSubscribeUsers(Request $request) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+        $today = strtotime('today');
+        
+        $counts = \App\Models\SubscribeLog::where('created_at', '>=', $today)
+            ->selectRaw('user_id, count(*) as today_count')
+            ->groupBy('user_id')
+            ->orderBy('today_count', 'DESC')
+            ->limit(50)
+            ->get();
+            
+        $userIds = $counts->pluck('user_id')->toArray();
+        $users = empty($userIds) ? collect([]) : \App\Models\User::whereIn('id', $userIds)->get()->keyBy('id');
+        
+        $res = [];
+        foreach ($counts as $countRecord) {
+            $userId = $countRecord->user_id;
+            
+            $latestLog = \App\Models\SubscribeLog::where('user_id', $userId)
+                ->where('created_at', '>=', $today)
+                ->orderBy('created_at', 'DESC')
+                ->first();
+                
+            if (!$latestLog) continue;
+            
+            $latestLog->today_count = $countRecord->today_count;
+            $u = $users->get($userId);
+            $latestLog->email = $u ? $u->email : '未知用户';
+            $latestLog->location = $this->getIpLocation($latestLog->ip);
+            
+            $res[] = $latestLog;
+        }
+        
+        return response(['data' => $res, 'total' => count($res)]);
+    }
+
+
     private function getIpLocation($ip)
     {
         if (empty($ip) || $ip === '127.0.0.1' || !filter_var($ip, FILTER_VALIDATE_IP)) {
