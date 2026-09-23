@@ -31,13 +31,13 @@
       >
         <el-table-column label="User ID" width="100" align="center">
           <template #default="scope">
-            <span>#{{ scope.row.user_id }}</span>
+            <span class="clickable-link" @click="showUserDetail(scope.row.user_id)">#{{ scope.row.user_id }}</span>
           </template>
         </el-table-column>
 
         <el-table-column label="邮箱 / 账号" min-width="180">
           <template #default="scope">
-            <span>{{ scope.row.email || '未知用户' }}</span>
+            <span class="clickable-link" @click="showUserDetail(scope.row.user_id)">{{ scope.row.email || '未知用户' }}</span>
           </template>
         </el-table-column>
 
@@ -106,6 +106,8 @@
         />
       </div>
     </el-card>
+
+    <UserDetailDialog v-model="detailVisible" :user-id="currentUserId" @change="getList" />
   </div>
 </template>
 
@@ -113,10 +115,19 @@
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import api, { getSecurePath } from '../api';
+import UserDetailDialog from '../components/UserDetailDialog.vue';
 
 const list = ref([]);
 const total = ref(0);
 const listLoading = ref(true);
+
+const detailVisible = ref(false);
+const currentUserId = ref(null);
+
+const showUserDetail = (userId) => {
+  currentUserId.value = userId;
+  detailVisible.value = true;
+};
 
 const listQuery = reactive({
   current: 1,
@@ -196,5 +207,13 @@ onMounted(() => {
 .card-header {
   font-weight: bold;
   color: var(--el-color-primary);
+}
+.clickable-link {
+  color: var(--el-color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.clickable-link:hover {
+  opacity: 0.8;
 }
 </style>

@@ -54,7 +54,13 @@
 
         <el-table-column v-if="showColumns.includes('email')" label="邮箱 / 账号" min-width="180">
           <template #default="scope">
-            <span>{{ scope.row.email || '未知' }} <el-tag size="small" type="info" v-if="scope.row.user_id">UID:{{ scope.row.user_id }}</el-tag></span>
+            <span 
+              class="clickable-link" 
+              @click="scope.row.user_id ? showUserDetail(scope.row.user_id) : null"
+            >
+              {{ scope.row.email || '未知' }}
+            </span>
+            <el-tag size="small" type="info" v-if="scope.row.user_id" style="margin-left: 5px;">UID:{{ scope.row.user_id }}</el-tag>
           </template>
         </el-table-column>
 
@@ -108,6 +114,8 @@
         />
       </div>
     </el-card>
+
+    <UserDetailDialog v-model="detailVisible" :user-id="currentUserId" @change="getList" />
   </div>
 </template>
 
@@ -115,10 +123,19 @@
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import api, { getSecurePath } from '../api';
+import UserDetailDialog from '../components/UserDetailDialog.vue';
 
 const list = ref([]);
 const total = ref(0);
 const listLoading = ref(true);
+
+const detailVisible = ref(false);
+const currentUserId = ref(null);
+
+const showUserDetail = (userId) => {
+  currentUserId.value = userId;
+  detailVisible.value = true;
+};
 
 const showColumns = ref(['id', 'email', 'ip', 'location', 'time', 'type']);
 
@@ -195,5 +212,13 @@ onMounted(() => {
 .card-header {
   font-weight: bold;
   color: var(--el-color-primary);
+}
+.clickable-link {
+  color: var(--el-color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.clickable-link:hover {
+  opacity: 0.8;
 }
 </style>

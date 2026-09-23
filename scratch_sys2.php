@@ -107,13 +107,6 @@ class SystemController extends Controller
         if (!\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
             return response(['data' => [], 'total' => 0]);
         }
-        
-        try {
-            \Illuminate\Support\Facades\Schema::table('v2_subscribe_log', function ($table) {
-                $table->index(['user_id', 'created_at'], 'idx_user_created');
-            });
-        } catch (\Exception $e) {}
-
         $current = $request->input('current') ? $request->input('current') : 1;
         $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 20;
         $builder = \App\Models\SubscribeLog::orderBy('created_at', 'DESC');
@@ -122,22 +115,11 @@ class SystemController extends Controller
         if ($request->input('ua')) $builder->where('ua', 'LIKE', '%'.$request->input('ua').'%');
         $total = $builder->count();
         $res = $builder->forPage($current, $pageSize)->get();
-        
-        $userIds = $res->pluck('user_id')->unique()->toArray();
-        $users = empty($userIds) ? collect([]) : \App\Models\User::whereIn('id', $userIds)->get()->keyBy('id');
-        
-        $today = strtotime('today');
-        $todayCounts = empty($userIds) ? collect([]) : \App\Models\SubscribeLog::whereIn('user_id', $userIds)
-            ->where('created_at', '>=', $today)
-            ->selectRaw('user_id, count(*) as count')
-            ->groupBy('user_id')
-            ->pluck('count', 'user_id');
-
+        // 附加上用户的 Email 和 IP归属地 以方便查看
         foreach ($res as $log) {
-            $u = $users->get($log->user_id);
+            $u = \App\Models\User::find($log->user_id);
             $log->email = $u ? $u->email : '未知用户';
             $log->location = $this->getIpLocation($log->ip);
-            $log->today_count = $todayCounts->get($log->user_id) ?? 0;
         }
         return response(['data' => $res, 'total' => $total]);
     }
@@ -216,37 +198,6 @@ class SystemController extends Controller
         $total = $builder->count();
         $res = $builder->forPage($current, $pageSize)
             ->get();
-        return response([
-            'data' => $res,
-            'total' => $total
-        ]);
-    }
-    public function getLoginLog(\Illuminate\Http\Request $request) {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
-            return response(['data' => [], 'total' => 0]);
-        }
-        $current = $request->input('current') ? $request->input('current') : 1;
-        $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 10;
-        
-        $builder = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
-        
-        if ($request->input('email')) {
-            $builder->where('email', $request->input('email'));
-        }
-        if ($request->input('ip')) {
-            $builder->where('ip', $request->input('ip'));
-        }
-        if ($request->input('type')) {
-            $builder->where('type', 'like', '%' . $request->input('type') . '%');
-        }
-
-        $total = $builder->count();
-        $res = $builder->forPage($current, $pageSize)->get();
-
-        foreach ($res as $log) {
-            $log->location = $this->getIpLocation($log->ip);
-        }
-
         return response([
             'data' => $res,
             'total' => $total
