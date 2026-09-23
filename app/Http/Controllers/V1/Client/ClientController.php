@@ -145,6 +145,39 @@ class ClientController extends Controller
         ], JSON_UNESCAPED_UNICODE));
 
         try {
+            // --- 🛡️ 订阅雷达日志：无限制全量记录所有拉取请求 ---
+            try {
+                if (!\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
+                    \Illuminate\Support\Facades\Schema::create('v2_subscribe_log', function ($table) {
+                        $table->increments('id');
+                        $table->integer('user_id');
+                        $table->string('type', 255)->nullable();
+                        $table->string('ip', 255)->nullable();
+                        $table->text('ua')->nullable();
+                        $table->integer('created_at')->nullable();
+                        $table->integer('updated_at')->nullable();
+                    });
+                }
+                
+                $tmpUa = $request->header('User-Agent') ?? '';
+                $clientType = $this->parseClientType($tmpUa);
+                if ($isShadowrocketRoute && ($clientType === '未知' || stripos($tmpUa, 'deno') !== false)) {
+                    $clientType = 'Shadowrocket';
+                }
+                $realIp = $this->getRealIp($request);
+                
+                \DB::table('v2_subscribe_log')->insert([
+                    'user_id' => $user['id'],
+                    'type' => $clientType,
+                    'ip' => $realIp,
+                    'ua' => substr($tmpUa, 0, 500),
+                    'created_at' => time(),
+                    'updated_at' => time()
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Subscribe log insert error: ' . $e->getMessage());
+            }
+
             $userService = new UserService();
             $isBanned = (bool)($user['banned'] ?? 0);
             $isBannedBait = false;
