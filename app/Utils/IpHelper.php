@@ -144,10 +144,17 @@ class IpHelper
                 if ($searcher === null) {
                     $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
                     $version = \App\Utils\Util::versionFromHeader($header);
-                    $cBuff = \App\Utils\Util::loadContentFromFile($xdbPath);
-                    $searcher = \App\Utils\Ip2RegionSearcher::newWithBuffer($version, $cBuff);
+                    $vIndex = \App\Utils\Util::loadVectorIndexFromFile($xdbPath);
+                    $searcher = \App\Utils\Ip2RegionSearcher::newWithVectorIndex($version, $xdbPath, $vIndex);
                 }
-                $region = $searcher->search($ip);
+                
+                try {
+                    $region = $searcher->search($ip);
+                } catch (\Throwable $e) {
+                    // 如果文件被更新导致句柄失效，清空缓存下次重载
+                    $searcher = null;
+                    throw $e;
+                }
                 if ($region) {
                     // ip2region format: 国家|区域|省份|城市|ISP
                     $parts = explode('|', $region);
