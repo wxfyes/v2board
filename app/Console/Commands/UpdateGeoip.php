@@ -12,23 +12,28 @@ class UpdateGeoip extends Command
 
     public function handle()
     {
-        $url = 'https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region_v4.xdb';
-        $dest = app_path('Utils/ip2region.xdb');
+        $files = [
+            'ip2region_v4.xdb' => 'https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region_v4.xdb',
+            'ip2region_v6.xdb' => 'https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region_v6.xdb',
+        ];
 
-        $this->info("Starting to download ip2region.xdb...");
+        foreach ($files as $filename => $url) {
+            $dest = app_path('Utils/' . $filename);
+            $this->info("Starting to download {$filename}...");
 
-        try {
-            // 120 秒传输超时
-            $response = Http::timeout(120)->get($url);
+            try {
+                // 120 秒传输超时
+                $response = Http::timeout(120)->get($url);
 
-            if ($response->successful()) {
-                file_put_contents($dest, $response->body());
-                $this->info("Successfully downloaded and saved ip2region.xdb to {$dest}");
-            } else {
-                $this->error("Failed to download ip2region.xdb. Status code: " . $response->status());
+                if ($response->successful()) {
+                    file_put_contents($dest, $response->body());
+                    $this->info("Successfully downloaded and saved {$filename} to {$dest}");
+                } else {
+                    $this->error("Failed to download {$filename}. Status code: " . $response->status());
+                }
+            } catch (\Throwable $e) {
+                $this->error("Failed to download {$filename}: " . $e->getMessage());
             }
-        } catch (\Throwable $e) {
-            $this->error("Failed to download ip2region.xdb: " . $e->getMessage());
         }
 
         return 0;

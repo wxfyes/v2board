@@ -123,19 +123,31 @@ class IpHelper
         }
 
         try {
-            static $xdbSearcher = null;
-            $xdbPath = app_path('Utils/ip2region.xdb');
+            static $xdbSearcherV4 = null;
+            static $xdbSearcherV6 = null;
+            
+            $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+            $xdbPath = $isV6 ? app_path('Utils/ip2region_v6.xdb') : app_path('Utils/ip2region_v4.xdb');
+            
+            // 兼容之前下载的 ip2region.xdb (作为 v4)
+            if (!$isV6 && !file_exists($xdbPath) && file_exists(app_path('Utils/ip2region.xdb'))) {
+                $xdbPath = app_path('Utils/ip2region.xdb');
+            }
+
             if (file_exists($xdbPath)) {
                 if (!class_exists('\App\Utils\Ip2RegionSearcher')) {
                     require_once app_path('Utils/Ip2RegionSearcher.php');
                 }
-                if ($xdbSearcher === null) {
+                
+                $searcher =& ${$isV6 ? 'xdbSearcherV6' : 'xdbSearcherV4'};
+                
+                if ($searcher === null) {
                     $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
                     $version = \App\Utils\Util::versionFromHeader($header);
                     $cBuff = \App\Utils\Util::loadContentFromFile($xdbPath);
-                    $xdbSearcher = \App\Utils\Ip2RegionSearcher::newWithBuffer($version, $cBuff);
+                    $searcher = \App\Utils\Ip2RegionSearcher::newWithBuffer($version, $cBuff);
                 }
-                $region = $xdbSearcher->search($ip);
+                $region = $searcher->search($ip);
                 if ($region) {
                     // ip2region format: 国家|区域|省份|城市|ISP
                     $parts = explode('|', $region);
