@@ -193,6 +193,24 @@ class SystemController extends Controller
         }
 
         try {
+            static $reader = null;
+            $mmdbPath = storage_path('app/GeoLite2-City.mmdb');
+            if (file_exists($mmdbPath) && class_exists('\GeoIp2\Database\Reader')) {
+                if ($reader === null) {
+                    $reader = new \GeoIp2\Database\Reader($mmdbPath);
+                }
+                $record = $reader->city($ip);
+                $country = $record->country->names['zh-CN'] ?? $record->country->names['en'] ?? '';
+                $city = $record->city->names['zh-CN'] ?? $record->city->names['en'] ?? '';
+                $location = trim($country . '-' . $city, '-');
+                if ($location) {
+                    \Illuminate\Support\Facades\Cache::put($cacheKey, $location, 86400 * 30);
+                    return $location;
+                }
+            }
+        } catch (\Exception $e) {}
+
+        try {
             $ctx = stream_context_create(['http' => ['timeout' => 1]]);
             $res = @file_get_contents("http://ip-api.com/json/{$ip}?lang=zh-CN", false, $ctx);
             if ($res) {
