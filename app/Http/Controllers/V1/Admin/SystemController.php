@@ -193,6 +193,38 @@ class SystemController extends Controller
         }
 
         try {
+            static $xdbSearcher = null;
+            $xdbPath = app_path('Utils/ip2region.xdb');
+            if (file_exists($xdbPath)) {
+                if (!class_exists('\App\Utils\Ip2RegionSearcher')) {
+                    require_once app_path('Utils/Ip2RegionSearcher.php');
+                }
+                if ($xdbSearcher === null) {
+                    $header = \App\Utils\Ip2RegionSearcher::loadHeaderFromFile($xdbPath);
+                    $version = \App\Utils\Ip2RegionSearcher::versionFromHeader($header);
+                    $cBuff = \App\Utils\Ip2RegionSearcher::loadContentFromFile($xdbPath);
+                    $xdbSearcher = \App\Utils\Ip2RegionSearcher::newWithBuffer($version, $cBuff);
+                }
+                $region = $xdbSearcher->search($ip);
+                if ($region) {
+                    // ip2region format: 国家|区域|省份|城市|ISP
+                    $parts = explode('|', $region);
+                    $locationParts = [];
+                    foreach ($parts as $part) {
+                        if ($part !== '0' && !empty($part)) {
+                            $locationParts[] = $part;
+                        }
+                    }
+                    $location = implode('-', array_unique($locationParts));
+                    if ($location) {
+                        \Illuminate\Support\Facades\Cache::put($cacheKey, $location, 86400 * 30);
+                        return $location;
+                    }
+                }
+            }
+        } catch (\Exception $e) {}
+
+        try {
             static $reader = null;
             $mmdbPath = storage_path('app/GeoLite2-City.mmdb');
             if (file_exists($mmdbPath) && class_exists('\GeoIp2\Database\Reader')) {
