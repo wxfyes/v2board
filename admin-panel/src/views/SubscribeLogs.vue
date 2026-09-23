@@ -18,6 +18,9 @@
         <el-button class="filter-item" icon="Refresh" @click="resetFilter">
           重置
         </el-button>
+        <el-button class="filter-item" type="warning" icon="Trophy" @click="getTopUsers">
+          今日拉取排行
+        </el-button>
       </div>
 
       <!-- 表格 -->
@@ -151,6 +154,22 @@ const getList = async () => {
     }
   } catch (error) {
     // api module already handles ElMessage.error, but we can keep a fallback
+  } finally {
+    listLoading.value = false;
+  }
+};
+
+const getTopUsers = async () => {
+  listLoading.value = true;
+  try {
+    const securePath = getSecurePath();
+    const response = await api.get(`/${securePath}/system/getTopSubscribeUsers`);
+    
+    if (response.data) {
+      list.value = response.data;
+      total.value = response.total;
+    }
+  } catch (error) {
   } finally {
     listLoading.value = false;
   }
