@@ -19,13 +19,7 @@ class IpHelper
 
     public static function getRealIp(Request $request): string
     {
-        // 1. 最高优先级：如果底层框架/Nginx 已经成功提取到了公网 IP，且该 IP 不是 Cloudflare CDN 的 IP，直接使用！
         $requestIp = $request->ip();
-        if ($requestIp && filter_var($requestIp, FILTER_VALIDATE_IP, FILTER_FLAG_NO_RES_RANGE | FILTER_FLAG_NO_PRIV_RANGE)) {
-            if (!self::isCloudflareIp($requestIp)) {
-                return $requestIp;
-            }
-        }
 
         $candidates = [];
 
