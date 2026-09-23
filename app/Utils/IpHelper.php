@@ -19,17 +19,15 @@ class IpHelper
 
     public static function getRealIp(Request $request): string
     {
-        $requestIp = $request->ip();
-
         $candidates = [];
-
-        foreach (['X-Tianque-Real-IP', 'CF-Connecting-IPv6', 'CF-Connecting-IP', 'True-Client-IP', 'X-Real-IP'] as $header) {
-            $value = trim((string)$request->header($header));
-            if ($value !== '') {
-                $candidates[] = $value;
-            }
+        
+        // 1. Laravel resolved IP (accurate if TrustProxies is set to *)
+        $requestIp = $request->ip();
+        if ($requestIp) {
+            $candidates[] = $requestIp;
         }
 
+        // 2. X-Forwarded-For explicitly parsed 
         $xff = (string)$request->header('X-Forwarded-For');
         if ($xff !== '') {
             foreach (explode(',', $xff) as $candidate) {
@@ -40,9 +38,12 @@ class IpHelper
             }
         }
 
-        $requestIp = $request->ip();
-        if ($requestIp) {
-            $candidates[] = $requestIp;
+        // 3. Other headers (X-Real-IP first, CF-Connecting-IP last to avoid CF override)
+        foreach (['X-Real-IP', 'X-Tianque-Real-IP', 'True-Client-IP', 'CF-Connecting-IPv6', 'CF-Connecting-IP'] as $header) {
+            $value = trim((string)$request->header($header));
+            if ($value !== '') {
+                $candidates[] = $value;
+            }
         }
 
         foreach ($candidates as $candidate) {
