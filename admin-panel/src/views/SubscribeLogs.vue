@@ -87,8 +87,8 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import axios from 'axios';
 import { ElMessage } from 'element-plus';
+import api, { getSecurePath } from '../api';
 
 const list = ref([]);
 const total = ref(0);
@@ -105,20 +105,17 @@ const listQuery = reactive({
 const getList = async () => {
   listLoading.value = true;
   try {
-    const token = localStorage.getItem('authorization');
-    const response = await axios.get('/api/v1/admin/system/getSubscribeLog', {
-      params: listQuery,
-      headers: {
-        'Authorization': token
-      }
+    const securePath = getSecurePath();
+    const response = await api.get(`/${securePath}/system/getSubscribeLog`, {
+      params: listQuery
     });
     
     if (response.data) {
-      list.value = response.data.data;
-      total.value = response.data.total;
+      list.value = response.data;
+      total.value = response.total;
     }
   } catch (error) {
-    ElMessage.error(error.response?.data?.message || '获取日志失败');
+    // api module already handles ElMessage.error, but we can keep a fallback
   } finally {
     listLoading.value = false;
   }
