@@ -103,37 +103,37 @@ class SystemController extends Controller
         })->count();
     }
 
-    public function getSubscribeLog(Request ) {
+    public function getSubscribeLog(Request $request) {
         if (!\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
             return response(['data' => [], 'total' => 0]);
         }
         
         try {
-            \Illuminate\Support\Facades\Schema::table('v2_subscribe_log', function () {
-                ->index(['user_id', 'created_at'], 'idx_user_created');
+            \Illuminate\Support\Facades\Schema::table('v2_subscribe_log', function ($table) {
+                $table->index(['user_id', 'created_at'], 'idx_user_created');
             });
-        } catch (\Exception ) {}
+        } catch (\Exception $e) {}
 
-         = ->input('current') ? ->input('current') : 1;
-         = ->input('page_size') >= 10 ? ->input('page_size') : 20;
-         = \App\Models\SubscribeLog::orderBy('created_at', 'DESC');
-        if (->input('user_id')) ->where('user_id', ->input('user_id'));
-        if (->input('ip')) ->where('ip', 'LIKE', '%'.->input('ip').'%');
-        if (->input('ua')) ->where('ua', 'LIKE', '%'.->input('ua').'%');
-         = ->count();
-         = ->forPage(, )->get();
+        $current = $request->input('current') ? $request->input('current') : 1;
+        $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 20;
+        $builder = \App\Models\SubscribeLog::orderBy('created_at', 'DESC');
+        if ($request->input('user_id')) $builder->where('user_id', $request->input('user_id'));
+        if ($request->input('ip')) $builder->where('ip', 'LIKE', '%'.$request->input('ip').'%');
+        if ($request->input('ua')) $builder->where('ua', 'LIKE', '%'.$request->input('ua').'%');
+        $total = $builder->count();
+        $res = $builder->forPage($current, $pageSize)->get();
         
-         = strtotime('today');
-        foreach ( as ) {
-             = \App\Models\User::find(->user_id);
-            ->email =  ? ->email : '未知用户';
-            ->location = ->getIpLocation(->ip);
+        $today = strtotime('today');
+        foreach ($res as $log) {
+            $u = \App\Models\User::find($log->user_id);
+            $log->email = $u ? $u->email : '未知用户';
+            $log->location = $this->getIpLocation($log->ip);
             
-            ->today_count = \App\Models\SubscribeLog::where('user_id', ->user_id)
-                                ->where('created_at', '>=', )
+            $log->today_count = \App\Models\SubscribeLog::where('user_id', $log->user_id)
+                                ->where('created_at', '>=', $today)
                                 ->count();
         }
-        return response(['data' => , 'total' => ]);
+        return response(['data' => $res, 'total' => $total]);
     }
 
     private function getIpLocation($ip)
