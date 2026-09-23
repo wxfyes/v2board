@@ -66,6 +66,23 @@
           </template>
         </el-table-column>
 
+        <el-table-column label="今日频次" width="100" align="center">
+          <template #default="scope">
+            <el-tooltip content="点击查看该用户所有拉取记录" placement="top">
+              <el-tag 
+                :type="scope.row.today_count > 10 ? 'danger' : (scope.row.today_count > 5 ? 'warning' : 'success')" 
+                effect="dark" 
+                style="cursor: pointer; transition: transform 0.2s;" 
+                @click="filterByUser(scope.row.user_id)"
+                onmouseover="this.style.transform='scale(1.1)'"
+                onmouseout="this.style.transform='scale(1)'"
+              >
+                {{ scope.row.today_count || 0 }} 次
+              </el-tag>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+
         <el-table-column label="原始 User-Agent" min-width="250">
           <template #default="scope">
             <el-tooltip class="box-item" effect="dark" :content="scope.row.ua" placement="top-start">
@@ -131,6 +148,11 @@ const getList = async () => {
 const handleFilter = () => {
   listQuery.current = 1;
   getList();
+};
+
+const filterByUser = (userId) => {
+  listQuery.user_id = userId;
+  handleFilter();
 };
 
 const resetFilter = () => {
