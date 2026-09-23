@@ -29,6 +29,39 @@ class SystemController extends Controller
         ]);
     }
 
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+
     public function getQueueWorkload(WorkloadRepository $workload)
     {
         return response([
@@ -36,10 +69,76 @@ class SystemController extends Controller
         ]);
     }
 
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+
     protected function getScheduleStatus():bool
     {
         return (time() - 120) < Cache::get(CacheKey::get('SCHEDULE_LAST_CHECK_AT', null));
     }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
 
     protected function getHorizonStatus():bool
     {
@@ -47,10 +146,76 @@ class SystemController extends Controller
             return false;
         }
 
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+
         return collect($masters)->contains(function ($master) {
             return $master->status === 'paused';
         }) ? false : true;
     }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
 
     public function getQueueStats()
     {
@@ -73,6 +238,39 @@ class SystemController extends Controller
         ]);
     }
 
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+
     /**
      * Get the total process count across all supervisors.
      *
@@ -87,6 +285,39 @@ class SystemController extends Controller
         }, 0);
     }
 
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+
     /**
      * Get the number of master supervisors that are currently paused.
      *
@@ -98,15 +329,114 @@ class SystemController extends Controller
             return 0;
         }
 
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+
         return collect($masters)->filter(function ($master) {
             return $master->status === 'paused';
         })->count();
     }
 
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+
     public function getSubscribeLog(Request $request) {
         if (!\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
             return response(['data' => [], 'total' => 0]);
         }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
         $current = $request->input('current') ? $request->input('current') : 1;
         $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 20;
         $builder = \App\Models\SubscribeLog::orderBy('created_at', 'DESC');
@@ -121,8 +451,74 @@ class SystemController extends Controller
             $log->email = $u ? $u->email : '未知用户';
             $log->location = $this->getIpLocation($log->ip);
         }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
         return response(['data' => $res, 'total' => $total]);
     }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
 
     private function getIpLocation($ip)
     {
@@ -130,10 +526,76 @@ class SystemController extends Controller
             return '本地局域网';
         }
 
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+
         $cacheKey = "ip_loc_" . md5($ip);
         if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
             return \Illuminate\Support\Facades\Cache::get($cacheKey);
         }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
 
         try {
             $ctx = stream_context_create(['http' => ['timeout' => 1]]);
@@ -167,28 +629,292 @@ class SystemController extends Controller
                         $ispCn = $isp;
                     }
 
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+
                     if ($country === '中国') {
                         $loc = $region;
                         if ($city && $city !== $region) {
                             $loc .= '-' . $city;
                         }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
                         $location = trim('中国-' . $loc . '-' . $ispCn);
                     } else {
                         $loc = $country;
                         if ($region && $region !== $country) {
                             $loc .= '-' . $region;
                         }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
                         $location = trim($loc . '-' . $ispCn);
                     }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
 
                     \Illuminate\Support\Facades\Cache::put($cacheKey, $location, 86400 * 30);
                     return $location;
                 }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
             }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
         } catch (\Exception $e) {
         }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
         return '未知位置';
     }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
 
     public function getSystemLog(Request $request) {
         $current = $request->input('current') ? $request->input('current') : 1;
@@ -201,6 +927,103 @@ class SystemController extends Controller
         return response([
             'data' => $res,
             'total' => $total
+        ]);
+    }
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+}
+}
+
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
+        ]);
+    }
+    public function getLoginLog(\Illuminate\Http\Request ) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
+         = ->input('current') ? ->input('current') : 1;
+         = ->input('page_size') >= 10 ? ->input('page_size') : 10;
+        
+         = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
+        
+        if (->input('email')) {
+            ->where('email', ->input('email'));
+        }
+        if (->input('ip')) {
+            ->where('ip', ->input('ip'));
+        }
+        if (->input('type')) {
+            ->where('type', 'like', '%' . ->input('type') . '%');
+        }
+
+         = ->count();
+         = ->forPage(, )->get();
+
+        foreach ( as ) {
+            ->location = ->getIpLocation(->ip);
+        }
+
+        return response([
+            'data' => ,
+            'total' => 
         ]);
     }
 }

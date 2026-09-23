@@ -156,6 +156,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $email)->first();
         if (!$user) {
+            $this->logLogin($request, 0, $email, '失败(账号不存在)');
             abort(500, __('Incorrect email or password'));
         }
         if (!Helper::multiPasswordVerify(
@@ -170,16 +171,18 @@ class AuthController extends Controller
                     (int)$passwordErrorCount + 1,
                     60 * (int)config('v2board.password_limit_expire', 60)
                 );
-            }
-            abort(500, __('Incorrect email or password'));
+            } $this->logLogin($request, $user->id, $user->email, '失败(密码错误)'); abort(500, __('Incorrect email or password'));
         }
 
         if ($user->banned) {
+            $this->logLogin($request, $user->id, $user->email, '失败(账号封禁)');
             abort(500, __('Your account has been suspended'));
         }
 
         // 黑名单防御机制 (普通登录时触发)
         \App\Utils\TraitorDefense::checkAndHoneypot($user, IpHelper::getRealIp($request), $request->userAgent() ?? 'unknown', '登录');
+
+        $this->logLogin($request, $user->id, $user->email, '成功(正常登录)');
 
         $authService = new AuthService($user);
         return response([
@@ -411,6 +414,39 @@ class AuthController extends Controller
         Cache::put($key, $user->id, 60);
 
         $redirectUrl = $originUrl . '/#/login?verify=' . $code;
+            $this->logLogin($request, $user->id, $user->email, '成功(快捷登录)');
         return redirect()->to($redirectUrl);
     }
+
+    private function logLogin(\Illuminate\Http\Request $request, $userId, $email, $type)
+    {
+        try {
+            if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+                \Illuminate\Support\Facades\Schema::create('v2_user_login_log', function ($table) {
+                    $table->increments('id');
+                    $table->integer('user_id')->default(0);
+                    $table->string('email', 128)->nullable();
+                    $table->string('ip', 255)->nullable();
+                    $table->string('type', 64)->nullable();
+                    $table->text('ua')->nullable();
+                    $table->integer('created_at')->nullable();
+                    $table->integer('updated_at')->nullable();
+                });
+            }
+
+            \Illuminate\Support\Facades\DB::table('v2_user_login_log')->insert([
+                'user_id' => $userId ?: 0,
+                'email' => $email,
+                'ip' => \App\Utils\IpHelper::getRealIp($request),
+                'type' => $type,
+                'ua' => substr($request->userAgent() ?? '', 0, 500),
+                'created_at' => time(),
+                'updated_at' => time()
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Login log insert error: ' . $e->getMessage());
+        }
+    }
 }
+
+

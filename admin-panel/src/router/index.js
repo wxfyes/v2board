@@ -23,6 +23,7 @@ const SecurityAudit = () => import('../views/SecurityAudit.vue');
 const Cards = () => import('../views/Cards.vue');
 const Traitors = () => import('../views/Traitors.vue');
 const SubscribeLogs = () => import('../views/SubscribeLogs.vue');
+const LoginLogs = () => import('../views/LoginLogs.vue');
 
 const routes = [
   {
@@ -155,6 +156,12 @@ const routes = [
         name: 'SubscribeLogs',
         component: SubscribeLogs,
         meta: { title: '订阅拉取记录', requiresAuth: true }
+      },
+      {
+        path: 'login-logs',
+        name: 'LoginLogs',
+        component: LoginLogs,
+        meta: { title: '登录日志', requiresAuth: true }
       }
     ]
   }
@@ -179,3 +186,4 @@ router.beforeEach((to, from, next) => {
 });
 
 export default router;
+

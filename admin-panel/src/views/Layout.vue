@@ -98,6 +98,10 @@
             <el-icon><Monitor /></el-icon>
             <span>订阅拉取记录</span>
           </el-menu-item>
+          <el-menu-item index="/login-logs">
+            <el-icon><Tickets /></el-icon>
+            <span>登录记录</span>
+          </el-menu-item>
         </el-sub-menu>
         
         <el-sub-menu index="settings-group">
@@ -275,6 +279,10 @@
           <el-menu-item index="/subscribe-logs">
             <el-icon><Monitor /></el-icon>
             <span>订阅拉取记录</span>
+          </el-menu-item>
+          <el-menu-item index="/login-logs">
+            <el-icon><Tickets /></el-icon>
+            <span>登录记录</span>
           </el-menu-item>
         </el-sub-menu>
         
@@ -523,3 +531,4 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+
