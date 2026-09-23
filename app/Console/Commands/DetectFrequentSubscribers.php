@@ -415,7 +415,7 @@ class DetectFrequentSubscribers extends Command
                 }
             }
             $uniqueIps = array_values(array_unique($ips));
-            if (count($uniqueIps) >= 5) {
+            if (count($uniqueIps) >= 3) {
                 $regions = [];
                 foreach ($uniqueIps as $ip) {
                     $loc = $this->getIpLocation($ip);
@@ -434,7 +434,7 @@ class DetectFrequentSubscribers extends Command
                     }
                 }
                 $uniqueRegions = array_unique($regions);
-                if (count($uniqueRegions) >= 5) {
+                if (count($uniqueRegions) >= 3) {
                     $reasons[] = "分布式异地探测画像: 24h内使用多省份家宽IP高频拉取 (覆盖省份: " . implode(', ', $uniqueRegions) . ")";
                 }
             }
