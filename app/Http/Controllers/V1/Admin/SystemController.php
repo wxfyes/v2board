@@ -200,9 +200,9 @@ class SystemController extends Controller
                     require_once app_path('Utils/Ip2RegionSearcher.php');
                 }
                 if ($xdbSearcher === null) {
-                    $header = \App\Utils\Ip2RegionSearcher::loadHeaderFromFile($xdbPath);
+                    $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
                     $version = \App\Utils\Util::versionFromHeader($header);
-                    $cBuff = \App\Utils\Ip2RegionSearcher::loadContentFromFile($xdbPath);
+                    $cBuff = \App\Utils\Util::loadContentFromFile($xdbPath);
                     $xdbSearcher = \App\Utils\Ip2RegionSearcher::newWithBuffer($version, $cBuff);
                 }
                 $region = $xdbSearcher->search($ip);
