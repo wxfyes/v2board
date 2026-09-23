@@ -104,6 +104,9 @@ class SystemController extends Controller
     }
 
     public function getSubscribeLog(Request $request) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
+            return response(['data' => [], 'total' => 0]);
+        }
         $current = $request->input('current') ? $request->input('current') : 1;
         $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 20;
         $builder = \App\Models\SubscribeLog::orderBy('created_at', 'DESC');
