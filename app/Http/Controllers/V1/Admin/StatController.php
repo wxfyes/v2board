@@ -30,8 +30,8 @@ class StatController extends Controller
             'data' => [
                 'online_user' => User::where('t','>=', time() - 600)
                     ->count(),
-                'month_income' => Order::where('created_at', '>=', strtotime(date('Y-m-1')))
-                    ->where('created_at', '<', time())
+                'month_income' => Order::where('paid_at', '>=', strtotime(date('Y-m-1')))
+                    ->where('paid_at', '<', time())
                     ->whereNotIn('status', [0, 2])
                     ->sum('total_amount'),
                 'month_register_total' => User::where('created_at', '>=', strtotime(date('Y-m-1')))
@@ -48,12 +48,12 @@ class StatController extends Controller
                     ->whereNotIn('status', [0, 2])
                     ->where('commission_balance', '>', 0)
                     ->count(),
-                'day_income' => Order::where('created_at', '>=', strtotime(date('Y-m-d')))
-                    ->where('created_at', '<', time())
+                'day_income' => Order::where('paid_at', '>=', strtotime(date('Y-m-d')))
+                    ->where('paid_at', '<', time())
                     ->whereNotIn('status', [0, 2])
                     ->sum('total_amount'),
-                'last_month_income' => Order::where('created_at', '>=', strtotime('-1 month', strtotime(date('Y-m-1'))))
-                    ->where('created_at', '<', strtotime(date('Y-m-1')))
+                'last_month_income' => Order::where('paid_at', '>=', strtotime('-1 month', strtotime(date('Y-m-1'))))
+                    ->where('paid_at', '<', strtotime(date('Y-m-1')))
                     ->whereNotIn('status', [0, 2])
                     ->sum('total_amount'),
                 'commission_month_payout' => CommissionLog::where('created_at', '>=', strtotime(date('Y-m-1')))
