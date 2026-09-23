@@ -48,5 +48,17 @@ class ResetLog extends Command
         StatUser::where('record_at', '<', strtotime('-2 month', time()))->delete();
         StatServer::where('record_at', '<', strtotime('-2 month', time()))->delete();
         Log::where('created_at', '<', strtotime('-1 month', time()))->delete();
+
+        // Custom Logs cleanup
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
+                \Illuminate\Support\Facades\DB::table('v2_subscribe_log')->where('created_at', '<', strtotime('-1 month', time()))->delete();
+            }
+            if (\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+                \Illuminate\Support\Facades\DB::table('v2_user_login_log')->where('created_at', '<', strtotime('-1 month', time()))->delete();
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Reset custom log error: ' . $e->getMessage());
+        }
     }
 }
