@@ -12,7 +12,7 @@ class UpdateGeoip extends Command
 
     public function handle()
     {
-        $url = 'https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region.xdb';
+        $url = 'https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region_v4.xdb';
         $dest = app_path('Utils/ip2region.xdb');
 
         $this->info("Starting to download ip2region.xdb...");
