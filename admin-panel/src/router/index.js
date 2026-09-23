@@ -22,6 +22,7 @@ const Themes = () => import('../views/Themes.vue');
 const SecurityAudit = () => import('../views/SecurityAudit.vue');
 const Cards = () => import('../views/Cards.vue');
 const Traitors = () => import('../views/Traitors.vue');
+const SubscribeLogs = () => import('../views/SubscribeLogs.vue');
 
 const routes = [
   {
@@ -148,6 +149,12 @@ const routes = [
         name: 'Traitors',
         component: Traitors,
         meta: { title: '内鬼防御名单', requiresAuth: true }
+      },
+      {
+        path: 'subscribe-logs',
+        name: 'SubscribeLogs',
+        component: SubscribeLogs,
+        meta: { title: '订阅拉取记录', requiresAuth: true }
       }
     ]
   }

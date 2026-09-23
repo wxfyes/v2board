@@ -94,6 +94,10 @@
             <el-icon><Warning /></el-icon>
             <span>内鬼名单</span>
           </el-menu-item>
+          <el-menu-item index="/subscribe-logs">
+            <el-icon><Monitor /></el-icon>
+            <span>订阅拉取记录</span>
+          </el-menu-item>
         </el-sub-menu>
         
         <el-sub-menu index="settings-group">
@@ -267,6 +271,10 @@
           <el-menu-item index="/traitors">
             <el-icon><Warning /></el-icon>
             <span>内鬼名单</span>
+          </el-menu-item>
+          <el-menu-item index="/subscribe-logs">
+            <el-icon><Monitor /></el-icon>
+            <span>订阅拉取记录</span>
           </el-menu-item>
         </el-sub-menu>
         

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>订阅拉取监控分析</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
+        .container { background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-width: 1200px; margin: 0 auto; }
+        h2 { margin-top: 0; color: #1890ff; border-bottom: 1px solid #e8e8e8; padding-bottom: 16px; }
+        .filter-bar { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .filter-bar input, .filter-bar button { padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; outline: none; }
+        .filter-bar button { background: #1890ff; color: #fff; border: none; cursor: pointer; transition: background 0.3s; }
+        .filter-bar button:hover { background: #40a9ff; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 14px; }
+        th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid #e8e8e8; }
+        th { background: #fafafa; font-weight: 500; color: #333; }
+        tr:hover { background: #f5f5f5; }
+        .pagination { display: flex; justify-content: flex-end; align-items: center; gap: 16px; font-size: 14px; }
+        .pagination button { padding: 4px 12px; border: 1px solid #d9d9d9; background: #fff; border-radius: 4px; cursor: pointer; }
+        .pagination button:disabled { background: #f5f5f5; cursor: not-allowed; color: #999; }
+        .error { color: red; margin-bottom: 16px; }
+        .ua-text { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ua-text:hover { white-space: normal; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🛡️ 订阅拉取雷达 (无限制监控)</h2>
+        <div id="errorBox" class="error"></div>
+        <div class="filter-bar">
+            <input type="text" id="filterUserId" placeholder="User ID" style="width: 100px;">
+            <input type="text" id="filterIp" placeholder="IP 地址" style="width: 150px;">
+            <input type="text" id="filterUa" placeholder="User-Agent 关键词" style="width: 200px;">
+            <button onclick="fetchLogs(1)">查询</button>
+            <button onclick="resetFilter()" style="background: #fff; color: #333; border: 1px solid #d9d9d9;">重置</button>
+            <a href="javascript:history.back()" style="margin-left: auto; color: #1890ff; text-decoration: none; line-height: 32px;">&larr; 返回主后台</a>
+        </div>
+
+        <table id="logsTable">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">User ID</th>
+                    <th style="width: 150px;">邮箱 / 账号</th>
+                    <th style="width: 100px;">识别客户端</th>
+                    <th style="width: 120px;">IP 地址</th>
+                    <th style="width: 160px;">拉取时间</th>
+                    <th>原始 User-Agent</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 数据行 -->
+            </tbody>
+        </table>
+
+        <div class="pagination">
+            <span id="totalText">共 0 条</span>
+            <button id="prevBtn" onclick="fetchLogs(currentPage - 1)">上一页</button>
+            <span id="pageText">1 / 1</span>
+            <button id="nextBtn" onclick="fetchLogs(currentPage + 1)">下一页</button>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        const pageSize = 20;
+
+        // 智能获取 Admin Token (适配原生 React 后台和 Vue 后台)
+        function getAdminToken() {
+            let token = localStorage.getItem('admin_token');
+            if (!token) {
+                const authData = localStorage.getItem('admin_auth_data');
+                if (authData) {
+                    try {
+                        const parsed = JSON.parse(authData);
+                        token = parsed.auth_data || parsed.token || null;
+                    } catch (e) {}
+                }
+            }
+            // 尝试 V2board React 默认 localstorage token 结构
+            if (!token) {
+                const authStr = localStorage.getItem('v2board_admin_auth');
+                if (authStr) {
+                    try {
+                        token = JSON.parse(authStr).token;
+                    } catch (e) {}
+                }
+            }
+            return token;
+        }
+
+        function resetFilter() {
+            document.getElementById('filterUserId').value = '';
+            document.getElementById('filterIp').value = '';
+            document.getElementById('filterUa').value = '';
+            fetchLogs(1);
+        }
+
+        function formatTime(timestamp) {
+            const d = new Date(timestamp * 1000);
+            return d.getFullYear() + '-' + 
+                   String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(d.getDate()).padStart(2, '0') + ' ' + 
+                   String(d.getHours()).padStart(2, '0') + ':' + 
+                   String(d.getMinutes()).padStart(2, '0') + ':' + 
+                   String(d.getSeconds()).padStart(2, '0');
+        }
+
+        async function fetchLogs(page) {
+            if (page < 1) page = 1;
+            
+            const token = getAdminToken();
+            const errorBox = document.getElementById('errorBox');
+            if (!token) {
+                errorBox.innerText = '未检测到管理员登录状态，请先在主后台登录。';
+                return;
+            }
+            errorBox.innerText = '';
+
+            const userId = document.getElementById('filterUserId').value;
+            const ip = document.getElementById('filterIp').value;
+            const ua = document.getElementById('filterUa').value;
+
+            let url = `/api/v1/admin/system/getSubscribeLog?current=${page}&page_size=${pageSize}`;
+            if (userId) url += `&user_id=${encodeURIComponent(userId)}`;
+            if (ip) url += `&ip=${encodeURIComponent(ip)}`;
+            if (ua) url += `&ua=${encodeURIComponent(ua)}`;
+
+            try {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': token }
+                });
+                if (response.status === 401 || response.status === 403) {
+                    errorBox.innerText = 'Token已过期或无权限，请重新登录主后台。';
+                    return;
+                }
+                const res = await response.json();
+                
+                if (res.data) {
+                    renderTable(res.data, res.total, page);
+                }
+            } catch (e) {
+                errorBox.innerText = '网络请求失败：' + e.message;
+            }
+        }
+
+        function renderTable(data, total, page) {
+            currentPage = page;
+            totalPages = Math.ceil(total / pageSize) || 1;
+            
+            const tbody = document.querySelector('#logsTable tbody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 24px; color: #999;">暂无拉取记录</td></tr>';
+            } else {
+                data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>#${item.user_id}</td>
+                        <td>${item.email || '未知'}</td>
+                        <td>${item.type || '未知'}</td>
+                        <td style="font-family: monospace;">${item.ip}</td>
+                        <td style="color: #666;">${formatTime(item.created_at)}</td>
+                        <td><div class="ua-text" title="${item.ua}">${item.ua || ''}</div></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('totalText').innerText = `共 ${total} 条`;
+            document.getElementById('pageText').innerText = `${currentPage} / ${totalPages}`;
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+        }
+
+        // 初始化加载
+        fetchLogs(1);
+    </script>
+</body>
+</html>

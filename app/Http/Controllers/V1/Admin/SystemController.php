@@ -103,6 +103,23 @@ class SystemController extends Controller
         })->count();
     }
 
+    public function getSubscribeLog(Request $request) {
+        $current = $request->input('current') ? $request->input('current') : 1;
+        $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 20;
+        $builder = \App\Models\SubscribeLog::orderBy('created_at', 'DESC');
+        if ($request->input('user_id')) $builder->where('user_id', $request->input('user_id'));
+        if ($request->input('ip')) $builder->where('ip', 'LIKE', '%'.$request->input('ip').'%');
+        if ($request->input('ua')) $builder->where('ua', 'LIKE', '%'.$request->input('ua').'%');
+        $total = $builder->count();
+        $res = $builder->forPage($current, $pageSize)->get();
+        // 附加上用户的 Email 以方便查看
+        foreach ($res as $log) {
+            $u = \App\Models\User::find($log->user_id);
+            $log->email = $u ? $u->email : '未知用户';
+        }
+        return response(['data' => $res, 'total' => $total]);
+    }
+
     public function getSystemLog(Request $request) {
         $current = $request->input('current') ? $request->input('current') : 1;
         $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 10;
