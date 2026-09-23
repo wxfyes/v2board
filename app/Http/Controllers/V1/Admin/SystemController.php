@@ -222,7 +222,9 @@ class SystemController extends Controller
                     }
                 }
             }
-        } catch (\Exception $e) {}
+        } catch (\Throwable $e) {
+            return 'Err: ' . $e->getMessage() . ' L:' . $e->getLine();
+        }
 
         try {
             static $reader = null;
