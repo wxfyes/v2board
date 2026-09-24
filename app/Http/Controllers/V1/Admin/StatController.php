@@ -423,8 +423,19 @@ class StatController extends Controller
 
         // --- 读取 Redis 中的动态高分用户 (ZSET性能优化，仅取Top 100) ---
         try {
-            $topScores = \Illuminate\Support\Facades\Redis::zrevrange('sub_risk_scores', 0, 99, 'WITHSCORES');
-            if (is_array($topScores) && !empty($topScores)) {
+            $rawScores = \Illuminate\Support\Facades\Redis::zrevrange('sub_risk_scores', 0, 99, 'WITHSCORES');
+            if (is_array($rawScores) && !empty($rawScores)) {
+                $topScores = [];
+                // Laravel Redis (Predis) zrevrange with WITHSCORES returns a flat array: [member1, score1, member2, score2]
+                // We need to parse it into an associative array [member => score]
+                if (isset($rawScores[0]) && !is_array($rawScores[0])) {
+                    for ($i = 0; $i < count($rawScores); $i += 2) {
+                        $topScores[$rawScores[$i]] = $rawScores[$i + 1];
+                    }
+                } else {
+                    $topScores = $rawScores; // Fallback for PhpRedis which returns [member => score]
+                }
+
                 $userIds = array_keys($topScores);
                 $users = \App\Models\User::whereIn('id', $userIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
                 

@@ -212,6 +212,7 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item v-if="scope.row.type === 'flagged'" command="ignore" icon="CircleClose">忽略预警</el-dropdown-item>
+                  <el-dropdown-item v-if="scope.row.type === 'dynamic_score'" command="clear_score" icon="Refresh">清空积分</el-dropdown-item>
                   <el-dropdown-item command="whitelist" icon="Checked">加入白名单</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -1165,6 +1166,20 @@ const handleAnomalyAction = async (cmd, row) => {
       });
       await api.post(`/${securePath}/stat/ignoreAnomaly`, { id: row.user_id });
       ElMessage.success('已成功忽略此条审计记录');
+      fetchAnomalies();
+    } catch (err) {
+      if (err !== 'cancel') console.error(err);
+    }
+  } else if (cmd === 'clear_score') {
+    try {
+      await ElMessageBox.confirm(`确定要清空该用户 ${row.email} 的动态风控积分吗？`, '提示', {
+        type: 'warning',
+        confirmButtonText: '清空',
+        cancelButtonText: '取消'
+      });
+      const securePath = getSecurePath();
+      await api.post(`/${securePath}/stat/clearRiskScore`, { id: row.user_id });
+      ElMessage.success('已清空用户的动态风控积分');
       fetchAnomalies();
     } catch (err) {
       if (err !== 'cancel') console.error(err);
