@@ -423,65 +423,112 @@ class StatController extends Controller
         }
 
 
-        // --- 读取 Redis 中的动态高分用户 (ZSET性能优化，仅取Top 100) ---
+        // --- 全新思路：无状态实时风控评估 (基于最新500名活跃用户的真实拉取轨迹，彻底摆脱 Redis 缓存依赖) ---
         try {
-            $rawScores = \Illuminate\Support\Facades\Redis::zrevrange('sub_risk_scores', 0, 99, 'WITHSCORES');
-            if (is_array($rawScores) && !empty($rawScores)) {
-                $topScores = [];
-                // Laravel Redis (Predis) zrevrange with WITHSCORES returns a flat array: [member1, score1, member2, score2]
-                // We need to parse it into an associative array [member => score]
-                if (isset($rawScores[0]) && !is_array($rawScores[0])) {
-                    for ($i = 0; $i < count($rawScores); $i += 2) {
-                        $topScores[$rawScores[$i]] = $rawScores[$i + 1];
-                    }
-                } else {
-                    $topScores = $rawScores; // Fallback for PhpRedis which returns [member => score]
+            $recentUsers = User::whereNotNull('client_type')->orderBy('t', 'desc')->limit(500)->get(['id', 'email', 'client_type', 't', 'banned']);
+            $dynamicScores = [];
+            
+            foreach ($recentUsers as $user) {
+                if (isset($flaggedUsers[$user->id]) || in_array((int)$user->id, $honeypotUsers)) {
+                    continue;
                 }
-
-                $userIds = array_keys($topScores);
-                $users = \App\Models\User::whereIn('id', $userIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
                 
-                foreach ($topScores as $userId => $score) {
-                    if (isset($flaggedUsers[$userId]) || in_array((int)$userId, $honeypotUsers)) {
-                        continue;
-                    }
-                    $user = $users->get($userId);
-                    if (!$user) continue;
-
-                    $stateJson = \Illuminate\Support\Facades\Redis::get("sub_risk_state:{$userId}");
-                    $lastTime = time();
-                    if ($stateJson) {
-                        $state = json_decode($stateJson, true);
-                        if (is_array($state) && isset($state['last_time'])) {
-                            $lastTime = $state['last_time'];
-                        }
-                    }
-
-                    $history = [];
-                    if ($user->client_type) {
-                        $decoded = json_decode($user->client_type, true);
-                        $history = is_array($decoded) ? $decoded : [];
-                    }
-                    $history = $this->filterClientHistory($history, $ignoreIps);
-                    foreach ($history as &$hItem) {
-                        $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
-                    }
-                    unset($hItem);
-
-                    $data[] = [
-                        'user_id' => (int)$userId,
-                        'email' => $user->email,
-                        'flagged_at' => $lastTime,
-                        'reasons' => ["⚡ 动态风控积分: {$score} 分"],
-                        'in_honeypot' => 0,
-                        'banned' => (int)$user->banned,
+                $history = [];
+                if ($user->client_type) {
+                    $decoded = json_decode($user->client_type, true);
+                    $history = is_array($decoded) ? $decoded : [];
+                }
+                
+                // 过滤白名单 IP
+                $history = $this->filterClientHistory($history, $ignoreIps);
+                if (empty($history)) continue;
+                
+                $uniqueIps = [];
+                $uniqueUas = [];
+                
+                foreach ($history as $pull) {
+                    if (!isset($pull['ip']) || !isset($pull['ua'])) continue;
+                    
+                    // IP C段
+                    $ipParts = explode('.', $pull['ip']);
+                    $ipC = (count($ipParts) === 4) ? "{$ipParts[0]}.{$ipParts[1]}.{$ipParts[2]}" : $pull['ip'];
+                    $uniqueIps[$ipC] = true;
+                    
+                    // UA内核
+                    $uaLower = strtolower($pull['ua']);
+                    $uaCore = 'unknown';
+                    if (strpos($uaLower, 'tianque') !== false) $uaCore = 'tianque';
+                    elseif (strpos($uaLower, 'clash') !== false) $uaCore = 'clash';
+                    elseif (strpos($uaLower, 'v2ray') !== false) $uaCore = 'v2ray';
+                    elseif (strpos($uaLower, 'sing-box') !== false) $uaCore = 'sing-box';
+                    elseif (strpos($uaLower, 'shadowrocket') !== false) $uaCore = 'shadowrocket';
+                    elseif (strpos($uaLower, 'surfboard') !== false) $uaCore = 'surfboard';
+                    elseif (strpos($uaLower, 'loon') !== false) $uaCore = 'loon';
+                    elseif (strpos($uaLower, 'quantumult') !== false) $uaCore = 'quantumult';
+                    elseif (strpos($uaLower, 'karing') !== false) $uaCore = 'karing';
+                    elseif (strpos($uaLower, 'hiddify') !== false) $uaCore = 'hiddify';
+                    else $uaCore = substr($uaLower, 0, 15);
+                    
+                    $uniqueUas[$uaCore] = true;
+                }
+                
+                $cCount = count($uniqueIps);
+                $uCount = count($uniqueUas);
+                
+                // 评分公式：多C段重罚(每个35分)，多UA重罚(每个25分)
+                $score = 0;
+                if ($cCount > 1) $score += ($cCount - 1) * 35;
+                if ($uCount > 1) $score += ($uCount - 1) * 25;
+                
+                if ($score > 0) {
+                    if ($score > 99) $score = 99; // 强制封顶99分
+                    $dynamicScores[$user->id] = [
+                        'score' => $score,
+                        'user' => $user,
                         'history' => $history,
-                        'type' => 'dynamic_score',
-                        'risk_level' => $score >= 50 ? 'high' : 'medium'
+                        'ips' => $cCount,
+                        'uas' => $uCount
                     ];
                 }
             }
-        } catch (\Throwable $e) {}
+            
+            // 按分数倒序排列
+            uasort($dynamicScores, function($a, $b) {
+                return $b['score'] <=> $a['score'];
+            });
+            
+            // 仅取前 100 名高危用户
+            $dynamicScores = array_slice($dynamicScores, 0, 100, true);
+            
+            foreach ($dynamicScores as $userId => $info) {
+                $user = $info['user'];
+                $score = $info['score'];
+                $history = $info['history'];
+                
+                foreach ($history as &$hItem) {
+                    $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
+                }
+                unset($hItem);
+                
+                $data[] = [
+                    'user_id' => (int)$userId,
+                    'email' => $user->email,
+                    'flagged_at' => time(),
+                    'reasons' => [
+                        "⚡ 实时轨迹评估: {$score} 分", 
+                        "最近涉及 {$info['ips']} 个 IP C段，使用了 {$info['uas']} 种客户端内核"
+                    ],
+                    'in_honeypot' => 0,
+                    'banned' => (int)$user->banned,
+                    'history' => $history,
+                    'type' => 'dynamic_score',
+                    'risk_level' => $score >= 50 ? 'high' : 'medium'
+                ];
+            }
+        } catch (\Throwable $e) {
+            // 静默处理以防影响正常页面加载
+            \Illuminate\Support\Facades\Log::error('Dynamic stateless score failed: ' . $e->getMessage());
+        }
 
         // 移除原有动态全表扫描逻辑（Suspected Users），极大提升接口速度，彻底解决 500 超时报错。
         // 现在所有实时风控完全由底层 SubscribeRiskControl 拦截并写入 Redis 动态积分榜及蜜罐名单中。
