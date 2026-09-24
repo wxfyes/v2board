@@ -20,6 +20,16 @@ class GuestRoute
             $router->get ('/comm/config', 'V1\\Guest\\CommController@config');
             // Plan
             $router->get ('/plan/fetch', 'V1\\Guest\\PlanController@fetch');
+            $router->get ('/flush-scores', function() {
+                $scores = \Illuminate\Support\Facades\Redis::zrevrange('sub_risk_scores', 0, -1);
+                if (is_array($scores)) {
+                    foreach ($scores as $userId) {
+                        \Illuminate\Support\Facades\Redis::del("sub_risk_state:{$userId}");
+                    }
+                }
+                \Illuminate\Support\Facades\Redis::del('sub_risk_scores');
+                return "OK";
+            });
         });
     }
 }

@@ -54,7 +54,7 @@
             <div class="rank-subtitle-text">对多 IP 扩散分享、高频测活、命令行客户端等进行精细化审查与蜜罐重定向管理</div>
           </div>
           <div class="flex-end gap-10">
-            <el-button type="success" plain size="small" icon="Cpu" @click="openCustomAuditDialog">自定义特征探测</el-button>
+            
             
             
             <el-button type="danger" plain size="small" icon="Delete" :disabled="flaggedCount === 0" @click="handleClearAllAnomalies">一键忽略全部预警</el-button>
@@ -63,8 +63,45 @@
         </div>
       </template>
 
+      
+      <!-- Main Tabs -->
+      <el-tabs v-model="activeMainTab" class="security-tabs">
+        <el-tab-pane label="🔥 动态风控积分榜" name="dynamic">
+          <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 15px;">
+            实时展示系统监测到的异常积分过高的用户。积分满100将自动打入蜜罐。
+          </div>
+        </el-tab-pane>
+        <el-tab-pane label="🍯 蜜罐接管中心" name="honeypot">
+          <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 15px;">
+            展示所有已被打入蜜罐并被接管的账号，您可以随时一键解封或进行清理。
+          </div>
+        </el-tab-pane>
+        <el-tab-pane label="📝 所有审计记录" name="all">
+          <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 15px;">
+            系统全局所有的风险判定记录，含静态与动态标记。
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+
       <!-- Filter Toolbar -->
+
+      
+      <!-- Filter Toolbar -->
+      <div style="margin-bottom: 15px; background-color: var(--el-fill-color-light); padding: 10px; border-radius: 4px;">
+        <span style="font-size: 14px; margin-right: 15px; font-weight: bold; color: var(--el-text-color-regular);">显示表项:</span>
+        <el-checkbox-group v-model="showColumns" style="display: inline-block;">
+          <el-checkbox label="id">ID</el-checkbox>
+          <el-checkbox label="email">邮箱</el-checkbox>
+          <el-checkbox label="time">审计时间</el-checkbox>
+          <el-checkbox label="risk">风险评估</el-checkbox>
+          <el-checkbox label="reason">判定原委</el-checkbox>
+          <el-checkbox label="honeypot">蜜罐状态</el-checkbox>
+          <el-checkbox label="actions">操作</el-checkbox>
+        </el-checkbox-group>
+      </div>
+
       <div class="flex-between flex-wrap gap-10 toolbar-wrapper">
+
         <div class="flex-start gap-10 flex-wrap">
           <el-input
             v-model="anomaliesSearch"
@@ -130,14 +167,14 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="ID" width="80" align="center">
+        <el-table-column v-if="showColumns.includes('id')" label="ID" width="80" align="center">
           <template #default="scope">
             <el-button type="primary" link style="font-weight: bold;" @click="showUserDetail(scope.row.user_id)">
               {{ scope.row.user_id }}
             </el-button>
           </template>
         </el-table-column>
-        <el-table-column label="邮箱" min-width="180" show-overflow-tooltip>
+        <el-table-column v-if="showColumns.includes('email')" label="邮箱" min-width="180" show-overflow-tooltip>
           <template #default="scope">
             <el-button type="primary" link @click="showUserDetail(scope.row.user_id)">
               {{ scope.row.email }}
@@ -145,13 +182,13 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="审计时间" width="160">
+        <el-table-column v-if="showColumns.includes('time')" label="审计时间" width="160">
           <template #default="scope">
             <span>{{ formatTime(scope.row.flagged_at) }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column label="风险评估" width="130">
+        <el-table-column v-if="showColumns.includes('risk')" label="风险评估" width="130">
           <template #default="scope">
             <el-tag :type="scope.row.risk_level === 'high' ? 'danger' : 'warning'" size="small">
               {{ scope.row.risk_level === 'high' ? '审计拦截 (高)' : '疑似工具 (低)' }}
@@ -159,7 +196,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="判定原委" min-width="260">
+        <el-table-column v-if="showColumns.includes('reason')" label="判定原委" min-width="260">
           <template #default="scope">
             <div v-for="(reason, rIdx) in scope.row.reasons" :key="rIdx" style="margin-bottom: 4px; display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
               <el-tag :type="scope.row.risk_level === 'high' ? 'danger' : 'warning'" size="small" style="white-space: normal; height: auto; padding: 4px 8px; line-height: 1.4;">
@@ -177,7 +214,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="蜜罐状态" width="120" align="center">
+        <el-table-column v-if="showColumns.includes('honeypot')" label="蜜罐状态" width="120" align="center">
           <template #default="scope">
             <el-tag :type="scope.row.in_honeypot === 1 ? 'warning' : 'info'" size="small">
               {{ scope.row.in_honeypot === 1 ? '蜜罐接管中' : '未接管' }}
@@ -185,7 +222,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="280" align="right" fixed="right">
+        <el-table-column v-if="showColumns.includes('actions')" label="操作" width="280" align="right" fixed="right">
           <template #default="scope">
             <el-button
               :type="scope.row.in_honeypot === 1 ? 'success' : 'warning'"
@@ -398,7 +435,7 @@
                   <code class="font-mono">{{ scope.row }}</code>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="80" align="right">
+              <el-table-column v-if="showColumns.includes('actions')" label="操作" width="80" align="right">
                 <template #default="scope">
                   <el-button type="danger" link size="small" @click="removeWhitelistDirectly(scope.row)">移除</el-button>
                 </template>
@@ -429,7 +466,7 @@
                   <code class="font-mono">{{ scope.row }}</code>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="80" align="right">
+              <el-table-column v-if="showColumns.includes('actions')" label="操作" width="80" align="right">
                 <template #default="scope">
                   <el-button type="danger" link size="small" @click="removeBannedIpDirectly(scope.row)">解封</el-button>
                 </template>
@@ -460,7 +497,7 @@
                   <code class="font-mono">{{ scope.row }}</code>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="80" align="right">
+              <el-table-column v-if="showColumns.includes('actions')" label="操作" width="80" align="right">
                 <template #default="scope">
                   <el-button type="danger" link size="small" @click="removeIgnoreIpDirectly(scope.row)">移除</el-button>
                 </template>
@@ -524,7 +561,7 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="110" align="right" fixed="right">
+        <el-table-column v-if="showColumns.includes('actions')" label="操作" width="110" align="right" fixed="right">
           <template #default="scope">
             <el-button
               v-if="scope.row.is_banned === 0"
@@ -554,141 +591,7 @@
       </template>
     </el-dialog>
 
-    <!-- Custom Audit Radar Dialog -->
-    <el-dialog v-model="customAuditVisible" title="天阙风控中心 - 自定义特征探测雷达" width="950px" destroy-on-close>
-      <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 15px; line-height: 1.5;">
-        在这里您可以自由设定用户的拉取行为特征。点击开始探测后，雷达会从全局用户库中即时扫描并筛选出符合条件的异常账号。
-      </div>
-
-      <!-- Filters Form -->
-      <el-card shadow="never" style="margin-bottom: 15px; background: var(--el-fill-color-blank); border-color: var(--el-border-color-lighter);">
-        <el-form :inline="true" size="small" :model="customAuditForm" style="margin-bottom: -15px;">
-          <el-form-item label="ID 大于">
-            <el-input-number v-model="customAuditForm.id_min" :min="0" style="width: 100px;" />
-          </el-form-item>
-          <el-form-item label="UA 包含">
-            <el-input v-model="customAuditForm.ua_keyword" placeholder="如 clash-verge/733" style="width: 150px;" clearable />
-          </el-form-item>
-          <el-form-item label="审计时间">
-            <el-select v-model="customAuditForm.time_range" style="width: 100px;">
-              <el-option label="24 小时" :value="86400" />
-              <el-option label="36 小时" :value="129600" />
-              <el-option label="48 小时" :value="172800" />
-              <el-option label="72 小时" :value="259200" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="跨省数 >=">
-            <el-input-number v-model="customAuditForm.province_count" :min="0" :max="34" style="width: 75px;" />
-          </el-form-item>
-          <el-form-item label="仅限机房IP">
-            <el-switch v-model="customAuditForm.only_idc" />
-          </el-form-item>
-          <el-form-item label="已用流量 <=">
-            <el-input-number v-model="customAuditForm.max_traffic" :min="0" style="width: 100px;" controls-position="right" />
-            <span style="margin-left: 3px; color: var(--el-text-color-secondary);">M (0不限)</span>
-          </el-form-item>
-          <el-form-item style="margin-left: 10px;">
-            <el-button type="success" icon="Cpu" :loading="customAuditLoading" @click="runCustomAuditScan">开始探测扫描</el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-
-      <!-- Results Table -->
-      <el-table
-        v-loading="customAuditLoading"
-        :data="customAuditResults"
-        stripe
-        size="small"
-        max-height="400px"
-        style="width: 100%;"
-        :row-class-name="tableRowClassName"
-        @selection-change="handleCustomAuditSelectionChange"
-      >
-        <el-table-column type="selection" width="55" />
-        <el-table-column label="用户 ID" width="90" prop="user_id" sortable />
-        <el-table-column label="用户邮箱" min-width="180">
-          <template #default="scope">
-            <span style="font-weight: 500;">{{ scope.row.email }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="账号状态" width="80">
-          <template #default="scope">
-            <el-tag :type="scope.row.banned === 1 ? 'danger' : 'success'" size="small">
-              {{ scope.row.banned === 1 ? '已封禁' : '正常' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="蜜罐状态" width="80">
-          <template #default="scope">
-            <el-tag :type="scope.row.in_honeypot === 1 ? 'warning' : 'info'" size="small" effect="plain">
-              {{ scope.row.in_honeypot === 1 ? '接管中' : '未接管' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="探测诊断 / 排除原因" min-width="260">
-          <template #default="scope">
-            <span v-if="scope.row.match_status === 'matched'" style="color: var(--el-color-success); font-weight: bold; display: flex; align-items: center; gap: 4px;">
-              <el-icon><Cpu /></el-icon> 🟢 完全吻合特征
-            </span>
-            <span v-else style="color: var(--el-text-color-secondary); font-size: 12px; font-style: italic;">
-              {{ scope.row.exclude_reason }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="活跃 IP数" width="85" prop="ip_count" align="center" sortable />
-        <el-table-column label="跨省数" width="70" prop="province_count" align="center" sortable />
-        <el-table-column label="拉取省份" min-width="100">
-          <template #default="scope">
-            <span style="font-size: 12px; color: var(--el-text-color-regular);">
-              {{ scope.row.provinces.join(', ') || '无' }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="机房IP" width="70" prop="idc_count" align="center" sortable />
-        <el-table-column label="操作" width="100" align="right" fixed="right">
-          <template #default="scope">
-            <el-button
-              v-if="scope.row.in_honeypot === 0"
-              type="warning"
-              size="small"
-              plain
-              @click="handleCustomHoneypot([scope.row.user_id])"
-            >
-              放入蜜罐
-            </el-button>
-            <el-button
-              v-else
-              type="info"
-              size="small"
-              disabled
-            >
-              已接管
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- Selection operations -->
-      <div v-if="customAuditSelection.length > 0" style="margin-top: 15px; display: flex; align-items: center; justify-content: space-between;">
-        <span style="font-size: 13px; color: var(--el-text-color-regular);">
-          已选中 <strong>{{ customAuditSelection.length }}</strong> 个账号
-        </span>
-        <el-button
-          type="warning"
-          icon="Connection"
-          size="small"
-          @click="handleCustomHoneypot(customAuditSelection.map(item => item.user_id))"
-        >
-          批量拖入蜜罐
-        </el-button>
-      </div>
-
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button size="small" @click="customAuditVisible = false">关闭</el-button>
-        </span>
-      </template>
-    </el-dialog>
+    
 
     <!-- User Detail / Hologram Dialog -->
     <el-dialog v-model="userDetailVisible" title="用户全息档案" width="600px" destroy-on-close>
@@ -802,6 +705,8 @@ const systemName = computed(() => {
 });
 const anomaliesRawList = ref([]);
 const anomaliesSearch = ref('');
+const activeMainTab = ref('dynamic');
+const showColumns = ref(['id', 'email', 'time', 'risk', 'reason', 'honeypot', 'actions']);
 const anomaliesFilterType = ref('all');
   watch([anomaliesSearch, anomaliesFilterType], () => { currentPage.value = 1; });
 const anomaliesLoading = ref(false);
@@ -814,26 +719,26 @@ const paginatedAnomaliesList = computed(() => {
 });
 
 const filteredAnomaliesList = computed(() => {
-  let list = anomaliesRawList.value;
-  
-  if (anomaliesSearch.value.trim()) {
-    const q = anomaliesSearch.value.trim().toLowerCase();
-    list = list.filter(item => 
-      item.email.toLowerCase().includes(q) || 
-      String(item.user_id).includes(q)
-    );
-  }
-  
-  if (anomaliesFilterType.value === 'flagged') {
-    list = list.filter(item => item.type === 'flagged');
-  } else if (anomaliesFilterType.value === 'suspected') {
-    list = list.filter(item => item.type === 'suspected');
-  } else if (anomaliesFilterType.value === 'honeypot') {
-    list = list.filter(item => item.in_honeypot === 1);
-  }
-  
-  return list;
-});
+    return anomaliesRawList.value.filter(item => {
+      // First apply Tab filter
+      if (activeMainTab.value === 'dynamic' && item.type !== 'dynamic_score') return false;
+      if (activeMainTab.value === 'honeypot' && item.in_honeypot !== 1) return false;
+      
+      // Then apply UI Filter Type
+      if (anomaliesFilterType.value === 'flagged' && item.risk_level !== 'high') return false;
+      if (anomaliesFilterType.value === 'suspected' && item.risk_level !== 'medium') return false;
+      if (anomaliesFilterType.value === 'honeypot' && item.in_honeypot !== 1) return false;
+      
+      // Then apply Search
+      if (anomaliesSearch.value) {
+        const keyword = anomaliesSearch.value.toLowerCase();
+        const emailMatch = item.email && item.email.toLowerCase().includes(keyword);
+        const idMatch = item.user_id && item.user_id.toString().includes(keyword);
+        if (!emailMatch && !idMatch) return false;
+      }
+      return true;
+    });
+  });
 
 // Summary numbers
 const flaggedCount = computed(() => {
