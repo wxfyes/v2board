@@ -488,7 +488,15 @@ class StatController extends Controller
             return $b['flagged_at'] <=> $a['flagged_at'];
         });
 
-        return [
+        $abnormalKeywords = [
+            'curl', 'wget', 'python', 'python-requests', 'go-http', 'go-http-client', 'urllib', 'httpclient', 'postman', 'aria2',
+            'ClashMetaForAndroid/733', 'clash-verge/v2.3.1', 'clash'
+        ];
+        if (isset($config['audit_ua_keywords']) && is_array($config['audit_ua_keywords'])) {
+            $abnormalKeywords = $config['audit_ua_keywords'];
+        }
+
+        return response([
             'data' => [
                 'list' => $data,
                 'whitelist' => array_values($whitelistUsers),
