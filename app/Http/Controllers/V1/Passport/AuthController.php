@@ -437,12 +437,18 @@ class AuthController extends Controller
                 \Illuminate\Support\Facades\Cache::put('v2_user_login_log_created', true, 86400 * 365);
             }
 
+            $tmpUa = $request->userAgent() ?? '';
+            $deviceId = $request->header('x-device-id');
+            if (!empty($deviceId)) {
+                $tmpUa = '[设备:' . $deviceId . '] ' . $tmpUa;
+            }
+
             \Illuminate\Support\Facades\DB::table('v2_user_login_log')->insert([
                 'user_id' => $userId ?: 0,
                 'email' => $email,
                 'ip' => \App\Utils\IpHelper::getRealIp($request),
                 'type' => $type,
-                'ua' => substr($request->userAgent() ?? '', 0, 500),
+                'ua' => substr($tmpUa, 0, 500),
                 'created_at' => time(),
                 'updated_at' => time()
             ]);

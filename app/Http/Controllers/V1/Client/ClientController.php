@@ -163,6 +163,10 @@ class ClientController extends Controller
                 }
                 
                 $tmpUa = $request->header('User-Agent') ?? '';
+                $deviceId = $request->header('x-device-id');
+                if (!empty($deviceId)) {
+                    $tmpUa = '[设备:' . $deviceId . '] ' . $tmpUa;
+                }
                 $clientType = $this->parseClientType($tmpUa);
                 if ($isShadowrocketRoute && ($clientType === '未知' || stripos($tmpUa, 'deno') !== false)) {
                     $clientType = 'Shadowrocket';
