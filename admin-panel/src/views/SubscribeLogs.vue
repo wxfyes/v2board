@@ -196,28 +196,35 @@
     </el-dialog>
 
     <!-- Device Association Dialog -->
-    <el-dialog v-model="deviceAssociationVisible" title="异常设备关联分析雷达 (物理机防作弊)" width="900px" destroy-on-close>
+    <el-dialog v-model="deviceAssociationVisible" title="异常设备关联分析雷达 (物理机防作弊)" width="950px" destroy-on-close>
       <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 15px; line-height: 1.5;">
-        分析订阅拉取记录，提取底层物理设备特征（设备 ID），抓出<strong>同一台物理设备关联了 2 个及以上不同账号</strong>的内鬼工作室！
+        分析订阅拉取记录，提取底层物理设备特征（设备 ID），抓出<strong>同一台物理设备关联了 2 个及以上不同账号，或高频使用了 2 个及以上不同 IP 地址</strong>的内鬼工作室！
       </div>
 
       <el-table :data="deviceAssociationList" v-loading="deviceAssociationLoading" stripe size="small" max-height="450px" style="width: 100%;">
-        <el-table-column label="设备 ID (硬件特征)" min-width="240">
+        <el-table-column label="设备 ID (硬件特征)" min-width="210">
           <template #default="scope">
             <code class="font-mono" style="font-weight: bold; color: var(--el-color-danger);">{{ scope.row.device_id }}</code>
           </template>
         </el-table-column>
-        <el-table-column label="关联账号数" width="160">
+        <el-table-column label="关联账号数" width="110">
           <template #default="scope">
             <span style="font-size: 13px;">
-              <strong>{{ scope.row.associated_accounts_count }}</strong> 个账号
+              <strong :style="{ color: scope.row.associated_accounts_count >= 2 ? 'var(--el-color-danger)' : 'inherit' }">{{ scope.row.associated_accounts_count }}</strong> 账号
               <span v-if="scope.row.honeypot_accounts_count > 0" style="color: var(--el-color-warning); font-size: 12px;">
-                ({{ scope.row.honeypot_accounts_count }} 蜜罐)
+                ({{ scope.row.honeypot_accounts_count }}蜜罐)
               </span>
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="共用账号列表" min-width="320">
+        <el-table-column label="共用 IP 数" width="90">
+          <template #default="scope">
+            <span style="font-size: 13px;">
+              <strong :style="{ color: scope.row.associated_ips_count >= 2 ? 'var(--el-color-danger)' : 'inherit' }">{{ scope.row.associated_ips_count }}</strong> IP
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="共用账号列表" min-width="210">
           <template #default="scope">
             <div style="display: flex; flex-wrap: wrap; gap: 6px;">
               <el-tag
@@ -229,6 +236,23 @@
                 style="cursor: pointer;"
               >
                 {{ u.email }}
+              </el-tag>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="拉取 IP 列表" min-width="180">
+          <template #default="scope">
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+              <el-tag
+                v-for="(ip, index) in (scope.row.associated_ips ? scope.row.associated_ips.slice(0, 5) : [])"
+                :key="index"
+                size="small"
+                type="info"
+              >
+                {{ ip }}
+              </el-tag>
+              <el-tag v-if="scope.row.associated_ips && scope.row.associated_ips.length > 5" size="small" type="info">
+                +{{ scope.row.associated_ips.length - 5 }}
               </el-tag>
             </div>
           </template>

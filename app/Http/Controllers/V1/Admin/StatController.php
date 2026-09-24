@@ -1062,6 +1062,7 @@ class StatController extends Controller
                 $deviceMap[$deviceId] = [
                     'device_id' => $deviceId,
                     'users' => [],
+                    'ips' => [],
                     'total_pulls' => 0,
                     'latest_time' => 0,
                 ];
@@ -1076,12 +1077,18 @@ class StatController extends Controller
             if (!isset($deviceMap[$deviceId]['users'][$userId])) {
                 $deviceMap[$deviceId]['users'][$userId] = true;
             }
+            
+            $ip = trim($log->ip ?? '');
+            if (!empty($ip) && $ip !== '127.0.0.1') {
+                $deviceMap[$deviceId]['ips'][$ip] = true;
+            }
         }
 
         $result = [];
         foreach ($deviceMap as $deviceId => $data) {
             $userCount = count($data['users']);
-            if ($userCount < 2) continue;
+            $ipCount = count($data['ips']);
+            if ($userCount < 2 && $ipCount < 2) continue;
 
             $userIds = array_keys($data['users']);
             $users = User::whereIn('id', $userIds)->get(['id', 'email']);
@@ -1103,10 +1110,12 @@ class StatController extends Controller
             $result[] = [
                 'device_id' => $deviceId,
                 'associated_accounts_count' => $userCount,
+                'associated_ips_count' => $ipCount,
                 'honeypot_accounts_count' => $honeypotCount,
                 'total_pulls' => $data['total_pulls'],
                 'latest_time' => $data['latest_time'],
                 'associated_users' => $associatedUsers,
+                'associated_ips' => array_keys($data['ips']),
             ];
         }
 
@@ -1150,6 +1159,7 @@ class StatController extends Controller
                 $deviceMap[$deviceId] = [
                     'device_id' => $deviceId,
                     'users' => [],
+                    'ips' => [],
                     'total_pulls' => 0,
                     'latest_time' => 0,
                 ];
@@ -1164,12 +1174,18 @@ class StatController extends Controller
             if (!isset($deviceMap[$deviceId]['users'][$email])) {
                 $deviceMap[$deviceId]['users'][$email] = true;
             }
+
+            $ip = trim($log->ip ?? '');
+            if (!empty($ip) && $ip !== '127.0.0.1') {
+                $deviceMap[$deviceId]['ips'][$ip] = true;
+            }
         }
 
         $result = [];
         foreach ($deviceMap as $deviceId => $data) {
             $userCount = count($data['users']);
-            if ($userCount < 2) continue;
+            $ipCount = count($data['ips']);
+            if ($userCount < 2 && $ipCount < 2) continue;
 
             $emails = array_keys($data['users']);
             $users = User::whereIn('email', $emails)->get(['id', 'email']);
@@ -1191,10 +1207,12 @@ class StatController extends Controller
             $result[] = [
                 'device_id' => $deviceId,
                 'associated_accounts_count' => $userCount,
+                'associated_ips_count' => $ipCount,
                 'honeypot_accounts_count' => $honeypotCount,
                 'total_pulls' => $data['total_pulls'],
                 'latest_time' => $data['latest_time'],
                 'associated_users' => $associatedUsers,
+                'associated_ips' => array_keys($data['ips']),
             ];
         }
 
