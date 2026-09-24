@@ -559,14 +559,17 @@ class StatController extends Controller
         // 修复 unpack 限制导致超过 8000 个 key 时报错清理失败的问题
         try {
             $lua = "
-                local keys = redis.call('keys', '*sub_risk_*')
+                local cursor = '0'
                 local count = 0
-                if #keys > 0 then
+                repeat
+                    local result = redis.call('SCAN', cursor, 'MATCH', '*sub_risk_*', 'COUNT', 5000)
+                    cursor = result[1]
+                    local keys = result[2]
                     for i=1, #keys do
                         redis.call('del', keys[i])
                         count = count + 1
                     end
-                end
+                until cursor == '0'
                 return count
             ";
             \Illuminate\Support\Facades\Redis::connection()->eval($lua, 0);

@@ -9,15 +9,24 @@ if ($password && $password !== 'null') {
     $redis->auth($password);
 }
 
-$keys = $redis->keys('*sub_risk_*');
+$cursor = null;
 $count = 0;
-if (!empty($keys)) {
+while (true) {
+    // PhpRedis scan method
+    $keys = $redis->scan($cursor, '*sub_risk_*', 1000);
+    if ($keys === false || empty($keys)) {
+        if ($cursor === 0) break;
+        continue;
+    }
+    
     // 分批次删除，突破数量限制
     $chunks = array_chunk($keys, 1000);
     foreach ($chunks as $chunk) {
         $redis->del($chunk);
         $count += count($chunk);
     }
+    
+    if ($cursor === 0) break;
 }
 
 echo "\n====================================\n";
