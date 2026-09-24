@@ -41,7 +41,7 @@
                 以及 <strong style="color: var(--el-color-warning); font-size: 15px;">{{ suspectedCount }}</strong> 个疑似命令行/爬虫工具拉取的异常记录待审计。
               </span>
               <el-button :type="flaggedCount > 0 ? 'danger' : 'warning'" size="small" icon="Platform" @click="goToSecurityAudit">
-                立即前往安全审计页面处理
+                立即前往风控中心页面处理
               </el-button>
             </div>
           </template>
@@ -191,7 +191,7 @@ const systemName = computed(() => {
   return window.settings?.title || '';
 });
 const alertTitle = computed(() => {
-  const prefix = systemName.value ? systemName.value + '安全审计中心' : '安全审计中心';
+  const prefix = systemName.value ? systemName.value + '风控中心中心' : '风控中心中心';
   return flaggedCount.value > 0 ? `${prefix}发现严重安全威胁！` : `${prefix}提示：发现疑似工具拉取`;
 });
 const chartRef = ref(null);

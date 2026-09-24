@@ -839,6 +839,12 @@ class SecurityTelegramController extends Controller
                 $actionResultStr = "【已解除封禁】";
                 break;
 
+            case 'clearscore':
+                \Illuminate\Support\Facades\Redis::del("sub_risk_state:{$userId}");
+                \Illuminate\Support\Facades\Redis::del("sub_risk_count:{$userId}");
+                $actionResultStr = "✅ 动态积分清零成功！";
+                break;
+
             case 'reset':
                 $user->token = $this->generateGuid();
                 $user->uuid = $this->generateGuid(false);

@@ -50,7 +50,7 @@
       <template #header>
         <div class="flex-between flex-wrap gap-10">
           <div>
-            <span class="rank-title-text">{{ systemName ? systemName + '订阅安全审计中心' : '订阅安全审计中心' }}</span>
+            <span class="rank-title-text">{{ systemName ? systemName + '订阅风控中心中心' : '订阅风控中心中心' }}</span>
             <div class="rank-subtitle-text">对多 IP 扩散分享、高频测活、命令行客户端等进行精细化审查与蜜罐重定向管理</div>
           </div>
           <div class="flex-end gap-10">
@@ -536,7 +536,7 @@
     </el-dialog>
 
     <!-- Custom Audit Radar Dialog -->
-    <el-dialog v-model="customAuditVisible" title="天阙安全审计 - 自定义特征探测雷达" width="950px" destroy-on-close>
+    <el-dialog v-model="customAuditVisible" title="天阙风控中心 - 自定义特征探测雷达" width="950px" destroy-on-close>
       <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 15px; line-height: 1.5;">
         在这里您可以自由设定用户的拉取行为特征。点击开始探测后，雷达会从全局用户库中即时扫描并筛选出符合条件的异常账号。
       </div>
@@ -1154,7 +1154,7 @@ const handleAnomalyAction = async (cmd, row) => {
     }
   } else if (cmd === 'whitelist') {
     try {
-      await ElMessageBox.confirm(`确定要将用户 ${row.email} 加入白名单吗？(加入后系统将不再对其执行任何订阅拉取的安全审计)`, '提示', {
+      await ElMessageBox.confirm(`确定要将用户 ${row.email} 加入白名单吗？(加入后系统将不再对其执行任何订阅拉取的风控中心)`, '提示', {
         type: 'warning',
         confirmButtonText: '确定加白',
         cancelButtonText: '取消'

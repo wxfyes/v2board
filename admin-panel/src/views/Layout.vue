@@ -88,7 +88,7 @@
           </el-menu-item>
           <el-menu-item index="/security-audit">
             <el-icon><Lock /></el-icon>
-            <span>安全审计</span>
+            <span>风控中心</span>
           </el-menu-item>
           <el-menu-item index="/traitors">
             <el-icon><Warning /></el-icon>
@@ -270,7 +270,7 @@
           </el-menu-item>
           <el-menu-item index="/security-audit">
             <el-icon><Lock /></el-icon>
-            <span>安全审计</span>
+            <span>风控中心</span>
           </el-menu-item>
           <el-menu-item index="/traitors">
             <el-icon><Warning /></el-icon>

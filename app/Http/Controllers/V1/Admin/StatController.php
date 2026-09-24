@@ -420,6 +420,51 @@ class StatController extends Controller
             ];
         }
 
+
+        // --- 读取 Redis 中的动态高分用户 ---
+        try {
+            $redisKeys = \Illuminate\Support\Facades\Redis::keys('sub_risk_state:*');
+            foreach ($redisKeys as $fullKey) {
+                $key = str_replace(config('database.redis.options.prefix'), '', $fullKey);
+                $userId = str_replace('sub_risk_state:', '', $key);
+                
+                if (isset($flaggedUsers[$userId]) || in_array((int)$userId, $honeypotUsers)) {
+                    continue;
+                }
+
+                $stateJson = \Illuminate\Support\Facades\Redis::get($key);
+                if ($stateJson) {
+                    $state = json_decode($stateJson, true);
+                    if (is_array($state) && isset($state['score']) && $state['score'] > 0) {
+                        $user = \App\Models\User::where('id', $userId)->first(['id', 'email', 'client_type', 't', 'banned']);
+                        if (!$user) continue;
+
+                        $history = [];
+                        if ($user->client_type) {
+                            $history = json_decode($user->client_type, true) ?: [];
+                        }
+                        $history = $this->filterClientHistory($history, $ignoreIps);
+                        foreach ($history as &$hItem) {
+                            $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
+                        }
+                        unset($hItem);
+
+                        $data[] = [
+                            'user_id' => (int)$userId,
+                            'email' => $user->email,
+                            'flagged_at' => $state['last_time'] ?? time(),
+                            'reasons' => ["⚡ 动态风控积分: " . $state['score'] . " 分"],
+                            'in_honeypot' => 0,
+                            'banned' => (int)$user->banned,
+                            'history' => $history,
+                            'type' => 'dynamic_score',
+                            'risk_level' => $state['score'] >= 50 ? 'high' : 'medium'
+                        ];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {}
+
         // Suspected Users
         $abnormalKeywords = [
             'curl', 'wget', 'python', 'python-requests', 'go-http', 'go-http-client', 'urllib', 'httpclient', 'postman', 'aria2',

@@ -143,7 +143,7 @@ const routes = [
         path: 'security-audit',
         name: 'SecurityAudit',
         component: SecurityAudit,
-        meta: { title: '安全审计', requiresAuth: true }
+        meta: { title: '风控中心', requiresAuth: true }
       },
       {
         path: 'traitors',

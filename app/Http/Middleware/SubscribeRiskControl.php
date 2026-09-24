@@ -41,6 +41,103 @@ class SubscribeRiskControl
 
 
 
+    
+
+    // -------------------------------------------------------------------------
+    // 动态积分状态机 (防同城多IP、防随机UA)
+    // -------------------------------------------------------------------------
+
+    private function calculateDynamicScore($user, string $ip, string $userAgent, array $geo, Request $request): void
+    {
+        try {
+            $userId = $user->id;
+            $stateKey = "sub_risk_state:{$userId}";
+            $now = time();
+            
+            // 获取之前状态
+            $stateJson = Redis::get($stateKey);
+            $state = $stateJson ? json_decode($stateJson, true) : [
+                'score' => 0,
+                'last_time' => 0,
+                'last_ip_c' => '',
+                'last_ua_core' => '',
+                'last_prov' => ''
+            ];
+
+            // 1. 时间衰减 (每小时衰减 5 分)
+            if ($state['last_time'] > 0) {
+                $hoursPassed = ($now - $state['last_time']) / 3600;
+                if ($hoursPassed >= 1) {
+                    $decay = floor($hoursPassed) * 5;
+                    $state['score'] = max(0, $state['score'] - $decay);
+                    // 只有产生了衰减，才把时间拨到当前小时边界，防止不足一小时的累计时间被清空
+                    $state['last_time'] = $now;
+                }
+            } else {
+                $state['last_time'] = $now;
+            }
+
+            $currentScoreAdd = 0;
+            $reasons = [];
+
+            // 基础拉取 +1 分
+            $currentScoreAdd += 1;
+
+            // 2. IP C段变动检测
+            $ipParts = explode('.', $ip);
+            if (count($ipParts) === 4) {
+                $ipC = $ipParts[0] . '.' . $ipParts[1] . '.' . $ipParts[2];
+                if ($state['last_ip_c'] !== '' && $state['last_ip_c'] !== $ipC) {
+                    $currentScoreAdd += 5;
+                    $reasons[] = "换IP段";
+                }
+                $state['last_ip_c'] = $ipC;
+            }
+
+            // 3. UA 核心变动检测 (简单提取核心标识)
+            $uaLower = strtolower($userAgent);
+            $uaCore = 'unknown';
+            if (strpos($uaLower, 'tianque') !== false) $uaCore = 'tianque';
+            elseif (strpos($uaLower, 'clash') !== false) $uaCore = 'clash';
+            elseif (strpos($uaLower, 'v2ray') !== false) $uaCore = 'v2ray';
+            elseif (strpos($uaLower, 'sing-box') !== false) $uaCore = 'sing-box';
+            elseif (strpos($uaLower, 'hiddify') !== false) $uaCore = 'hiddify';
+            elseif (strpos($uaLower, 'karing') !== false) $uaCore = 'karing';
+            else $uaCore = substr($uaLower, 0, 15);
+
+            if ($state['last_ua_core'] !== '' && $state['last_ua_core'] !== $uaCore) {
+                $currentScoreAdd += 15;
+                $reasons[] = "换UA内核({$state['last_ua_core']}->{$uaCore})";
+            }
+            $state['last_ua_core'] = $uaCore;
+
+            // 4. 省份变动检测
+            $prov = $geo['region'] ?? '';
+            if ($prov !== '' && $state['last_prov'] !== '' && $state['last_prov'] !== $prov) {
+                $currentScoreAdd += 30;
+                $reasons[] = "跨省";
+            }
+            $state['last_prov'] = $prov;
+
+            // 累加本次得分
+            $state['score'] += $currentScoreAdd;
+
+            // 如果得分 >= 100，触发告警并拉入蜜罐
+            if ($state['score'] >= 100) {
+                $reasonStr = "【动态积分爆表: {$state['score']}分】近期异常: " . implode(', ', $reasons);
+                $this->alert($user, $ip, $userAgent, $reasonStr, 100, $request); // alert 中 100分会自动 autoban
+                
+                // 斩首后分值减半，避免连续发报，同时保持高危状态
+                $state['score'] = 50; 
+            }
+
+            Redis::setex($stateKey, 86400 * 3, json_encode($state)); // 保存3天
+
+        } catch (\Throwable $e) {
+            Log::channel('risk')->error('[风控] 动态积分计算异常', ['error' => $e->getMessage()]);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // 主入口
     // -------------------------------------------------------------------------
@@ -98,7 +195,14 @@ class SubscribeRiskControl
         // ② IP 跨区域检测
         $this->checkRegion($user, $ip, $userAgent, $request);
 
-        return $next($request);
+        
+        // ③ 动态积分状态机 (细颗粒度行为风控)
+        $geo = $this->getGeoInfo($ip);
+        if ($geo) {
+            $this->calculateDynamicScore($user, $ip, $userAgent, $geo, $request);
+        }
+
+return $next($request);
     }
 
 
