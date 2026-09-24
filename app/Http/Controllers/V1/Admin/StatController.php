@@ -553,6 +553,20 @@ class StatController extends Controller
         $config['flagged_users'] = [];
         @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
+        // 使用 Lua 脚本确保极速且准确地清空底层所有风控缓存（忽略框架前缀干扰）
+        try {
+            $lua = "
+                local keys = redis.call('keys', '*sub_risk_*')
+                if #keys > 0 then
+                    redis.call('del', unpack(keys))
+                end
+                return #keys
+            ";
+            \Illuminate\Support\Facades\Redis::connection()->eval($lua, 0);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Clear anomalies failed: ' . $e->getMessage());
+        }
+
         return response([
             'data' => true
         ]);
