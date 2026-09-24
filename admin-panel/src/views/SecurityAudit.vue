@@ -57,7 +57,7 @@
             
             
             
-            <el-button type="danger" plain size="small" icon="Delete" :disabled="flaggedCount === 0" @click="handleClearAllAnomalies">一键忽略全部预警</el-button>
+            <el-button type="danger" plain size="small" icon="Delete" @click="handleClearAllAnomalies">一键清空所有风控记录与积分</el-button>
             <el-button type="primary" size="small" icon="Refresh" :loading="anomaliesLoading" @click="fetchAnomalies">刷新</el-button>
           </div>
         </div>
@@ -1053,14 +1053,14 @@ const unbanAssociatedIp = async (ip) => {
 
 const handleClearAllAnomalies = async () => {
   try {
-    await ElMessageBox.confirm('确定要忽略全部待处理的审计预警吗？此操作将清除所有当前的警报记录。', '警告', {
+    await ElMessageBox.confirm('确定要清空全部待处理预警记录，并彻底重置所有用户的【动态风控积分】吗？\n\n注意：此操作不可逆，将清空当前所有的高分记录和状态。', '一键清理确认', {
       type: 'warning',
-      confirmButtonText: '确定忽略全部',
+      confirmButtonText: '确定全部清空',
       cancelButtonText: '取消'
     });
     const securePath = getSecurePath();
     await api.post(`/${securePath}/stat/clearAllAnomalies`);
-    ElMessage.success('已成功清空所有审计记录');
+    ElMessage.success('已成功清空所有记录与风控积分');
     fetchAnomalies();
   } catch (err) {
     if (err !== 'cancel') {
