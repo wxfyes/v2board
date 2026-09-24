@@ -21,6 +21,9 @@
         <el-button class="filter-item" type="warning" icon="Trophy" @click="getTopUsers">
           今日拉取排行
         </el-button>
+        <el-button class="filter-item" type="danger" icon="Connection" @click="openIpAssociationDialog" style="margin-left: 10px;">
+          IP 关联分析
+        </el-button>
       </div>
 
       <!-- 表格 -->
@@ -111,6 +114,83 @@
     </el-card>
 
     <UserDetailDialog v-model="detailVisible" :user-id="currentUserId" @change="getList" />
+
+    <!-- IP Association Dialog -->
+    <el-dialog v-model="ipAssociationVisible" title="多账号共用 IP 关联分析雷达 (订阅拉取)" width="900px" destroy-on-close>
+      <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 15px; line-height: 1.5;">
+        分析所有用户的客户端拉取历史，抓取并呈现在近期内，<strong>有 2 个及以上不同账号共同使用过</strong>的 IP 地址。
+      </div>
+
+      <el-table :data="ipAssociationList" v-loading="ipAssociationLoading" stripe size="small" max-height="450px" style="width: 100%;">
+        <el-table-column label="共用 IP" min-width="240">
+          <template #default="scope">
+            <code class="font-mono" style="font-weight: bold;">{{ scope.row.ip }}</code>
+            <div v-if="scope.row.location" style="font-size: 11px; color: var(--el-text-color-secondary); margin-top: 2px;">
+              {{ scope.row.location }}
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="关联账号数" width="160">
+          <template #default="scope">
+            <span style="font-size: 13px;">
+              <strong>{{ scope.row.associated_accounts_count }}</strong> 个账号
+              <span v-if="scope.row.honeypot_accounts_count > 0" style="color: var(--el-color-warning); font-size: 12px;">
+                ({{ scope.row.honeypot_accounts_count }} 蜜罐)
+              </span>
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="共用账号列表" min-width="320">
+          <template #default="scope">
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <el-tag
+                v-for="u in scope.row.associated_users"
+                :key="u.id"
+                size="small"
+                :type="u.in_honeypot === 1 ? 'warning' : 'success'"
+              >
+                {{ u.email }} ({{ u.id }})
+              </el-tag>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="总频次" width="80" align="center" prop="total_pulls" />
+        <el-table-column label="最近拉取" width="150">
+          <template #default="scope">
+            <span style="font-size: 12px; color: var(--el-text-color-secondary);">
+              {{ formatTime(scope.row.latest_time) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="110" align="right" fixed="right">
+          <template #default="scope">
+            <el-button
+              v-if="scope.row.is_banned === 0"
+              type="danger"
+              size="small"
+              plain
+              @click="banAssociatedIp(scope.row.ip)"
+            >
+              封禁 IP
+            </el-button>
+            <el-button
+              v-else
+              type="info"
+              size="small"
+              plain
+              @click="unbanAssociatedIp(scope.row.ip)"
+            >
+              已封锁
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button size="small" @click="ipAssociationVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -139,6 +219,50 @@ const listQuery = reactive({
   ip: undefined,
   ua: undefined
 });
+
+const ipAssociationVisible = ref(false);
+const ipAssociationLoading = ref(false);
+const ipAssociationList = ref([]);
+
+const openIpAssociationDialog = () => {
+  ipAssociationVisible.value = true;
+  fetchIpAssociation();
+};
+
+const fetchIpAssociation = async () => {
+  ipAssociationLoading.value = true;
+  try {
+    const securePath = getSecurePath();
+    const response = await api.get(`/${securePath}/stat/getIpAssociationAnalysis`);
+    ipAssociationList.value = response.data || [];
+  } catch (error) {
+    ElMessage.error(error.message || '获取关联分析数据失败');
+  } finally {
+    ipAssociationLoading.value = false;
+  }
+};
+
+const banAssociatedIp = async (ip) => {
+  try {
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/stat/banIp`, { ip });
+    ElMessage.success('IP 封禁成功');
+    fetchIpAssociation();
+  } catch (error) {
+    ElMessage.error(error.message || '操作失败');
+  }
+};
+
+const unbanAssociatedIp = async (ip) => {
+  try {
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/stat/removeBanIp`, { ip });
+    ElMessage.success('IP 已解封');
+    fetchIpAssociation();
+  } catch (error) {
+    ElMessage.error(error.message || '操作失败');
+  }
+};
 
 const getList = async () => {
   listLoading.value = true;

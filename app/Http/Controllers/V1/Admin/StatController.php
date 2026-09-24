@@ -941,6 +941,97 @@ class StatController extends Controller
         ]);
     }
 
+    public function getLoginIpAssociationAnalysis()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => []]);
+        }
+
+        $configPath = storage_path('tianque_config.json');
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        }
+        $bannedIps = $config['banned_ips'] ?? [];
+        $honeypotUsers = array_map('intval', $config['honeypot_users'] ?? []);
+
+        // 获取最近 30 天的登录记录以防扫全表
+        $timeLimit = strtotime('-30 days');
+        $logs = \Illuminate\Support\Facades\DB::table('v2_user_login_log')
+            ->where('created_at', '>=', $timeLimit)
+            ->get();
+
+        $ipMap = [];
+        foreach ($logs as $log) {
+            $ip = trim($log->ip ?? '');
+            if (empty($ip) || $ip === '127.0.0.1') continue;
+
+            if (!isset($ipMap[$ip])) {
+                $ipMap[$ip] = [
+                    'ip' => $ip,
+                    'users' => [],
+                    'total_pulls' => 0,
+                    'latest_time' => 0,
+                ];
+            }
+
+            $ipMap[$ip]['total_pulls']++;
+            if (($log->created_at ?? 0) > $ipMap[$ip]['latest_time']) {
+                $ipMap[$ip]['latest_time'] = (int)($log->created_at ?? 0);
+            }
+
+            $email = $log->email;
+            if (!isset($ipMap[$ip]['users'][$email])) {
+                $ipMap[$ip]['users'][$email] = true;
+            }
+        }
+
+        $result = [];
+        foreach ($ipMap as $ip => $data) {
+            $userCount = count($data['users']);
+            if ($userCount < 2) continue;
+
+            $emails = array_keys($data['users']);
+            $users = User::whereIn('email', $emails)->get(['id', 'email', 'banned']);
+
+            $associatedUsers = [];
+            $honeypotCount = 0;
+            foreach ($users as $user) {
+                $userInHoneypot = in_array((int)$user->id, $honeypotUsers, true);
+                $associatedUsers[] = [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                    'in_honeypot' => $userInHoneypot ? 1 : 0
+                ];
+                if ($userInHoneypot) {
+                    $honeypotCount++;
+                }
+            }
+
+            $result[] = [
+                'ip' => $ip,
+                'associated_accounts_count' => $userCount,
+                'honeypot_accounts_count' => $honeypotCount,
+                'total_pulls' => $data['total_pulls'],
+                'latest_time' => $data['latest_time'],
+                'associated_users' => $associatedUsers,
+                'is_banned' => in_array($ip, $bannedIps, true) ? 1 : 0,
+                'location' => $this->getIpInfo($ip)['location']
+            ];
+        }
+
+        usort($result, function ($a, $b) {
+            if ($b['associated_accounts_count'] === $a['associated_accounts_count']) {
+                return $b['latest_time'] <=> $a['latest_time'];
+            }
+            return $b['associated_accounts_count'] <=> $a['associated_accounts_count'];
+        });
+
+        return response([
+            'data' => $result
+        ]);
+    }
+
     public function addIgnoreIp(Request $request)
     {
         $ip = trim($request->input('ip'));
