@@ -55,22 +55,27 @@ class SubscribeRiskControl
             $now = time();
             
             // 获取之前状态
-            $stateJson = Redis::get($stateKey);
+            $stateJson = \Illuminate\Support\Facades\Redis::get($stateKey);
             $state = $stateJson ? json_decode($stateJson, true) : [
                 'score' => 0,
                 'last_time' => 0,
-                'last_ip_c' => '',
-                'last_ua_core' => '',
-                'last_prov' => ''
+                'recent_ips' => [],
+                'recent_uas' => [],
+                'recent_provs' => []
             ];
 
-            // 1. 时间衰减 (每小时衰减 5 分)
+            // 防止旧版数据结构报错，进行兼容并限制最大分数为99，防止爆表
+            if (!isset($state['recent_ips'])) $state['recent_ips'] = [];
+            if (!isset($state['recent_uas'])) $state['recent_uas'] = [];
+            if (!isset($state['recent_provs'])) $state['recent_provs'] = [];
+            if ($state['score'] > 99) $state['score'] = 99; // 强制兜底，清洗旧的爆表数据
+
+            // 1. 时间衰减 (每小时衰减 10 分，加速正常用户清洗)
             if ($state['last_time'] > 0) {
                 $hoursPassed = ($now - $state['last_time']) / 3600;
                 if ($hoursPassed >= 1) {
-                    $decay = floor($hoursPassed) * 5;
+                    $decay = floor($hoursPassed) * 10;
                     $state['score'] = max(0, $state['score'] - $decay);
-                    // 只有产生了衰减，才把时间拨到当前小时边界，防止不足一小时的累计时间被清空
                     $state['last_time'] = $now;
                 }
             } else {
@@ -80,21 +85,19 @@ class SubscribeRiskControl
             $currentScoreAdd = 0;
             $reasons = [];
 
-            // 基础拉取 +1 分
-            $currentScoreAdd += 1;
-
-            // 2. IP C段变动检测
+            // 2. IP C段变动检测 (保存最近 5 个 C 段，防止手机/家宽频繁切换累加)
             $ipParts = explode('.', $ip);
-            if (count($ipParts) === 4) {
-                $ipC = $ipParts[0] . '.' . $ipParts[1] . '.' . $ipParts[2];
-                if ($state['last_ip_c'] !== '' && $state['last_ip_c'] !== $ipC) {
-                    $currentScoreAdd += 5;
-                    $reasons[] = "换IP段";
-                }
-                $state['last_ip_c'] = $ipC;
+            $ipC = (count($ipParts) === 4) ? $ipParts[0] . '.' . $ipParts[1] . '.' . $ipParts[2] : $ip;
+            
+            if (!in_array($ipC, $state['recent_ips'])) {
+                // 如果是一个全新的 C 段，加 3 分
+                $currentScoreAdd += 3;
+                $reasons[] = "新IP段";
+                array_unshift($state['recent_ips'], $ipC);
+                if (count($state['recent_ips']) > 5) array_pop($state['recent_ips']);
             }
 
-            // 3. UA 核心变动检测 (简单提取核心标识)
+            // 3. UA 核心变动检测 (保存最近 3 个 UA，防止 PC 和手机同时挂着导致频繁切换)
             $uaLower = strtolower($userAgent);
             $uaCore = 'unknown';
             if (strpos($uaLower, 'tianque') !== false) $uaCore = 'tianque';
@@ -103,45 +106,52 @@ class SubscribeRiskControl
             elseif (strpos($uaLower, 'sing-box') !== false) $uaCore = 'sing-box';
             elseif (strpos($uaLower, 'hiddify') !== false) $uaCore = 'hiddify';
             elseif (strpos($uaLower, 'karing') !== false) $uaCore = 'karing';
+            elseif (strpos($uaLower, 'shadowrocket') !== false) $uaCore = 'shadowrocket';
+            elseif (strpos($uaLower, 'surfboard') !== false) $uaCore = 'surfboard';
+            elseif (strpos($uaLower, 'loon') !== false) $uaCore = 'loon';
+            elseif (strpos($uaLower, 'quantumult') !== false) $uaCore = 'quantumult';
             else $uaCore = substr($uaLower, 0, 15);
 
-            if ($state['last_ua_core'] !== '' && $state['last_ua_core'] !== $uaCore) {
+            if (!in_array($uaCore, $state['recent_uas'])) {
+                // 如果是一个全新的 UA 核心，加 15 分
                 $currentScoreAdd += 15;
-                $reasons[] = "换UA内核({$state['last_ua_core']}->{$uaCore})";
+                $reasons[] = "新UA({$uaCore})";
+                array_unshift($state['recent_uas'], $uaCore);
+                if (count($state['recent_uas']) > 3) array_pop($state['recent_uas']);
             }
-            $state['last_ua_core'] = $uaCore;
 
-            // 4. 省份变动检测
+            // 4. 省份变动检测 (保存最近 2 个省份，防止跨省通勤反复横跳)
             $prov = $geo['region'] ?? '';
-            if ($prov !== '' && $state['last_prov'] !== '' && $state['last_prov'] !== $prov) {
-                $currentScoreAdd += 30;
-                $reasons[] = "跨省";
+            if ($prov !== '' && !in_array($prov, $state['recent_provs'])) {
+                $currentScoreAdd += 20;
+                $reasons[] = "跨省({$prov})";
+                array_unshift($state['recent_provs'], $prov);
+                if (count($state['recent_provs']) > 2) array_pop($state['recent_provs']);
             }
-            $state['last_prov'] = $prov;
 
-            // 累加本次得分
+            // 如果完全没有任何变化（同C段，同UA，同省份），这完全是正常的后台刷新，不加分！
+            // 只有当存在特征变化时，才累加本次得分。
             $state['score'] += $currentScoreAdd;
 
             // 如果得分 >= 100，触发告警并拉入蜜罐
             if ($state['score'] >= 100) {
                 $reasonStr = "【动态积分爆表: {$state['score']}分】近期异常: " . implode(', ', $reasons);
-                $this->alert($user, $ip, $userAgent, $reasonStr, 100, $request); // alert 中 100分会自动 autoban
-                
+                $this->alert($user, $ip, $userAgent, $reasonStr, 100, $request);
                 // 斩首后分值减半，避免连续发报，同时保持高危状态
                 $state['score'] = 50; 
             }
 
-            Redis::setex($stateKey, 86400 * 3, json_encode($state)); // 保存3天
+            \Illuminate\Support\Facades\Redis::setex($stateKey, 86400 * 3, json_encode($state)); // 保存3天
             
             // 维护 Redis ZSET 用于积分榜 (Score Leaderboard)
             if ($state['score'] > 0) {
-                Redis::zadd("sub_risk_scores", $state['score'], $userId);
+                \Illuminate\Support\Facades\Redis::zadd("sub_risk_scores", $state['score'], $userId);
             } else {
-                Redis::zrem("sub_risk_scores", $userId);
+                \Illuminate\Support\Facades\Redis::zrem("sub_risk_scores", $userId);
             }
 
         } catch (\Throwable $e) {
-            Log::channel('risk')->error('[风控] 动态积分计算异常', ['error' => $e->getMessage()]);
+            \Illuminate\Support\Facades\Log::channel('risk')->error('[风控] 动态积分计算异常', ['error' => $e->getMessage()]);
         }
     }
 
