@@ -132,6 +132,13 @@ class SubscribeRiskControl
             }
 
             Redis::setex($stateKey, 86400 * 3, json_encode($state)); // 保存3天
+            
+            // 维护 Redis ZSET 用于积分榜 (Score Leaderboard)
+            if ($state['score'] > 0) {
+                Redis::zadd("sub_risk_scores", $state['score'], $userId);
+            } else {
+                Redis::zrem("sub_risk_scores", $userId);
+            }
 
         } catch (\Throwable $e) {
             Log::channel('risk')->error('[风控] 动态积分计算异常', ['error' => $e->getMessage()]);

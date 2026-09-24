@@ -842,6 +842,7 @@ class SecurityTelegramController extends Controller
             case 'clearscore':
                 \Illuminate\Support\Facades\Redis::del("sub_risk_state:{$userId}");
                 \Illuminate\Support\Facades\Redis::del("sub_risk_count:{$userId}");
+                \Illuminate\Support\Facades\Redis::zrem("sub_risk_scores", $userId);
                 $actionResultStr = "✅ 动态积分清零成功！";
                 break;
 

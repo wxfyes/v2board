@@ -55,8 +55,8 @@
           </div>
           <div class="flex-end gap-10">
             <el-button type="success" plain size="small" icon="Cpu" @click="openCustomAuditDialog">自定义特征探测</el-button>
-            <el-button type="warning" plain size="small" icon="Connection" @click="openIpAssociationDialog">IP 关联分析</el-button>
-            <el-button type="primary" plain size="small" icon="Setting" @click="openSettingsDialog">审计规则 & 白名单</el-button>
+            
+            
             <el-button type="danger" plain size="small" icon="Delete" :disabled="flaggedCount === 0" @click="handleClearAllAnomalies">一键忽略全部预警</el-button>
             <el-button type="primary" size="small" icon="Refresh" :loading="anomaliesLoading" @click="fetchAnomalies">刷新</el-button>
           </div>
@@ -86,7 +86,7 @@
         </div>
       </div>
 
-      <el-table :data="filteredAnomaliesList" v-loading="anomaliesLoading" stripe style="width: 100%">
+      <el-table :data="paginatedAnomaliesList" v-loading="anomaliesLoading" stripe style="width: 100%">
         <el-table-column type="expand">
           <template #default="props">
             <div class="anomaly-history-detail">
@@ -219,6 +219,15 @@
           </template>
         </el-table-column>
       </el-table>
+      <div style="margin-top: 15px; display: flex; justify-content: flex-end;">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="filteredAnomaliesList.length"
+        />
+      </div>
     </el-card>
 
     <!-- Audit Settings & Whitelist Dialog -->
@@ -771,7 +780,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { getSecurePath } from '../api';
 import api from '../api';
@@ -784,7 +793,15 @@ const systemName = computed(() => {
 const anomaliesRawList = ref([]);
 const anomaliesSearch = ref('');
 const anomaliesFilterType = ref('all');
+  watch([anomaliesSearch, anomaliesFilterType], () => { currentPage.value = 1; });
 const anomaliesLoading = ref(false);
+const currentPage = ref(1);
+const pageSize = ref(20);
+
+const paginatedAnomaliesList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredAnomaliesList.value.slice(start, start + pageSize.value);
+});
 
 const filteredAnomaliesList = computed(() => {
   let list = anomaliesRawList.value;

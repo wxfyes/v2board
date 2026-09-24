@@ -139,6 +139,7 @@ class AdminRoute
             $router->get ('/stat/getSubscriptionAnomalies', 'V1\\Admin\\StatController@getSubscriptionAnomalies');
             $router->post('/stat/ignoreAnomaly', 'V1\\Admin\\StatController@ignoreAnomaly');
             $router->post('/stat/clearAllAnomalies', 'V1\\Admin\\StatController@clearAllAnomalies');
+            $router->post('/stat/clearRiskScore', 'V1\\Admin\\StatController@clearRiskScore');
             $router->post('/stat/whitelistUser', 'V1\\Admin\\StatController@whitelistUser');
             $router->post('/stat/removeWhitelistUser', 'V1\\Admin\\StatController@removeWhitelistUser');
             $router->post('/stat/saveSubscriptionAuditSettings', 'V1\\Admin\\StatController@saveSubscriptionAuditSettings');

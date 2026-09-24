@@ -421,46 +421,50 @@ class StatController extends Controller
         }
 
 
-        // --- 读取 Redis 中的动态高分用户 ---
+        // --- 读取 Redis 中的动态高分用户 (ZSET性能优化，仅取Top 100) ---
         try {
-            $redisKeys = \Illuminate\Support\Facades\Redis::keys('sub_risk_state:*');
-            foreach ($redisKeys as $fullKey) {
-                $key = str_replace(config('database.redis.options.prefix'), '', $fullKey);
-                $userId = str_replace('sub_risk_state:', '', $key);
+            $topScores = \Illuminate\Support\Facades\Redis::zrevrange('sub_risk_scores', 0, 99, 'WITHSCORES');
+            if (is_array($topScores) && !empty($topScores)) {
+                $userIds = array_keys($topScores);
+                $users = \App\Models\User::whereIn('id', $userIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
                 
-                if (isset($flaggedUsers[$userId]) || in_array((int)$userId, $honeypotUsers)) {
-                    continue;
-                }
-
-                $stateJson = \Illuminate\Support\Facades\Redis::get($key);
-                if ($stateJson) {
-                    $state = json_decode($stateJson, true);
-                    if (is_array($state) && isset($state['score']) && $state['score'] > 0) {
-                        $user = \App\Models\User::where('id', $userId)->first(['id', 'email', 'client_type', 't', 'banned']);
-                        if (!$user) continue;
-
-                        $history = [];
-                        if ($user->client_type) {
-                            $history = json_decode($user->client_type, true) ?: [];
-                        }
-                        $history = $this->filterClientHistory($history, $ignoreIps);
-                        foreach ($history as &$hItem) {
-                            $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
-                        }
-                        unset($hItem);
-
-                        $data[] = [
-                            'user_id' => (int)$userId,
-                            'email' => $user->email,
-                            'flagged_at' => $state['last_time'] ?? time(),
-                            'reasons' => ["⚡ 动态风控积分: " . $state['score'] . " 分"],
-                            'in_honeypot' => 0,
-                            'banned' => (int)$user->banned,
-                            'history' => $history,
-                            'type' => 'dynamic_score',
-                            'risk_level' => $state['score'] >= 50 ? 'high' : 'medium'
-                        ];
+                foreach ($topScores as $userId => $score) {
+                    if (isset($flaggedUsers[$userId]) || in_array((int)$userId, $honeypotUsers)) {
+                        continue;
                     }
+                    $user = $users->get($userId);
+                    if (!$user) continue;
+
+                    $stateJson = \Illuminate\Support\Facades\Redis::get("sub_risk_state:{$userId}");
+                    $lastTime = time();
+                    if ($stateJson) {
+                        $state = json_decode($stateJson, true);
+                        if (is_array($state) && isset($state['last_time'])) {
+                            $lastTime = $state['last_time'];
+                        }
+                    }
+
+                    $history = [];
+                    if ($user->client_type) {
+                        $history = json_decode($user->client_type, true) ?: [];
+                    }
+                    $history = $this->filterClientHistory($history, $ignoreIps);
+                    foreach ($history as &$hItem) {
+                        $hItem['location'] = $this->getIpInfo($hItem['ip'] ?? '')['location'];
+                    }
+                    unset($hItem);
+
+                    $data[] = [
+                        'user_id' => (int)$userId,
+                        'email' => $user->email,
+                        'flagged_at' => $lastTime,
+                        'reasons' => ["⚡ 动态风控积分: {$score} 分"],
+                        'in_honeypot' => 0,
+                        'banned' => (int)$user->banned,
+                        'history' => $history,
+                        'type' => 'dynamic_score',
+                        'risk_level' => $score >= 50 ? 'high' : 'medium'
+                    ];
                 }
             }
         } catch (\Throwable $e) {}
@@ -1559,6 +1563,18 @@ class StatController extends Controller
         }
         
         return array_values(array_unique($ips));
+    }
+
+    public function clearRiskScore(Request $request)
+    {
+        $userId = $request->input('id');
+        if (!$userId) return response(['data' => false, 'message' => '缺少用户 ID'], 400);
+
+        \Illuminate\Support\Facades\Redis::del("sub_risk_state:{$userId}");
+        \Illuminate\Support\Facades\Redis::del("sub_risk_count:{$userId}");
+        \Illuminate\Support\Facades\Redis::zrem("sub_risk_scores", $userId);
+
+        return response(['data' => true]);
     }
 }
 
