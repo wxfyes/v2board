@@ -475,26 +475,30 @@ class StatController extends Controller
                 $cCount = count($uniqueIps);
                 $uCount = count($uniqueUas);
                 
-                // 评分公式：大幅度放宽正常用户的误判
+                // 评分公式：极度放宽！
+                // 因为手机 5G/4G 切换非常容易产生不同的 IP C段，正常人也有 3-5 个 C段。
+                // 正常人也有 PC 和 手机，所以 2 个内核是正常的。
                 $score = 0;
                 
-                // 允许 3 个以内的常规 IP C段（例如：家里WiFi、公司WiFi、手机5G）
-                if ($cCount > 3) {
-                    $score += ($cCount - 3) * 20; // 超过3个C段后，每个罚20分
+                // 允许 5 个以内的常规 IP C段（例如：家里WiFi、公司WiFi、数次手机5G基站切换）
+                if ($cCount > 5) {
+                    $score += ($cCount - 5) * 15; // 超过5个C段后，每个罚15分
                 }
                 
                 // 允许 2 个以内的常规 UA 内核（例如：电脑用Clash，手机用Shadowrocket）
                 if ($uCount > 2) {
-                    $score += ($uCount - 2) * 30; // 超过2个UA后，每个罚30分
+                    $score += ($uCount - 2) * 25; // 超过2个UA后，每个罚25分
                 }
                 
-                // 如果出现极端的“多IP + 多设备”交叉污染，判定为严重的订阅泄露，给予暴击惩罚
-                if ($cCount >= 5 && $uCount >= 3) {
-                    $score += 50;
+                // 极端交叉污染（超过6个IP段 + 3种以上客户端），判定为小团体共享
+                if ($cCount >= 6 && $uCount >= 3) {
+                    $score += 30;
                 }
                 
-                if ($score > 0) {
-                    if ($score > 99) $score = 99; // 强制封顶99分
+                // 只有分数达到 50 分及以上（也就是确实超出了正常人极限），才会在面板里显示！
+                // 避免老板看到太多四五十分的正常用户而产生恐慌。
+                if ($score >= 50) {
+                    if ($score > 99) $score = 99; // 强制封顶99分（永远不会自动接管，除非手动）
                     $dynamicScores[$user->id] = [
                         'score' => $score,
                         'user' => $user,
