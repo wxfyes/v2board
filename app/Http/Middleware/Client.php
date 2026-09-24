@@ -121,26 +121,21 @@ class Client
         $ip = $this->getRealIp($request);
         $isTargetOrg = false;
         $org = '';
-        $asnPath = storage_path('app/GeoLite2-ASN.mmdb');
-        if (file_exists($asnPath) && class_exists('\GeoIp2\Database\Reader')) {
-            try {
-                if (self::$_asnReader === null) {
-                    self::$_asnReader = new \GeoIp2\Database\Reader($asnPath);
+        
+        // 使用高效的 ip2region 库代替 GeoLite2
+        $regionStr = \App\Utils\IpHelper::ipLocation($ip);
+        if ($regionStr && $regionStr !== '未知') {
+            $parts = explode('|', $regionStr);
+            $org = $parts[4] ?? '';
+            
+            // 内鬼常用的测活云机房特征词
+            $targetOrgs = ['Alibaba', 'Aliyun', '阿里', '腾讯', '华为', '云', '数据中心', '机房']; 
+            
+            foreach ($targetOrgs as $targetOrg) {
+                if (stripos($org, $targetOrg) !== false) {
+                    $isTargetOrg = true;
+                    break;
                 }
-                $asnRecord = self::$_asnReader->asn($ip);
-                $org = $asnRecord->autonomousSystemOrganization ?? '';
-                
-                // 内鬼常用的测活云机房特征词
-                $targetOrgs = ['Alibaba', 'Aliyun']; 
-                
-                foreach ($targetOrgs as $targetOrg) {
-                    if (stripos($org, $targetOrg) !== false) {
-                        $isTargetOrg = true;
-                        break;
-                    }
-                }
-            } catch (\Exception $e) {
-                // 解析 ASN 失败则忽略，不阻断正常业务流程
             }
         }
 

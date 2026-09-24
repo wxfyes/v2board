@@ -268,56 +268,47 @@ class SubscribeRiskControl
             if ($cached) return json_decode($cached, true);
         } catch (\Throwable $e) {}
 
-        // 2. 尝试读取本地的 GeoIP mmdb 离线库 (优先)
-        $mmdbPath = storage_path('app/GeoLite2-City.mmdb');
-        if (file_exists($mmdbPath) && class_exists('\GeoIp2\Database\Reader')) {
-            try {
-                if (self::$_reader === null) {
-                    self::$_reader = new \GeoIp2\Database\Reader($mmdbPath);
+        // 2. 使用本地极速 ip2region (VectorIndex模式) 查询
+        $regionStr = \App\Utils\IpHelper::ipLocation($ip);
+        if ($regionStr && $regionStr !== '未知') {
+            $parts = explode('|', $regionStr);
+            $country = $parts[0] ?? '';
+            $province = $parts[2] ?? '';
+            $isp = $parts[4] ?? '';
+            
+            // 简单转换国家代码 (满足原逻辑 CN/非CN 的判断)
+            $countryCode = 'XX';
+            if ($country === '中国') $countryCode = 'CN';
+            elseif ($country === '香港') $countryCode = 'HK';
+            elseif ($country === '台湾') $countryCode = 'TW';
+            elseif ($country === '澳门') $countryCode = 'MO';
+            else $countryCode = $country;
+            
+            $res = [
+                'status' => 'success',
+                'countryCode' => $countryCode,
+                'region' => $province,
+                'hosting' => false,
+                'org' => $isp,
+                'as' => ''
+            ];
+            
+            // 判定是否为机房托管
+            $orgLower = strtolower($isp);
+            $idcKeywords = ['阿里', '腾讯', '华为', 'amazon', 'aws', 'hinet', 'ovh', 'choopa', 'digitalocean', 'linode', 'vultr', 'cloudflare', 'idc', 'server', 'hosting', 'datacenter', 'psychz', 'quadranet', 'leaseweb', 'zenlayer', 'sakura', 'anchnet', 'ucloud', 'ksyun', 'baidubce', '数据中心', '机房', '云'];
+            foreach ($idcKeywords as $kw) {
+                if (strpos($orgLower, $kw) !== false) {
+                    $res['hosting'] = true;
+                    break;
                 }
-                $record = self::$_reader->city($ip);
-                
-                $res = [
-                    'status' => 'success',
-                    'countryCode' => $record->country->isoCode,
-                    'region' => $record->mostSpecificSubdivision->isoCode,
-                    'hosting' => false,
-                    'org' => '',
-                    'as' => ''
-                ];
-
-                // 尝试解析 ASN 离线库以获取 hosting / org 信息
-                $asnPath = storage_path('app/GeoLite2-ASN.mmdb');
-                if (file_exists($asnPath) && class_exists('\GeoIp2\Database\Reader')) {
-                    try {
-                        if (self::$_asnReader === null) {
-                            self::$_asnReader = new \GeoIp2\Database\Reader($asnPath);
-                        }
-                        $asnRecord = self::$_asnReader->asn($ip);
-                        $res['as'] = 'AS' . $asnRecord->autonomousSystemNumber;
-                        $res['org'] = $asnRecord->autonomousSystemOrganization;
-                        
-                        // 判定是否为机房托管
-                        $orgLower = strtolower($res['org']);
-                        $idcKeywords = ['alibaba', 'tencent', 'huawei', 'amazon', 'aws', 'hinet', 'ovh', 'choopa', 'digitalocean', 'linode', 'vultr', 'cloudflare', 'idc', 'server', 'hosting', 'datacenter', 'psychz', 'quadranet', 'leaseweb', 'zenlayer', 'sakura', 'anchnet', 'ucloud', 'ksyun', 'baidubce'];
-                        foreach ($idcKeywords as $kw) {
-                            if (strpos($orgLower, $kw) !== false) {
-                                $res['hosting'] = true;
-                                break;
-                            }
-                        }
-                    } catch (\Throwable $e) {}
-                }
-
-                // 写入 Redis 缓存，有效期延长为 1 天 (86400 秒)
-                try { Redis::setex("ip_geo:{$ip}", 86400, json_encode($res)); } catch (\Throwable $e) {}
-                return $res;
-            } catch (\Throwable $e) {
-                Log::channel('risk')->warning('[风控] 本地 GeoIP 查询失败，将回退到 API 接口', ['error' => $e->getMessage()]);
             }
+            
+            // 写入 Redis 缓存，有效期延长为 1 天 (86400 秒)
+            try { Redis::setex("ip_geo:{$ip}", 86400, json_encode($res)); } catch (\Throwable $e) {}
+            return $res;
         }
 
-        // 3. 兜底回退：若离线库文件不存在或读取报错，则请求 ip-api.com 接口
+        // 3. 兜底回退：若离线库未找到，则请求 ip-api.com 接口
         try {
             $res = Http::timeout(2)
                 ->get("http://ip-api.com/json/{$ip}", ['fields' => 'status,countryCode,region,hosting,org,as'])
