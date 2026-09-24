@@ -562,13 +562,9 @@ class StatController extends Controller
                 local keys = redis.call('keys', '*sub_risk_*')
                 local count = 0
                 if #keys > 0 then
-                    for i=1, #keys, 5000 do
-                        local batch = {}
-                        for j=i, math.min(i+4999, #keys) do
-                            table.insert(batch, keys[j])
-                        end
-                        redis.call('del', unpack(batch))
-                        count = count + #batch
+                    for i=1, #keys do
+                        redis.call('del', keys[i])
+                        count = count + 1
                     end
                 end
                 return count
