@@ -32,3 +32,4 @@ workerman.log
 /test_v2board.php
 /scratch_go
 /scratch_test.php
+/storage/traitor_list.json
