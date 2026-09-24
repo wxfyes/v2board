@@ -312,10 +312,10 @@ class StatController extends Controller
             $config = json_decode(@file_get_contents($configPath), true) ?: [];
         }
 
-        $flaggedUsers = $config['flagged_users'] ?? [];
-        $honeypotUsers = array_map('intval', $config['honeypot_users'] ?? []);
-        $whitelistUsers = $config['whitelist_users'] ?? [];
-        $ignoreIps = $config['ignore_ips'] ?? [];
+        $flaggedUsers = is_array($config['flagged_users'] ?? null) ? $config['flagged_users'] : [];
+        $honeypotUsers = array_map('intval', is_array($config['honeypot_users'] ?? null) ? $config['honeypot_users'] : []);
+        $whitelistUsers = is_array($config['whitelist_users'] ?? null) ? $config['whitelist_users'] : [];
+        $ignoreIps = is_array($config['ignore_ips'] ?? null) ? $config['ignore_ips'] : [];
 
         $flaggedIds = array_keys($flaggedUsers);
         $users = User::whereIn('id', $flaggedIds)->get(['id', 'email', 'client_type', 't', 'banned'])->keyBy('id');
@@ -326,11 +326,12 @@ class StatController extends Controller
             $user = $users->get($uid);
             $email = $info['email'] ?? ($user ? $user->email : '未知用户');
             $time = $info['time'] ?? time();
-            $reasons = $info['reasons'] ?? [];
+            $reasons = is_array($info['reasons'] ?? null) ? $info['reasons'] : [];
 
             $history = [];
             if ($user && $user->client_type) {
-                $history = json_decode($user->client_type, true) ?: [];
+                $decoded = json_decode($user->client_type, true);
+                $history = is_array($decoded) ? $decoded : [];
             }
             $history = $this->filterClientHistory($history, $ignoreIps);
             foreach ($history as &$hItem) {
@@ -399,7 +400,8 @@ class StatController extends Controller
 
             $history = [];
             if ($user->client_type) {
-                $history = json_decode($user->client_type, true) ?: [];
+                $decoded = json_decode($user->client_type, true);
+                $history = is_array($decoded) ? $decoded : [];
             }
             $history = $this->filterClientHistory($history, $ignoreIps);
             foreach ($history as &$hItem) {
@@ -457,7 +459,8 @@ class StatController extends Controller
 
                     $history = [];
                     if ($user->client_type) {
-                        $history = json_decode($user->client_type, true) ?: [];
+                        $decoded = json_decode($user->client_type, true);
+                        $history = is_array($decoded) ? $decoded : [];
                     }
                     $history = $this->filterClientHistory($history, $ignoreIps);
                     foreach ($history as &$hItem) {
@@ -496,12 +499,12 @@ class StatController extends Controller
             $abnormalKeywords = $config['audit_ua_keywords'];
         }
 
-        return response([
+        return [
             'data' => [
                 'list' => $data,
                 'whitelist' => array_values($whitelistUsers),
-                'banned_ips' => array_values($config['banned_ips'] ?? []),
-                'ignore_ips' => array_values($config['ignore_ips'] ?? []),
+                'banned_ips' => array_values(is_array($config['banned_ips'] ?? null) ? $config['banned_ips'] : []),
+                'ignore_ips' => array_values($ignoreIps),
                 'config' => [
                     'ip_limit' => isset($config['ip_limit']) ? (int)$config['ip_limit'] : 10,
                     'audit_ua_enabled' => isset($config['audit_ua_enabled']) ? (bool)$config['audit_ua_enabled'] : true,
