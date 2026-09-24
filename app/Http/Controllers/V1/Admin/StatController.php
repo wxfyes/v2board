@@ -1032,6 +1032,182 @@ class StatController extends Controller
         ]);
     }
 
+    public function getDeviceAssociationAnalysis()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_subscribe_log')) {
+            return response(['data' => []]);
+        }
+
+        $configPath = storage_path('tianque_config.json');
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        }
+        $honeypotUsers = array_map('intval', $config['honeypot_users'] ?? []);
+
+        $timeLimit = strtotime('-30 days');
+        $logs = \Illuminate\Support\Facades\DB::table('v2_subscribe_log')
+            ->where('created_at', '>=', $timeLimit)
+            ->get();
+
+        $deviceMap = [];
+        foreach ($logs as $log) {
+            $ua = $log->ua ?? '';
+            if (empty($ua) || !preg_match('/\[设备:\s*([^\]]+)\]/', $ua, $matches)) {
+                continue;
+            }
+            $deviceId = $matches[1];
+
+            if (!isset($deviceMap[$deviceId])) {
+                $deviceMap[$deviceId] = [
+                    'device_id' => $deviceId,
+                    'users' => [],
+                    'total_pulls' => 0,
+                    'latest_time' => 0,
+                ];
+            }
+
+            $deviceMap[$deviceId]['total_pulls']++;
+            if (($log->created_at ?? 0) > $deviceMap[$deviceId]['latest_time']) {
+                $deviceMap[$deviceId]['latest_time'] = (int)($log->created_at ?? 0);
+            }
+
+            $userId = $log->user_id;
+            if (!isset($deviceMap[$deviceId]['users'][$userId])) {
+                $deviceMap[$deviceId]['users'][$userId] = true;
+            }
+        }
+
+        $result = [];
+        foreach ($deviceMap as $deviceId => $data) {
+            $userCount = count($data['users']);
+            if ($userCount < 2) continue;
+
+            $userIds = array_keys($data['users']);
+            $users = User::whereIn('id', $userIds)->get(['id', 'email']);
+
+            $associatedUsers = [];
+            $honeypotCount = 0;
+            foreach ($users as $user) {
+                $userInHoneypot = in_array((int)$user->id, $honeypotUsers, true);
+                $associatedUsers[] = [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                    'in_honeypot' => $userInHoneypot ? 1 : 0
+                ];
+                if ($userInHoneypot) {
+                    $honeypotCount++;
+                }
+            }
+
+            $result[] = [
+                'device_id' => $deviceId,
+                'associated_accounts_count' => $userCount,
+                'honeypot_accounts_count' => $honeypotCount,
+                'total_pulls' => $data['total_pulls'],
+                'latest_time' => $data['latest_time'],
+                'associated_users' => $associatedUsers,
+            ];
+        }
+
+        usort($result, function ($a, $b) {
+            if ($b['associated_accounts_count'] === $a['associated_accounts_count']) {
+                return $b['latest_time'] <=> $a['latest_time'];
+            }
+            return $b['associated_accounts_count'] <=> $a['associated_accounts_count'];
+        });
+
+        return response(['data' => $result]);
+    }
+
+    public function getLoginDeviceAssociationAnalysis()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+            return response(['data' => []]);
+        }
+
+        $configPath = storage_path('tianque_config.json');
+        $config = [];
+        if (file_exists($configPath)) {
+            $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        }
+        $honeypotUsers = array_map('intval', $config['honeypot_users'] ?? []);
+
+        $timeLimit = strtotime('-30 days');
+        $logs = \Illuminate\Support\Facades\DB::table('v2_user_login_log')
+            ->where('created_at', '>=', $timeLimit)
+            ->get();
+
+        $deviceMap = [];
+        foreach ($logs as $log) {
+            $ua = $log->ua ?? '';
+            if (empty($ua) || !preg_match('/\[设备:\s*([^\]]+)\]/', $ua, $matches)) {
+                continue;
+            }
+            $deviceId = $matches[1];
+
+            if (!isset($deviceMap[$deviceId])) {
+                $deviceMap[$deviceId] = [
+                    'device_id' => $deviceId,
+                    'users' => [],
+                    'total_pulls' => 0,
+                    'latest_time' => 0,
+                ];
+            }
+
+            $deviceMap[$deviceId]['total_pulls']++;
+            if (($log->created_at ?? 0) > $deviceMap[$deviceId]['latest_time']) {
+                $deviceMap[$deviceId]['latest_time'] = (int)($log->created_at ?? 0);
+            }
+
+            $email = $log->email;
+            if (!isset($deviceMap[$deviceId]['users'][$email])) {
+                $deviceMap[$deviceId]['users'][$email] = true;
+            }
+        }
+
+        $result = [];
+        foreach ($deviceMap as $deviceId => $data) {
+            $userCount = count($data['users']);
+            if ($userCount < 2) continue;
+
+            $emails = array_keys($data['users']);
+            $users = User::whereIn('email', $emails)->get(['id', 'email']);
+
+            $associatedUsers = [];
+            $honeypotCount = 0;
+            foreach ($users as $user) {
+                $userInHoneypot = in_array((int)$user->id, $honeypotUsers, true);
+                $associatedUsers[] = [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                    'in_honeypot' => $userInHoneypot ? 1 : 0
+                ];
+                if ($userInHoneypot) {
+                    $honeypotCount++;
+                }
+            }
+
+            $result[] = [
+                'device_id' => $deviceId,
+                'associated_accounts_count' => $userCount,
+                'honeypot_accounts_count' => $honeypotCount,
+                'total_pulls' => $data['total_pulls'],
+                'latest_time' => $data['latest_time'],
+                'associated_users' => $associatedUsers,
+            ];
+        }
+
+        usort($result, function ($a, $b) {
+            if ($b['associated_accounts_count'] === $a['associated_accounts_count']) {
+                return $b['latest_time'] <=> $a['latest_time'];
+            }
+            return $b['associated_accounts_count'] <=> $a['associated_accounts_count'];
+        });
+
+        return response(['data' => $result]);
+    }
+
     public function addIgnoreIp(Request $request)
     {
         $ip = trim($request->input('ip'));
