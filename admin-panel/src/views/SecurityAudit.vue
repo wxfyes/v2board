@@ -204,6 +204,15 @@
             >
               {{ scope.row.banned === 1 ? '已封禁' : '封禁' }}
             </el-button>
+            <el-button
+              v-if="scope.row.type === 'dynamic_score'"
+              type="primary"
+              size="small"
+              plain
+              @click="handleAnomalyAction('clear_score', scope.row)"
+            >
+              清空积分
+            </el-button>
             
             <el-dropdown trigger="click" @command="(cmd) => handleAnomalyAction(cmd, scope.row)" style="margin-left: 10px;">
               <el-button size="small" plain>
@@ -212,7 +221,7 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item v-if="scope.row.type === 'flagged'" command="ignore" icon="CircleClose">忽略预警</el-dropdown-item>
-                  <el-dropdown-item v-if="scope.row.type === 'dynamic_score'" command="clear_score" icon="Refresh">清空积分</el-dropdown-item>
+                  
                   <el-dropdown-item command="whitelist" icon="Checked">加入白名单</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
