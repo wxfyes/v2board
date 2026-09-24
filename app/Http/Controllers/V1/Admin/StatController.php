@@ -475,10 +475,23 @@ class StatController extends Controller
                 $cCount = count($uniqueIps);
                 $uCount = count($uniqueUas);
                 
-                // 评分公式：多C段重罚(每个35分)，多UA重罚(每个25分)
+                // 评分公式：大幅度放宽正常用户的误判
                 $score = 0;
-                if ($cCount > 1) $score += ($cCount - 1) * 35;
-                if ($uCount > 1) $score += ($uCount - 1) * 25;
+                
+                // 允许 3 个以内的常规 IP C段（例如：家里WiFi、公司WiFi、手机5G）
+                if ($cCount > 3) {
+                    $score += ($cCount - 3) * 20; // 超过3个C段后，每个罚20分
+                }
+                
+                // 允许 2 个以内的常规 UA 内核（例如：电脑用Clash，手机用Shadowrocket）
+                if ($uCount > 2) {
+                    $score += ($uCount - 2) * 30; // 超过2个UA后，每个罚30分
+                }
+                
+                // 如果出现极端的“多IP + 多设备”交叉污染，判定为严重的订阅泄露，给予暴击惩罚
+                if ($cCount >= 5 && $uCount >= 3) {
+                    $score += 50;
+                }
                 
                 if ($score > 0) {
                     if ($score > 99) $score = 99; // 强制封顶99分
