@@ -24,6 +24,9 @@
         <el-button class="filter-item" type="danger" icon="Connection" @click="openIpAssociationDialog" style="margin-left: 10px;">
           IP 关联分析
         </el-button>
+        <el-button class="filter-item" type="danger" icon="Monitor" @click="openDeviceAssociationDialog" style="margin-left: 10px;">
+          异常设备雷达
+        </el-button>
       </div>
 
       <!-- 表格 -->
@@ -191,6 +194,52 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- Device Association Dialog -->
+    <el-dialog v-model="deviceAssociationVisible" title="异常设备关联分析雷达 (物理机防作弊)" width="900px" destroy-on-close>
+      <div style="font-size: 13px; color: var(--el-text-color-secondary); margin-bottom: 15px; line-height: 1.5;">
+        分析订阅拉取记录，提取底层物理设备特征（设备 ID），抓出<strong>同一台物理设备关联了 2 个及以上不同账号</strong>的内鬼工作室！
+      </div>
+
+      <el-table :data="deviceAssociationList" v-loading="deviceAssociationLoading" stripe size="small" max-height="450px" style="width: 100%;">
+        <el-table-column label="设备 ID (硬件特征)" min-width="240">
+          <template #default="scope">
+            <code class="font-mono" style="font-weight: bold; color: var(--el-color-danger);">{{ scope.row.device_id }}</code>
+          </template>
+        </el-table-column>
+        <el-table-column label="关联账号数" width="160">
+          <template #default="scope">
+            <span style="font-size: 13px;">
+              <strong>{{ scope.row.associated_accounts_count }}</strong> 个账号
+              <span v-if="scope.row.honeypot_accounts_count > 0" style="color: var(--el-color-warning); font-size: 12px;">
+                ({{ scope.row.honeypot_accounts_count }} 蜜罐)
+              </span>
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="共用账号列表" min-width="320">
+          <template #default="scope">
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <el-tag
+                v-for="u in scope.row.associated_users"
+                :key="u.id"
+                size="small"
+                :type="u.in_honeypot === 1 ? 'warning' : 'success'"
+                @click="showUserDetail(u.id)"
+                style="cursor: pointer;"
+              >
+                {{ u.email }}
+              </el-tag>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button size="small" @click="deviceAssociationVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -239,6 +288,28 @@ const fetchIpAssociation = async () => {
     ElMessage.error(error.message || '获取关联分析数据失败');
   } finally {
     ipAssociationLoading.value = false;
+  }
+};
+
+const deviceAssociationVisible = ref(false);
+const deviceAssociationLoading = ref(false);
+const deviceAssociationList = ref([]);
+
+const openDeviceAssociationDialog = () => {
+  deviceAssociationVisible.value = true;
+  fetchDeviceAssociation();
+};
+
+const fetchDeviceAssociation = async () => {
+  deviceAssociationLoading.value = true;
+  try {
+    const securePath = getSecurePath();
+    const response = await api.get(`/${securePath}/stat/getDeviceAssociationAnalysis`);
+    deviceAssociationList.value = response.data || [];
+  } catch (error) {
+    ElMessage.error(error.message || '获取设备关联分析数据失败');
+  } finally {
+    deviceAssociationLoading.value = false;
   }
 };
 
