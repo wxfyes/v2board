@@ -67,6 +67,7 @@ class ConfigSave extends FormRequest
         'frontend_theme_sidebar' => 'nullable|in:dark,light',
         'frontend_theme_header' => 'nullable|in:dark,light',
         'frontend_theme_color' => 'nullable|in:default,darkblue,black,green',
+        'admin_theme' => 'nullable|in:vue,react',
         'frontend_background_url' => 'nullable|url',
         // email
         'email_template' => '',
