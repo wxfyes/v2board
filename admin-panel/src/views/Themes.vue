@@ -236,13 +236,10 @@ const switchToReact = async () => {
     const securePath = getSecurePath();
     document.cookie = 'admin_theme=react; path=/; max-age=31536000';
     ElMessage.success('正在切换至 React 版后台...');
-    await api.post(`/${securePath}/config/save`, {
+    api.post(`/${securePath}/config/save`, {
       admin_theme: 'react'
     }).catch(() => {});
-    const target = `${window.location.origin}/${securePath}`;
-    history.pushState(null, '', target);
-    window.location.href = target;
-    window.location.reload();
+    window.location.href = `${window.location.origin}/${securePath}?theme=react`;
   } catch (err) {
     console.error(err);
     ElMessage.error('切换失败');

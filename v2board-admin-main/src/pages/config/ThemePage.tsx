@@ -65,10 +65,7 @@ export default function ThemePage() {
                       message.loading('正在切换至 React 后台...', 2)
                       document.cookie = 'admin_theme=react; path=/; max-age=31536000'
                       saveConfig({ admin_theme: 'react' }).finally(() => {
-                        const target = `${window.location.origin}/${settings.secure_path}`
-                        history.pushState(null, '', target)
-                        window.location.href = target
-                        window.location.reload()
+                        window.location.href = `${window.location.origin}/${settings.secure_path}?theme=react`
                       })
                     }}
                   >
@@ -97,10 +94,7 @@ export default function ThemePage() {
                       message.loading('正在切换至 Vue 后台...', 2)
                       document.cookie = 'admin_theme=vue; path=/; max-age=31536000'
                       saveConfig({ admin_theme: 'vue' }).finally(() => {
-                        const target = `${window.location.origin}/${settings.secure_path}`
-                        history.pushState(null, '', target)
-                        window.location.href = target
-                        window.location.reload()
+                        window.location.href = `${window.location.origin}/${settings.secure_path}?theme=vue`
                       })
                     }}
                   >

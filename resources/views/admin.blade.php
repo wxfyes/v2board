@@ -7,8 +7,8 @@
     <title>{{$title}}</title>
     <script src="/config.js"></script>
     
-    <link rel="stylesheet" crossorigin href="/assets/admin-new/assets/element-plus.css?v={{$version}}">
-    <link rel="stylesheet" crossorigin href="/assets/admin-new/assets/index.css?v={{$version}}">
+    <link rel="stylesheet" crossorigin href="/assets/admin-new/assets/element-plus.css?v=20260929_2">
+    <link rel="stylesheet" crossorigin href="/assets/admin-new/assets/index.css?v=20260929_2">
     
     <script>
         window.settings = {
@@ -28,7 +28,7 @@
 
 <body>
     <div id="app"></div>
-    <script type="module" crossorigin src="/assets/admin-new/assets/index.js?v={{$version}}"></script>
+    <script type="module" crossorigin src="/assets/admin-new/assets/index.js?v=20260929_2"></script>
 </body>
 
 </html>
