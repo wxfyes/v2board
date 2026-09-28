@@ -239,7 +239,9 @@ const switchToReact = async () => {
     });
     ElMessage.success('已切换到 React 版后台，正在热重启服务...');
     setTimeout(() => {
-      window.location.href = window.location.pathname;
+      const target = `${window.location.origin}/${securePath}`;
+      window.location.href = target;
+      window.location.reload();
     }, 2500);
   } catch (err) {
     console.error(err);

@@ -4,6 +4,7 @@ import { saveConfig } from '@/api/services/config'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { useThemeManageStore } from '@/stores/themeManage'
 import { useConfigManageStore } from '@/stores/configManage'
+import { settings } from '@/app/settings'
 import { ThemeConfigModal } from './ThemeConfigModal'
 
 // 原版所有主题卡片共用的背景图（不是主题 config.json 里的 images）
@@ -64,7 +65,9 @@ export default function ThemePage() {
                       message.loading('正在切换至 React 后台，等待服务热加载...', 3)
                       saveConfig({ admin_theme: 'react' }).then(() => {
                         setTimeout(() => {
-                          window.location.href = window.location.pathname
+                          const target = `${window.location.origin}/${settings.secure_path}`
+                          window.location.href = target
+                          window.location.reload()
                         }, 2500)
                       }).catch(() => setSwitching(false))
                     }}
@@ -94,7 +97,9 @@ export default function ThemePage() {
                       message.loading('正在切换至 Vue 后台，等待服务热加载...', 3)
                       saveConfig({ admin_theme: 'vue' }).then(() => {
                         setTimeout(() => {
-                          window.location.href = window.location.pathname
+                          const target = `${window.location.origin}/${settings.secure_path}`
+                          window.location.href = target
+                          window.location.reload()
                         }, 2500)
                       }).catch(() => setSwitching(false))
                     }}
