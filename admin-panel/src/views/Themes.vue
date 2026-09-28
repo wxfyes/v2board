@@ -1,8 +1,11 @@
 <template>
   <div class="themes-container">
     <el-card class="action-card" shadow="hover">
-      <div class="flex-between">
+      <div class="flex-between align-center">
         <span class="action-text">主题配置</span>
+        <el-button type="primary" size="small" :loading="switchLoading" @click="switchToReact">
+          切换到新版 React 后台
+        </el-button>
       </div>
     </el-card>
 
@@ -133,6 +136,7 @@ const { isMobile } = useMobile();
 const loading = ref(false);
 const submitLoading = ref(false);
 const activateLoading = ref('');
+const switchLoading = ref(false);
 const dialogVisible = ref(false);
 
 const themeList = ref({});
@@ -226,6 +230,24 @@ const handleSubmitConfig = async () => {
   }
 };
 
+const switchToReact = async () => {
+  try {
+    switchLoading.value = true;
+    const securePath = getSecurePath();
+    await api.post(`/${securePath}/config/save`, {
+      admin_theme: 'react'
+    });
+    ElMessage.success('已切换到 React 版后台，即将刷新...');
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  } catch (err) {
+    console.error(err);
+    ElMessage.error('切换失败');
+  } finally {
+    switchLoading.value = false;
+  }
+};
 onMounted(() => {
   fetchThemes();
 });
