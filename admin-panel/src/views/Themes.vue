@@ -234,15 +234,15 @@ const switchToReact = async () => {
   try {
     switchLoading.value = true;
     const securePath = getSecurePath();
+    document.cookie = 'admin_theme=react; path=/; max-age=31536000';
+    ElMessage.success('正在切换至 React 版后台...');
     await api.post(`/${securePath}/config/save`, {
       admin_theme: 'react'
-    });
-    ElMessage.success('已切换到 React 版后台，正在热重启服务...');
-    setTimeout(() => {
-      const target = `${window.location.origin}/${securePath}`;
-      window.location.href = target;
-      window.location.reload();
-    }, 2500);
+    }).catch(() => {});
+    const target = `${window.location.origin}/${securePath}`;
+    history.pushState(null, '', target);
+    window.location.href = target;
+    window.location.reload();
   } catch (err) {
     console.error(err);
     ElMessage.error('切换失败');

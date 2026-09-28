@@ -62,14 +62,14 @@ export default function ThemePage() {
                     disabled={adminTheme === 'react' || switching}
                     onClick={() => {
                       setSwitching(true)
-                      message.loading('正在切换至 React 后台，等待服务热加载...', 3)
-                      saveConfig({ admin_theme: 'react' }).then(() => {
-                        setTimeout(() => {
-                          const target = `${window.location.origin}/${settings.secure_path}`
-                          window.location.href = target
-                          window.location.reload()
-                        }, 2500)
-                      }).catch(() => setSwitching(false))
+                      message.loading('正在切换至 React 后台...', 2)
+                      document.cookie = 'admin_theme=react; path=/; max-age=31536000'
+                      saveConfig({ admin_theme: 'react' }).finally(() => {
+                        const target = `${window.location.origin}/${settings.secure_path}`
+                        history.pushState(null, '', target)
+                        window.location.href = target
+                        window.location.reload()
+                      })
                     }}
                   >
                     {adminTheme === 'react' ? '当前主题' : '激活该主题'}
@@ -94,14 +94,14 @@ export default function ThemePage() {
                     disabled={adminTheme === 'vue' || switching}
                     onClick={() => {
                       setSwitching(true)
-                      message.loading('正在切换至 Vue 后台，等待服务热加载...', 3)
-                      saveConfig({ admin_theme: 'vue' }).then(() => {
-                        setTimeout(() => {
-                          const target = `${window.location.origin}/${settings.secure_path}`
-                          window.location.href = target
-                          window.location.reload()
-                        }, 2500)
-                      }).catch(() => setSwitching(false))
+                      message.loading('正在切换至 Vue 后台...', 2)
+                      document.cookie = 'admin_theme=vue; path=/; max-age=31536000'
+                      saveConfig({ admin_theme: 'vue' }).finally(() => {
+                        const target = `${window.location.origin}/${settings.secure_path}`
+                        history.pushState(null, '', target)
+                        window.location.href = target
+                        window.location.reload()
+                      })
                     }}
                   >
                     {adminTheme === 'vue' ? '当前主题' : '激活该主题'}
