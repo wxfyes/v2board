@@ -15,6 +15,7 @@ export const MENU: MenuEntry[] = [
   { type: 'item', title: '路由管理', href: '/server/route', icon: 'si-shuffle' },
   { type: 'heading', title: '财务' },
   { type: 'item', title: '订阅管理', href: '/plan', icon: 'si-bag' },
+  { type: 'item', title: '发卡管理', href: '/card', icon: 'si-basket-loaded' },
   { type: 'item', title: '订单管理', href: '/order', icon: 'si-list' },
   { type: 'item', title: '优惠券管理', href: '/coupon', icon: 'si-present' },
   { type: 'item', title: '礼品卡管理', href: '/giftcard', icon: 'si-star' },

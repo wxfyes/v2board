@@ -69,6 +69,7 @@ const routes: RouteObject[] = [
   { path: '/server/group', ...page(() => import('@/pages/server/group/ServerGroupPage')) },
   { path: '/server/route', ...page(() => import('@/pages/server/route/ServerRoutePage')) },
   { path: '/plan', ...page(() => import('@/pages/plan/PlanPage')) },
+  { path: '/card', ...page(() => import('@/pages/card/CardPage')) },
   { path: '/coupon', ...page(() => import('@/pages/coupon/CouponPage')) },
   { path: '/giftcard', ...page(() => import('@/pages/giftcard/GiftcardPage')) },
   { path: '/knowledge', ...page(() => import('@/pages/knowledge/KnowledgePage')) },

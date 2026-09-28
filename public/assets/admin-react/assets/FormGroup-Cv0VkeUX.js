@@ -1,0 +1,1 @@
+import{Pi as e}from"./staticApi-Da_4W8NY.js";var t=e();function n({label:e,className:n,children:r}){return(0,t.jsxs)(`div`,{className:n?`form-group ${n}`:`form-group`,children:[e!==void 0&&(0,t.jsx)(`label`,{htmlFor:`example-text-input-alt`,children:e}),r]})}export{n as t};
