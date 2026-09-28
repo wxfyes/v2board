@@ -19,6 +19,9 @@
             background_url: '{{$background_url}}',
             logo: '{{$logo}}',
             secure_path: '{{$secure_path}}'
+        };
+        if (window.location.search.includes('theme=')) {
+            window.history.replaceState(null, '', window.location.pathname + window.location.hash);
         }
     </script>
 </head>
