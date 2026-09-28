@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { message } from 'antd'
 import { saveConfig } from '@/api/services/config'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { useThemeManageStore } from '@/stores/themeManage'
@@ -21,6 +22,7 @@ async function activeTheme(name: string) {
 export default function ThemePage() {
   const { themes, active } = useThemeManageStore()
   const adminTheme = useConfigManageStore((s) => s.frontend?.admin_theme) || 'react'
+  const [switching, setSwitching] = useState(false)
 
   useEffect(() => {
     void useThemeManageStore.getState().getThemes()
@@ -53,7 +55,20 @@ export default function ThemePage() {
                   <p className="text-black-75 mb-0">Ant Design 设计的现代化后台前端</p>
                 </div>
                 <div className="p-2 py-4">
-                  <button type="button" className="btn btn-sm rounded-pill btn-outline-light px-3" onClick={() => saveConfig({ admin_theme: 'react' }).then(() => window.location.reload())} disabled={adminTheme === 'react'}>
+                  <button
+                    type="button"
+                    className="btn btn-sm rounded-pill btn-outline-light px-3"
+                    disabled={adminTheme === 'react' || switching}
+                    onClick={() => {
+                      setSwitching(true)
+                      message.loading('正在切换至 React 后台，等待服务热加载...', 3)
+                      saveConfig({ admin_theme: 'react' }).then(() => {
+                        setTimeout(() => {
+                          window.location.href = window.location.pathname
+                        }, 2500)
+                      }).catch(() => setSwitching(false))
+                    }}
+                  >
                     {adminTheme === 'react' ? '当前主题' : '激活该主题'}
                   </button>
                 </div>
@@ -70,7 +85,20 @@ export default function ThemePage() {
                   <p className="text-black-75 mb-0">原始 V2Board Vue 版本后台前端</p>
                 </div>
                 <div className="p-2 py-4">
-                  <button type="button" className="btn btn-sm rounded-pill btn-outline-light px-3" onClick={() => saveConfig({ admin_theme: 'vue' }).then(() => window.location.reload())} disabled={adminTheme === 'vue'}>
+                  <button
+                    type="button"
+                    className="btn btn-sm rounded-pill btn-outline-light px-3"
+                    disabled={adminTheme === 'vue' || switching}
+                    onClick={() => {
+                      setSwitching(true)
+                      message.loading('正在切换至 Vue 后台，等待服务热加载...', 3)
+                      saveConfig({ admin_theme: 'vue' }).then(() => {
+                        setTimeout(() => {
+                          window.location.href = window.location.pathname
+                        }, 2500)
+                      }).catch(() => setSwitching(false))
+                    }}
+                  >
                     {adminTheme === 'vue' ? '当前主题' : '激活该主题'}
                   </button>
                 </div>

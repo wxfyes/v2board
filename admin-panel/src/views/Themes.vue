@@ -237,14 +237,13 @@ const switchToReact = async () => {
     await api.post(`/${securePath}/config/save`, {
       admin_theme: 'react'
     });
-    ElMessage.success('已切换到 React 版后台，即将刷新...');
+    ElMessage.success('已切换到 React 版后台，正在热重启服务...');
     setTimeout(() => {
-      window.location.reload();
-    }, 1500);
+      window.location.href = window.location.pathname;
+    }, 2500);
   } catch (err) {
     console.error(err);
     ElMessage.error('切换失败');
-  } finally {
     switchLoading.value = false;
   }
 };
