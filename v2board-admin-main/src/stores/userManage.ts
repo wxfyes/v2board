@@ -15,6 +15,7 @@ import {
   getUserInfoById,
   resetUserSecret,
   sendMail,
+  toggleHoneypot,
   updateUser,
 } from '@/api/services/user'
 import type { AdminUser, FilterCondition } from '@/api/types'
@@ -228,6 +229,13 @@ export const useUserManageStore = create<UserManageState>((set, get) => {
       const res = await deleteUser(id)
       if (res.code !== 200) return
       message.success('删除成功')
+      refetch()
+    },
+
+    toggleHoneypot: async (id) => {
+      const res = await toggleHoneypot(id)
+      if (res.code !== 200) return
+      message.success('操作成功')
       refetch()
     },
 
