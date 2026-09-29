@@ -625,6 +625,8 @@ class StatController extends Controller
             'data' => [
                 'list' => $data,
                 'whitelist' => array_values($whitelistUsers),
+                'honeypot_users' => array_values($honeypotUsers),
+                'honeypot_count' => count($honeypotUsers),
                 'banned_ips' => array_values($config['banned_ips'] ?? []),
                 'ignore_ips' => array_values($config['ignore_ips'] ?? []),
                 'config' => [

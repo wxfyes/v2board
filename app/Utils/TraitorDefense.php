@@ -145,6 +145,51 @@ class TraitorDefense
     }
 
     /**
+     * 判断用户是否享有“终极免死金牌”（管理员 或 天阙安全白名单用户）
+     *
+     * @param mixed $user 用户模型或数组
+     * @return bool
+     */
+    public static function isWhitelistedUser($user): bool
+    {
+        if (empty($user)) {
+            return false;
+        }
+
+        // 1. 管理员拥有绝对免死豁免权
+        $isAdmin = is_array($user) ? !empty($user['is_admin']) : !empty($user->is_admin);
+        if ($isAdmin) {
+            return true;
+        }
+
+        // 2. 检查天阙安全白名单 (whitelist_users)
+        try {
+            $configPath = storage_path('tianque_config.json');
+            if (file_exists($configPath)) {
+                $config = json_decode(@file_get_contents($configPath), true) ?: [];
+                $whitelist = $config['whitelist_users'] ?? [];
+                if (is_array($whitelist) && !empty($whitelist)) {
+                    $userId = (int)(is_array($user) ? ($user['id'] ?? 0) : ($user->id ?? 0));
+                    $userEmail = strtolower((string)(is_array($user) ? ($user['email'] ?? '') : ($user->email ?? '')));
+
+                    foreach ($whitelist as $item) {
+                        if (is_numeric($item) && (int)$item === $userId) {
+                            return true;
+                        }
+                        if (is_string($item) && strtolower(trim($item)) === $userEmail) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // 静默容错
+        }
+
+        return false;
+    }
+
+    /**
      * 检查并自动将命中的内鬼用户加入蜜罐
      *
      * @param mixed $user 用户模型或数组
@@ -156,6 +201,11 @@ class TraitorDefense
     public static function checkAndHoneypot($user, string $ip, string $userAgent = 'unknown', string $action = '注册')
     {
         try {
+            // 🛡️ 终极免死金牌：管理员或白名单用户拥有绝对豁免权，绝不判定为内鬼
+            if (self::isWhitelistedUser($user)) {
+                return;
+            }
+
             $traitorData = self::getTraitorData();
             $traitorEmails = $traitorData['emails'] ?? [];
             $traitorIps = $traitorData['ips'] ?? [];
@@ -185,6 +235,11 @@ class TraitorDefense
 
     public static function putIntoHoneypot($user, string $ip, string $userAgent, string $action, string $reasonStr)
     {
+        // 🛡️ 终极免死金牌：管理员或白名单用户绝对禁止写入蜜罐！
+        if (self::isWhitelistedUser($user)) {
+            return;
+        }
+
         $configPath = storage_path('tianque_config.json');
         $config = [];
         if (file_exists($configPath)) {

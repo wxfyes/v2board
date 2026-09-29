@@ -44,13 +44,26 @@ export default function SecurityAuditPage() {
   
   // Data States
   const [anomaliesRawList, setAnomaliesRawList] = useState<any[]>([]);
-  const [flaggedCount, setFlaggedCount] = useState(0);
-  const [suspectedCount, setSuspectedCount] = useState(0);
   const [whitelistList, setWhitelistList] = useState<string[]>([]);
   const [honeypotList, setHoneypotList] = useState<string[]>([]);
   const [bannedIpsList, setBannedIpsList] = useState<string[]>([]);
   const [ignoreIpsList, setIgnoreIpsList] = useState<string[]>([]);
   const [config, setConfig] = useState<any>({});
+
+  const flaggedCount = useMemo(() => {
+    return anomaliesRawList.filter((item) => item.type === 'flagged').length;
+  }, [anomaliesRawList]);
+
+  const suspectedCount = useMemo(() => {
+    return anomaliesRawList.filter((item) => item.type === 'suspected').length;
+  }, [anomaliesRawList]);
+
+  const honeypotCount = useMemo(() => {
+    if (honeypotList && honeypotList.length > 0) {
+      return honeypotList.length;
+    }
+    return anomaliesRawList.filter((item) => item.in_honeypot === 1).length;
+  }, [honeypotList, anomaliesRawList]);
   
   // UI States
   const [loading, setLoading] = useState(false);
@@ -62,11 +75,13 @@ export default function SecurityAuditPage() {
     try {
       const res: any = await get(adminPath('/stat/getSubscriptionAnomalies'));
       if (res) {
-        setAnomaliesRawList((res.data || res).list || []);
-        setWhitelistList((res.data || res).whitelist || []);
-        setBannedIpsList((res.data || res).banned_ips || []);
-        setIgnoreIpsList((res.data || res).ignore_ips || []);
-        setConfig((res.data || res).config || {});
+        const payload = res.data || res;
+        setAnomaliesRawList(payload.list || []);
+        setWhitelistList(payload.whitelist || []);
+        setHoneypotList(payload.honeypot_users || []);
+        setBannedIpsList(payload.banned_ips || []);
+        setIgnoreIpsList(payload.ignore_ips || []);
+        setConfig(payload.config || {});
       }
     } catch (err) {
       console.error(err);
@@ -175,7 +190,7 @@ export default function SecurityAuditPage() {
               <div>
                 <div style={{ color: '#8c8c8c', marginBottom: 4, fontSize: 13 }}>已启用白名单/蜜罐</div>
                 <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 'bold', color: '#1890ff' }}>
-                  {whitelistList.length} <span style={{ fontSize: 12, fontWeight: 'normal', color: '#8c8c8c' }}>白</span> / {honeypotList.length} <span style={{ fontSize: 12, fontWeight: 'normal', color: '#8c8c8c' }}>蜜</span>
+                  {whitelistList.length} <span style={{ fontSize: 12, fontWeight: 'normal', color: '#8c8c8c' }}>白</span> / {honeypotCount} <span style={{ fontSize: 12, fontWeight: 'normal', color: '#8c8c8c' }}>蜜</span>
                 </div>
               </div>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(24, 144, 255, 0.12)', color: '#1890ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>

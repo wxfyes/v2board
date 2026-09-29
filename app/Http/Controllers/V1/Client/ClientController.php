@@ -214,9 +214,12 @@ class ClientController extends Controller
                 }
             } 
 
+            // 🛡️ 终极免死金牌：管理员及安全白名单用户享有最高优先级豁免，永不下发假节点，永不进蜜罐
+            $isWhitelisted = \App\Utils\TraitorDefense::isWhitelistedUser($user);
+
             // 判定是否在灰名单内
             $isInHoneypot = false;
-            if (isset($user['id']) && isset($user['email'])) {
+            if (!$isWhitelisted && isset($user['id']) && isset($user['email'])) {
                 foreach ($honeypotUsers as $item) {
                     if ($user['id'] == $item || strtolower($user['email']) === strtolower(trim($item))) {
                         $isInHoneypot = true;
@@ -225,24 +228,26 @@ class ClientController extends Controller
                 }
             }
 
-            // 🛡️ 内鬼主动防御：检测订阅拉取请求 IP 是否命中黑名单/CIDR 网段
-            $isTraitorIp = \App\Utils\TraitorDefense::isIpTraitor($realIp);
-            if ($isTraitorIp) {
-                $isInHoneypot = true;
-                // 顺藤摸瓜：将使用此黑名单 IP 拉取订阅的用户直接打入蜜罐
-                if (!empty($user)) {
-                    \App\Utils\TraitorDefense::putIntoHoneypot(
-                        $user,
-                        $realIp,
-                        $tmpUa ?? ($request->header('User-Agent') ?? 'unknown'),
-                        '订阅拉取',
-                        "订阅拉取 IP ({$realIp}) 命中内鬼黑名单/网段"
-                    );
+            // 🛡️ 内鬼主动防御：检测订阅拉取请求 IP 是否命中黑名单/CIDR 网段（白名单用户绝对豁免）
+            if (!$isWhitelisted) {
+                $isTraitorIp = \App\Utils\TraitorDefense::isIpTraitor($realIp);
+                if ($isTraitorIp) {
+                    $isInHoneypot = true;
+                    // 顺藤摸瓜：将使用此黑名单 IP 拉取订阅的用户直接打入蜜罐
+                    if (!empty($user)) {
+                        \App\Utils\TraitorDefense::putIntoHoneypot(
+                            $user,
+                            $realIp,
+                            $tmpUa ?? ($request->header('User-Agent') ?? 'unknown'),
+                            '订阅拉取',
+                            "订阅拉取 IP ({$realIp}) 命中内鬼黑名单/网段"
+                        );
+                    }
                 }
             }
 
-            // 只要被封禁或者身处灰名单，一律触发拦截与蜜罐防御
-            $triggerBlock = $isBanned || $isInHoneypot;
+            // 只要被封禁或者身处灰名单，一律触发拦截与蜜罐防御（白名单免除蜜罐；管理员完全免死）
+            $triggerBlock = (!$isWhitelisted && $isInHoneypot) || (!empty($user['is_admin']) ? false : $isBanned);
 
             if ($triggerBlock) {
                 // 同样记录被封禁/灰名单账号的客户端拉取行为！以防内鬼残留探测漏抓
