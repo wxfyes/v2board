@@ -514,13 +514,12 @@ class Ip2RegionSearcher {
 
         // binary search the segment index to get the region info
         $idxSize = $this->version->segmentIndexSize;
-        [$dataLen, $dataPtr, $l, $h] = [0, 0, 0, ($ePtr - $sPtr) / $idxSize];
+        [$dataLen, $dataPtr, $l, $h] = [0, 0, 0, (int)(($ePtr - $sPtr) / $idxSize)];
         while ($l <= $h) {
-            $m = ($l + $h) >> 1;
-            $p = $sPtr + $m * $idxSize;
+            $m = (int)(($l + $h) / 2);
 
             // read the segment index
-            $buff = $this->read($p, $idxSize);
+            $buff = $this->read($p = $sPtr + $m * $idxSize, $idxSize);
 
             // compare the segment index
             if ($this->version->ipSubCompare($ipBytes, $buff, 0) < 0) {

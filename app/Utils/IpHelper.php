@@ -139,20 +139,33 @@ class IpHelper
                     require_once app_path('Utils/Ip2RegionSearcher.php');
                 }
                 
-                $searcher =& ${$isV6 ? 'xdbSearcherV6' : 'xdbSearcherV4'};
-                
-                if ($searcher === null) {
-                    $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
-                    $version = \App\Utils\Util::versionFromHeader($header);
-                    $vIndex = \App\Utils\Util::loadVectorIndexFromFile($xdbPath);
-                    $searcher = \App\Utils\Ip2RegionSearcher::newWithVectorIndex($version, $xdbPath, $vIndex);
+                if ($isV6) {
+                    if ($xdbSearcherV6 === null) {
+                        $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
+                        $version = \App\Utils\Util::versionFromHeader($header);
+                        $vIndex = \App\Utils\Util::loadVectorIndexFromFile($xdbPath);
+                        $xdbSearcherV6 = \App\Utils\Ip2RegionSearcher::newWithVectorIndex($version, $xdbPath, $vIndex);
+                    }
+                    $searcher = $xdbSearcherV6;
+                } else {
+                    if ($xdbSearcherV4 === null) {
+                        $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
+                        $version = \App\Utils\Util::versionFromHeader($header);
+                        $vIndex = \App\Utils\Util::loadVectorIndexFromFile($xdbPath);
+                        $xdbSearcherV4 = \App\Utils\Ip2RegionSearcher::newWithVectorIndex($version, $xdbPath, $vIndex);
+                    }
+                    $searcher = $xdbSearcherV4;
                 }
                 
                 try {
                     $region = $searcher->search($ip);
                 } catch (\Throwable $e) {
                     // 如果文件被更新导致句柄失效，清空缓存下次重载
-                    $searcher = null;
+                    if ($isV6) {
+                        $xdbSearcherV6 = null;
+                    } else {
+                        $xdbSearcherV4 = null;
+                    }
                     throw $e;
                 }
                 if ($region) {

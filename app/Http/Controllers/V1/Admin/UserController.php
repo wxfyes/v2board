@@ -161,8 +161,11 @@ class UserController extends Controller
                 $clientHistory = json_decode($res[$i]['client_type'], true);
                 if (is_array($clientHistory)) {
                     foreach ($clientHistory as &$item) {
-                        if (!empty($item['ip']) && empty($item['location'])) {
-                            $item['location'] = $this->getIpLocation($item['ip']);
+                        if (!empty($item['ip']) && (empty($item['location']) || $item['location'] === '未知')) {
+                            $loc = $this->getIpLocation($item['ip']);
+                            if ($loc && $loc !== '未知') {
+                                $item['location'] = $loc;
+                            }
                         }
                     }
                     unset($item);
@@ -213,8 +216,11 @@ class UserController extends Controller
             $clientHistory = json_decode($user->client_type, true);
             if (is_array($clientHistory)) {
                 foreach ($clientHistory as &$item) {
-                    if (!empty($item['ip']) && empty($item['location'])) {
-                        $item['location'] = $this->getIpLocation($item['ip']);
+                    if (!empty($item['ip']) && (empty($item['location']) || $item['location'] === '未知')) {
+                        $loc = $this->getIpLocation($item['ip']);
+                        if ($loc && $loc !== '未知') {
+                            $item['location'] = $loc;
+                        }
                     }
                 }
                 unset($item);
