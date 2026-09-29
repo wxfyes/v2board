@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no">
     <title>{{$title}}</title>
     <link rel="icon" type="image/png" href="/assets/admin-react/favicon.png" />
-    <link rel="stylesheet" crossorigin href="/assets/admin-react/assets/index.css?v=20260929_12">
+    <link rel="stylesheet" crossorigin href="/assets/admin-react/assets/index.css?v=20260929_13">
     <script>
         window.settings = {
             title: '{{$title}}',
@@ -28,7 +28,7 @@
 
 <body>
     <div id="app"></div>
-    <script type="module" crossorigin src="/assets/admin-react/assets/index.js?v=20260929_12"></script>
+    <script type="module" crossorigin src="/assets/admin-react/assets/index.js?v=20260929_13"></script>
 </body>
 
 </html>

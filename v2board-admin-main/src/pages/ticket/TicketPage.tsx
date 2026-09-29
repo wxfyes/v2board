@@ -106,7 +106,7 @@ export default function TicketPage() {
 
   const renderTicketChat = (showBack: boolean) => (
     <Card 
-      bodyStyle={{ padding: 0, height: '100%' }}
+      bodyStyle={{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column' }}
       style={{ height: '100%' }}
     >
       <TicketChat 

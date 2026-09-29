@@ -28,7 +28,6 @@ const parseMessageContent = (text: string) => {
   return parts
 }
 
-const styles = { content: 'content___DW5w1', input: 'input___1j_ND', tag: 'tag___12_9H', ctrl: 'ctrl___UqDJ7' }
 const EN_US: Locale = (enUS as Locale & { default?: Locale }).default ?? enUS
 const LEGACY_EN_US: Locale = { ...EN_US, Table: { ...EN_US.Table, emptyText: 'No Data' }, Empty: { description: 'No Data' } }
 
@@ -102,9 +101,22 @@ export function TicketChat({ ticketId, onBack }: { ticketId: string | number; on
 
   return (
     <ConfigProvider locale={LEGACY_EN_US}>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div className="block-content-full bg-gray-lighter p-3" style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, borderBottom: '1px solid #f0f0f0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', overflow: 'hidden' }}>
+        {/* 顶部 Header：自适应高度，永远在最上方，绝不遮挡 */}
+        <div 
+          style={{ 
+            flexShrink: 0, 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            gap: 8, 
+            padding: '10px 16px',
+            backgroundColor: '#fafafa',
+            borderBottom: '1px solid #f0f0f0' 
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: '1 1 auto', minWidth: 0 }}>
             {onBack && (
               <Button 
                 type="link" 
@@ -115,14 +127,16 @@ export function TicketChat({ ticketId, onBack }: { ticketId: string | number; on
                 返回
               </Button>
             )}
-            <span style={{ fontWeight: 'bold', fontSize: 15 }}>#{ticket?.id || ticketId} {ticket?.subject || '加载中...'}</span>
+            <span style={{ fontWeight: 'bold', fontSize: 15, wordBreak: 'break-all' }}>
+              #{ticket?.id || ticketId} {ticket?.subject || '加载中...'}
+            </span>
             {ticket?.status === 1 ? (
-              <span style={{ background: '#f5f5f5', color: '#8c8c8c', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>已关闭</span>
+              <span style={{ background: '#f5f5f5', color: '#8c8c8c', padding: '2px 8px', borderRadius: 4, fontSize: 12, flexShrink: 0 }}>已关闭</span>
             ) : (
-              <span style={{ background: '#e6f7ff', color: '#1890ff', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>进行中</span>
+              <span style={{ background: '#e6f7ff', color: '#1890ff', padding: '2px 8px', borderRadius: 4, fontSize: 12, flexShrink: 0 }}>进行中</span>
             )}
           </div>
-          <div className={styles.ctrl} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {ticket?.status === 0 && (
               <Button size="small" danger onClick={handleClose}>
                 关闭工单
@@ -144,10 +158,12 @@ export function TicketChat({ ticketId, onBack }: { ticketId: string | number; on
             ) : null}
           </div>
         </div>
+
+        {/* 中间消息滚动区：自然占据剩余高度，绝不绝对定位覆盖 */}
         <div
-          className={`bg-white js-chat-messages block-content block-content-full text-wrap-break-word overflow-y-auto ${styles.content}`}
+          className="bg-white js-chat-messages text-wrap-break-word"
           ref={chatRef}
-          style={{ flexGrow: 1, padding: 16 }}
+          style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 16 }}
         >
           {loading && (!ticket?.message || ticket.message.length === 0) ? (
             <div style={{ textAlign: 'center', marginTop: 20 }}><Spin /></div>
@@ -157,7 +173,10 @@ export function TicketChat({ ticketId, onBack }: { ticketId: string | number; on
                 <div key={item.id}>
                   <div className="font-size-sm text-muted my-2 text-right">{formatTime(item.created_at)}</div>
                   <div className="text-right ml-4">
-                    <div className="d-inline-block bg-gray-lighter px-3 py-2 mb-2 mw-100 rounded text-left">
+                    <div 
+                      className="d-inline-block px-3 py-2 mb-2 mw-100 rounded text-left"
+                      style={{ backgroundColor: '#f4f4f5', border: '1px solid #e4e7ed', color: '#333' }}
+                    >
                       {parseMessageContent(item.message).map((part, pIdx) =>
                         part.type === 'text' ? (
                           <span key={pIdx} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{part.content}</span>
@@ -174,7 +193,10 @@ export function TicketChat({ ticketId, onBack }: { ticketId: string | number; on
                 <div key={item.id}>
                   <div className="font-size-sm text-muted my-2">{formatTime(item.created_at)}</div>
                   <div className="mr-4">
-                    <div className="d-inline-block bg-success-lighter px-3 py-2 mb-2 mw-100 rounded text-left">
+                    <div 
+                      className="d-inline-block px-3 py-2 mb-2 mw-100 rounded text-left"
+                      style={{ backgroundColor: '#e8f8f0', border: '1px solid #c2e7b0', color: '#274e13' }}
+                    >
                       {parseMessageContent(item.message).map((part, pIdx) =>
                         part.type === 'text' ? (
                           <span key={pIdx} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{part.content}</span>
@@ -191,7 +213,9 @@ export function TicketChat({ ticketId, onBack }: { ticketId: string | number; on
             )
           )}
         </div>
-        <div className={`js-chat-form block-content p-3 bg-body-dark ${styles.input}`} style={{ flexShrink: 0 }}>
+
+        {/* 底部输入框：自然位于底部，绝不 fixed */}
+        <div style={{ flexShrink: 0, padding: 12, backgroundColor: '#f8f9fa', borderTop: '1px solid #f0f0f0' }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
             <Upload
               showUploadList={false}
@@ -214,7 +238,7 @@ export function TicketChat({ ticketId, onBack }: { ticketId: string | number; on
             </Upload>
             <Input.TextArea
               value={replyText}
-              autoSize={{ minRows: 4, maxRows: 8 }}
+              autoSize={{ minRows: 2, maxRows: 6 }}
               placeholder="输入回复内容，支持粘贴图片..."
               style={{ flexGrow: 1 }}
               onChange={(e) => setReplyText(e.target.value)}
