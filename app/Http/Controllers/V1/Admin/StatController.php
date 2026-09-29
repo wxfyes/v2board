@@ -1107,6 +1107,14 @@ class StatController extends Controller
                 }
             }
 
+            $associatedIps = [];
+            foreach (array_keys($data['ips']) as $ip) {
+                $associatedIps[] = [
+                    'ip' => $ip,
+                    'location' => \App\Utils\IpHelper::ipLocation($ip),
+                ];
+            }
+
             $result[] = [
                 'device_id' => $deviceId,
                 'associated_accounts_count' => $userCount,
@@ -1115,7 +1123,7 @@ class StatController extends Controller
                 'total_pulls' => $data['total_pulls'],
                 'latest_time' => $data['latest_time'],
                 'associated_users' => $associatedUsers,
-                'associated_ips' => array_keys($data['ips']),
+                'associated_ips' => $associatedIps,
             ];
         }
 
@@ -1204,6 +1212,14 @@ class StatController extends Controller
                 }
             }
 
+            $associatedIps = [];
+            foreach (array_keys($data['ips']) as $ip) {
+                $associatedIps[] = [
+                    'ip' => $ip,
+                    'location' => \App\Utils\IpHelper::ipLocation($ip),
+                ];
+            }
+
             $result[] = [
                 'device_id' => $deviceId,
                 'associated_accounts_count' => $userCount,
@@ -1212,7 +1228,7 @@ class StatController extends Controller
                 'total_pulls' => $data['total_pulls'],
                 'latest_time' => $data['latest_time'],
                 'associated_users' => $associatedUsers,
-                'associated_ips' => array_keys($data['ips']),
+                'associated_ips' => $associatedIps,
             ];
         }
 

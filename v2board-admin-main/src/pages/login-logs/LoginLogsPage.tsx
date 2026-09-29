@@ -14,7 +14,8 @@ import {
   Space,
   Typography,
   Pagination,
-  Empty
+  Empty,
+  Popover
 } from 'antd';
 import { SearchOutlined, ReloadOutlined, ApiOutlined, DesktopOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router';
@@ -851,18 +852,61 @@ export default function LoginLogsPage() {
               )
             },
             {
-              title: '登录 IP 列表',
+              title: '登录 IP 列表 (含归属地)',
               key: 'associated_ips',
               render: (_: any, record: any) => {
+                const getIpStr = (item: any) => (typeof item === 'string' ? item : item?.ip || '');
+                const getIpLoc = (item: any) => (typeof item === 'object' && item?.location && item.location !== '未知' ? item.location : '');
+                const getIpLocShort = (item: any) => {
+                  const loc = getIpLoc(item);
+                  if (!loc) return '';
+                  const parts = loc.split('-').filter((p: string) => p !== '中国' && p !== 'CN');
+                  return parts.slice(0, 2).join('·') || loc;
+                };
+
                 const ips = record.associated_ips || [];
                 const showIps = ips.slice(0, 5);
                 const more = ips.length > 5 ? ips.length - 5 : 0;
                 return (
                   <Space size={[0, 4]} wrap>
-                    {showIps.map((ip: string, idx: number) => (
-                      <Tag key={idx} color="default">{ip}</Tag>
-                    ))}
-                    {more > 0 && <Tag color="default">+{more}</Tag>}
+                    {showIps.map((item: any, idx: number) => {
+                      const ip = getIpStr(item);
+                      const loc = getIpLoc(item);
+                      const shortLoc = getIpLocShort(item);
+                      return (
+                        <Tooltip key={idx} title={loc || '归属地未知'}>
+                          <Tag color="default" style={{ cursor: 'help', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span>{ip}</span>
+                            {loc && (
+                              <span style={{ color: '#52c41a', fontSize: 11, backgroundColor: 'rgba(82, 196, 26, 0.1)', padding: '0 4px', borderRadius: 2 }}>
+                                {shortLoc}
+                              </span>
+                            )}
+                          </Tag>
+                        </Tooltip>
+                      );
+                    })}
+                    {more > 0 && (
+                      <Popover
+                        title={`该设备关联的全部 IP (${ips.length} 个)`}
+                        content={
+                          <div style={{ maxHeight: 280, overflowY: 'auto', minWidth: 260 }}>
+                            {ips.map((item: any, idx: number) => {
+                              const ip = getIpStr(item);
+                              const loc = getIpLoc(item);
+                              return (
+                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 12 }}>
+                                  <code style={{ color: '#1890ff' }}>{ip}</code>
+                                  <span style={{ color: '#52c41a' }}>{loc || '未知'}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        }
+                      >
+                        <Tag color="default" style={{ cursor: 'pointer' }}>+{more}</Tag>
+                      </Popover>
+                    )}
                   </Space>
                 );
               }

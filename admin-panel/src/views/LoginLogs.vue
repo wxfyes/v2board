@@ -445,20 +445,45 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="登录 IP 列表" min-width="180">
+        <el-table-column label="登录 IP 列表 (含归属地)" min-width="260">
           <template #default="scope">
-            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-              <el-tag
-                v-for="(ip, index) in (scope.row.associated_ips ? scope.row.associated_ips.slice(0, 5) : [])"
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <el-tooltip
+                v-for="(item, index) in (scope.row.associated_ips ? scope.row.associated_ips.slice(0, 5) : [])"
                 :key="index"
-                size="small"
-                type="info"
+                placement="top"
+                :content="formatIpLocation(item) || '归属地未知'"
               >
-                {{ ip }}
-              </el-tag>
-              <el-tag v-if="scope.row.associated_ips && scope.row.associated_ips.length > 5" size="small" type="info">
-                +{{ scope.row.associated_ips.length - 5 }}
-              </el-tag>
+                <el-tag size="small" type="info" style="cursor: help; display: inline-flex; align-items: center; gap: 4px;">
+                  <span>{{ formatIpStr(item) }}</span>
+                  <span 
+                    v-if="formatIpLocation(item)" 
+                    style="color: #67c23a; font-size: 11px; background: rgba(103,194,58,0.15); padding: 0 4px; border-radius: 2px;"
+                  >
+                    {{ formatIpLocationShort(item) }}
+                  </span>
+                </el-tag>
+              </el-tooltip>
+
+              <el-popover
+                v-if="scope.row.associated_ips && scope.row.associated_ips.length > 5"
+                placement="right"
+                width="360"
+                trigger="hover"
+              >
+                <template #reference>
+                  <el-tag size="small" type="info" style="cursor: pointer;">
+                    +{{ scope.row.associated_ips.length - 5 }}
+                  </el-tag>
+                </template>
+                <div style="max-height: 280px; overflow-y: auto;">
+                  <div style="font-weight: bold; margin-bottom: 8px; font-size: 13px;">该设备关联的全部 IP ({{ scope.row.associated_ips.length }} 个):</div>
+                  <div v-for="(item, idx) in scope.row.associated_ips" :key="idx" style="margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; border-bottom: 1px solid #f0f0f0; padding-bottom: 4px;">
+                    <code style="color: #409EFF;">{{ formatIpStr(item) }}</code>
+                    <span style="color: #67c23a;">{{ formatIpLocation(item) || '归属地未知' }}</span>
+                  </div>
+                </div>
+              </el-popover>
             </div>
           </template>
         </el-table-column>
@@ -581,6 +606,15 @@ const fetchIpAssociation = async () => {
 const deviceAssociationVisible = ref(false);
 const deviceAssociationLoading = ref(false);
 const deviceAssociationList = ref([]);
+
+const formatIpStr = (item) => (typeof item === 'string' ? item : (item?.ip || ''));
+const formatIpLocation = (item) => (typeof item === 'object' && item && item.location && item.location !== '未知' ? item.location : '');
+const formatIpLocationShort = (item) => {
+  const loc = formatIpLocation(item);
+  if (!loc) return '';
+  const parts = loc.split('-').filter(p => p !== '中国' && p !== 'CN');
+  return parts.slice(0, 2).join('·') || loc;
+};
 
 const openDeviceAssociationDialog = () => {
   deviceAssociationVisible.value = true;
