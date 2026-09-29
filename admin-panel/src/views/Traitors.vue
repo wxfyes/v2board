@@ -60,12 +60,12 @@
               <span>内鬼 IP 列表</span>
               <el-tag size="small" type="info" effect="plain" style="margin-left: 8px;">共 {{ ipCount }} 个</el-tag>
             </div>
-            <div class="section-desc">一行一个 IP 地址或 CIDR 网段，支持单个 IP（如 1.1.1.1）及子网段（如 211.145.0.0/16）</div>
+            <div class="section-desc">一行一个 IP 地址或 CIDR 网段，支持 IPv4/IPv6 单 IP 及网段（如 211.145.0.0/16 或 2400:dd0d:2000::/64）</div>
             <el-input
               v-model="ips"
               type="textarea"
               :rows="isMobile ? 8 : 15"
-              placeholder="1.1.1.1&#10;211.145.0.0/16&#10;211.94.162.0/24"
+              placeholder="1.1.1.1&#10;211.145.0.0/16&#10;2400:dd0d:2000::/64"
             />
           </div>
         </el-col>

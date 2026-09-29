@@ -65,10 +65,10 @@ class TraitorDefense
     }
 
     /**
-     * 高性能 IP / CIDR 匹配函数
+     * 高性能 IP / CIDR 匹配函数（全量支持 IPv4 与 IPv6，支持纯 IP 与 CIDR 子网掩码）
      *
      * @param string $ip 目标 IP
-     * @param array $rules 规则列表 (包含纯 IP 或 IP/mask)
+     * @param array $rules 规则列表 (包含 IPv4/IPv6 纯 IP 或 IP/mask)
      * @return bool
      */
     public static function matchIpList(string $ip, array $rules): bool
@@ -78,10 +78,13 @@ class TraitorDefense
             return false;
         }
 
-        $ipLong = ip2long($ip);
-        if ($ipLong === false) {
+        $ipBin = @inet_pton($ip);
+        if ($ipBin === false) {
             return false;
         }
+
+        $isIpv4 = strlen($ipBin) === 4;
+        $maxBits = $isIpv4 ? 32 : 128;
 
         foreach ($rules as $rule) {
             $rule = trim($rule);
@@ -90,12 +93,22 @@ class TraitorDefense
             }
 
             if (strpos($rule, '/') !== false) {
-                // CIDR 掩码匹配 (例如 211.145.0.0/16, 211.94.162.0/24)
-                list($subnet, $bits) = explode('/', $rule, 2);
-                $subnetLong = ip2long(trim($subnet));
-                $bits = (int)trim($bits);
+                // CIDR 掩码匹配 (如 211.145.0.0/16, 2400:dd0d:2000::/64)
+                list($subnet, $bitsStr) = explode('/', $rule, 2);
+                $subnet = trim($subnet);
+                $bits = (int)trim($bitsStr);
 
-                if ($subnetLong === false || $bits < 0 || $bits > 32) {
+                $subnetBin = @inet_pton($subnet);
+                if ($subnetBin === false) {
+                    continue;
+                }
+
+                // 协议族版本必须一致 (IPv4 vs IPv6)
+                if (strlen($ipBin) !== strlen($subnetBin)) {
+                    continue;
+                }
+
+                if ($bits < 0 || $bits > $maxBits) {
                     continue;
                 }
 
@@ -103,13 +116,26 @@ class TraitorDefense
                     return true;
                 }
 
-                $mask = ~((1 << (32 - $bits)) - 1);
-                if (($ipLong & $mask) === ($subnetLong & $mask)) {
-                    return true;
+                // 二进制掩码分块比对
+                $bytes = (int)($bits / 8);
+                $remBits = $bits % 8;
+
+                if ($bytes > 0 && substr($ipBin, 0, $bytes) !== substr($subnetBin, 0, $bytes)) {
+                    continue;
                 }
+
+                if ($remBits > 0) {
+                    $mask = (0xFF << (8 - $remBits)) & 0xFF;
+                    if ((ord($ipBin[$bytes]) & $mask) !== (ord($subnetBin[$bytes]) & $mask)) {
+                        continue;
+                    }
+                }
+
+                return true;
             } else {
-                // 绝对 IP 匹配
-                if ($ip === $rule) {
+                // 绝对 IP 匹配（二进制全等比对，自动兼容 IPv6 各种展开/缩写格式）
+                $ruleBin = @inet_pton($rule);
+                if ($ruleBin !== false && $ipBin === $ruleBin) {
                     return true;
                 }
             }

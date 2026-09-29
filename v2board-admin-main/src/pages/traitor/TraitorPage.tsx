@@ -147,13 +147,13 @@ export default function TraitorPage() {
                 }
               >
                 <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>
-                  一行一个 IP 地址或 CIDR 网段，支持单个 IP（如 1.1.1.1）及子网段（如 211.145.0.0/16）。
+                  一行一个 IP 地址或 CIDR 网段，支持 IPv4/IPv6 单 IP 及网段（如 211.145.0.0/16 或 2400:dd0d:2000::/64）。
                 </div>
                 <Input.TextArea
                   value={ips}
                   onChange={(e) => setIps(e.target.value)}
                   rows={isMobile ? 8 : 15}
-                  placeholder="1.1.1.1&#10;211.145.0.0/16&#10;211.94.162.0/24"
+                  placeholder="1.1.1.1&#10;211.145.0.0/16&#10;2400:dd0d:2000::/64"
                 />
               </Card>
             </Col>
