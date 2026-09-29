@@ -227,7 +227,13 @@ export default function UserPage() {
         render: (_: unknown, user: any) => {
           let history: any[] = []
           try {
-            if (user.client_type) history = JSON.parse(user.client_type)
+            if (user.client_type) {
+              if (typeof user.client_type === 'string') {
+                history = JSON.parse(user.client_type)
+              } else if (Array.isArray(user.client_type)) {
+                history = user.client_type
+              }
+            }
           } catch(e){}
           if (history.length === 0) return '-'
           return (

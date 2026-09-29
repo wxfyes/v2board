@@ -836,6 +836,7 @@ const getGroupName = (id) => {
 
 const parseClientHistory = (jsonStr) => {
   if (!jsonStr) return [];
+  if (Array.isArray(jsonStr)) return jsonStr;
   try {
     const arr = JSON.parse(jsonStr);
     return Array.isArray(arr) ? arr : [];

@@ -119,7 +119,10 @@ class IpHelper
 
         $cacheKey = "ip_loc_" . md5($ip);
         if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
-            return \Illuminate\Support\Facades\Cache::get($cacheKey);
+            $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+            if (!empty($cached) && $cached !== '未知' && $cached !== '未知位置' && $cached !== '未知地理位置') {
+                return $cached;
+            }
         }
 
         try {
@@ -127,14 +130,29 @@ class IpHelper
             static $xdbSearcherV6 = null;
             
             $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
-            $xdbPath = $isV6 ? app_path('Utils/ip2region_v6.xdb') : app_path('Utils/ip2region_v4.xdb');
             
-            // 兼容之前下载的 ip2region.xdb (作为 v4)
-            if (!$isV6 && !file_exists($xdbPath) && file_exists(app_path('Utils/ip2region.xdb'))) {
-                $xdbPath = app_path('Utils/ip2region.xdb');
+            $candidatePaths = $isV6 ? [
+                app_path('Utils/ip2region_v6.xdb'),
+                base_path('app/Utils/ip2region_v6.xdb'),
+                dirname(__DIR__) . '/Utils/ip2region_v6.xdb',
+            ] : [
+                app_path('Utils/ip2region_v4.xdb'),
+                base_path('app/Utils/ip2region_v4.xdb'),
+                dirname(__DIR__) . '/Utils/ip2region_v4.xdb',
+                app_path('Utils/ip2region.xdb'),
+                base_path('app/Utils/ip2region.xdb'),
+                dirname(__DIR__) . '/Utils/ip2region.xdb',
+            ];
+            
+            $xdbPath = null;
+            foreach ($candidatePaths as $p) {
+                if (file_exists($p)) {
+                    $xdbPath = $p;
+                    break;
+                }
             }
 
-            if (file_exists($xdbPath)) {
+            if ($xdbPath) {
                 if (!class_exists('\App\Utils\Ip2RegionSearcher')) {
                     require_once app_path('Utils/Ip2RegionSearcher.php');
                 }

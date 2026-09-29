@@ -160,16 +160,22 @@ class UserController extends Controller
             if (!empty($res[$i]['client_type'])) {
                 $clientHistory = json_decode($res[$i]['client_type'], true);
                 if (is_array($clientHistory)) {
+                    $needUpdateDb = false;
                     foreach ($clientHistory as &$item) {
                         if (!empty($item['ip']) && (empty($item['location']) || $item['location'] === '未知')) {
                             $loc = $this->getIpLocation($item['ip']);
                             if ($loc && $loc !== '未知') {
                                 $item['location'] = $loc;
+                                $needUpdateDb = true;
                             }
                         }
                     }
                     unset($item);
-                    $res[$i]['client_type'] = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
+                    $newClientTypeJson = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
+                    $res[$i]['client_type'] = $newClientTypeJson;
+                    if ($needUpdateDb && isset($res[$i]['id'])) {
+                        \DB::table('v2_user')->where('id', $res[$i]['id'])->update(['client_type' => $newClientTypeJson]);
+                    }
                 }
             }
 
@@ -215,16 +221,22 @@ class UserController extends Controller
         if (!empty($user->client_type)) {
             $clientHistory = json_decode($user->client_type, true);
             if (is_array($clientHistory)) {
+                $needUpdateDb = false;
                 foreach ($clientHistory as &$item) {
                     if (!empty($item['ip']) && (empty($item['location']) || $item['location'] === '未知')) {
                         $loc = $this->getIpLocation($item['ip']);
                         if ($loc && $loc !== '未知') {
                             $item['location'] = $loc;
+                            $needUpdateDb = true;
                         }
                     }
                 }
                 unset($item);
-                $user['client_type'] = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
+                $newClientTypeJson = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
+                $user['client_type'] = $newClientTypeJson;
+                if ($needUpdateDb && isset($user->id)) {
+                    \DB::table('v2_user')->where('id', $user->id)->update(['client_type' => $newClientTypeJson]);
+                }
             }
         }
 
