@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card, Row, Col, Table, Tag, Button, Input, Select, Modal, Tabs, Form,
   Switch, InputNumber, Radio, Progress, Descriptions, Tooltip, Timeline,
-  message, Dropdown, Space, Avatar, Checkbox
+  message, Dropdown, Space, Avatar, Checkbox, Pagination, Empty
 } from 'antd';
 import {
   WarningOutlined, DashboardOutlined, LockOutlined, SearchOutlined,
@@ -127,6 +127,16 @@ export default function SecurityAuditPage() {
   const [userDetailVisible, setUserDetailVisible] = useState(false);
   const [activeUserId, setActiveUserId] = useState<number | null>(null);
   const isMobile = useMobile();
+  const [mobilePage, setMobilePage] = useState(1);
+  const [expandedMobileIds, setExpandedMobileIds] = useState<number[]>([]);
+  const toggleMobileExpand = (id: number) => {
+    setExpandedMobileIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const mobilePageSize = 10;
+  const pagedAnomalies = useMemo(() => {
+    const start = (mobilePage - 1) * mobilePageSize;
+    return filteredAnomaliesList.slice(start, start + mobilePageSize);
+  }, [filteredAnomaliesList, mobilePage]);
 
   return (
     <AdminLayout title="安全审计">
@@ -228,149 +238,303 @@ export default function SecurityAuditPage() {
           </div>
         </div>
 
-        <Table 
-          dataSource={filteredAnomaliesList} 
-          rowKey="user_id" 
-          loading={loading}
-          pagination={{ pageSize: 15 }}
-          scroll={{ x: 800 }}
-          expandable={{
-            expandedRowRender: record => <AnomalyHistory record={record} onRefresh={fetchAnomalies} />
-          }}
-          columns={[
-            {
-              title: 'ID',
-              dataIndex: 'user_id',
-              width: 80,
-              render: (text) => <a onClick={() => { setActiveUserId(text); setUserDetailVisible(true); }}>{text}</a>
-            },
-            {
-              title: '邮箱',
-              dataIndex: 'email',
-              render: (text, record) => <a onClick={() => { setActiveUserId(record.user_id); setUserDetailVisible(true); }}>{text}</a>
-            },
-            {
-              title: '审计时间',
-              dataIndex: 'flagged_at',
-              render: text => formatTime(text)
-            },
-            {
-              title: '风险评估',
-              dataIndex: 'risk_level',
-              render: text => text === 'high' ? <Tag color="red">审计拦截 (高)</Tag> : <Tag color="orange">疑似工具 (低)</Tag>
-            },
-            {
-              title: '判定原委',
-              dataIndex: 'reasons',
-              render: (reasons: string[], record) => (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  {reasons && reasons.map((r, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Tag color={record.risk_level === 'high' ? 'red' : 'orange'} style={{ whiteSpace: 'normal', height: 'auto', padding: '2px 6px' }}>
-                        {r}
-                      </Tag>
-                      {r.toLowerCase().includes('curl') && (
-                        <Tooltip title="提示: curl 请求极有可能是 OpenWrt 软路由插件正常拉取，请结合下方的拉取 IP 记录进行确认，不要误封正常用户。">
-                          <QuestionCircleOutlined style={{ color: '#faad14', cursor: 'help' }} />
-                        </Tooltip>
-                      )}
+        {isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {pagedAnomalies.map((record) => {
+              const isExpanded = expandedMobileIds.includes(record.user_id);
+              return (
+                <Card
+                  key={record.user_id}
+                  size="small"
+                  style={{
+                    borderRadius: 8,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    border: '1px solid #f0f0f0',
+                    background: '#fafafa'
+                  }}
+                  bodyStyle={{ padding: '12px 14px' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1, marginRight: 8 }}>
+                      <a
+                        onClick={() => { setActiveUserId(record.user_id); setUserDetailVisible(true); }}
+                        style={{ fontWeight: 600, fontSize: 14, color: '#1677ff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {record.email || '未知用户'}
+                      </a>
+                      <Tag color="default" style={{ margin: 0, fontSize: 11, flexShrink: 0 }}>UID:{record.user_id}</Tag>
                     </div>
-                  ))}
-                </div>
-              )
-            },
-            {
-              title: '蜜罐状态',
-              dataIndex: 'in_honeypot',
-              render: val => val === 1 ? <Tag color="orange">蜜罐接管中</Tag> : <Tag>未接管</Tag>
-            },
-            {
-              title: '操作',
-              key: 'action',
-              width: 250,
-              align: 'right',
-              render: (_, record) => (
-                <Space>
-                  <Button 
-                    size="small" 
-                    type={record.in_honeypot === 1 ? 'primary' : 'default'} 
-                    danger={record.in_honeypot !== 1}
-                    onClick={() => {
-                      Modal.confirm({
-                        title: '提示',
-                        content: `确定要将该用户 ${record.email} ${record.in_honeypot === 1 ? '移出蜜罐' : '加入蜜罐'}吗？`,
-                        onOk: async () => {
-                          await post(adminPath('/user/toggleHoneypot'), { id: record.user_id });
-                          message.success('操作成功');
-                          fetchAnomalies();
-                        }
-                      });
-                    }}
-                  >
-                    {record.in_honeypot === 1 ? '解除蜜罐' : '一键蜜罐'}
-                  </Button>
-                  <Button 
-                    size="small" 
-                    danger 
-                    disabled={record.banned === 1}
-                    onClick={() => {
-                      Modal.confirm({
-                        title: '警告',
-                        content: `确定要封禁用户 ${record.email} 吗？`,
-                        okType: 'danger',
-                        onOk: async () => {
-                          await post(adminPath('/user/ban'), { filter: [{ key: 'id', condition: '=', value: record.user_id }] });
-                          message.success('封禁成功');
-                          fetchAnomalies();
-                        }
-                      });
-                    }}
-                  >
-                    {record.banned === 1 ? '已封禁' : '封禁'}
-                  </Button>
-                  <Dropdown
-                    menu={{
-                      items: [
-                        ...(record.type === 'flagged' ? [{
-                          key: 'ignore',
-                          label: '忽略预警',
-                          onClick: () => {
-                            Modal.confirm({
-                              title: '提示',
-                              content: `确定要忽略此条对用户 ${record.email} 的审计拦截吗？`,
-                              onOk: async () => {
-                                await post(adminPath('/stat/ignoreAnomaly'), { id: record.user_id });
-                                message.success('已忽略');
-                                fetchAnomalies();
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      {record.risk_level === 'high' ? <Tag color="red" style={{ margin: 0 }}>高危</Tag> : <Tag color="orange" style={{ margin: 0 }}>疑似</Tag>}
+                      {record.in_honeypot === 1 && <Tag color="warning" style={{ margin: 0 }}>蜜罐</Tag>}
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>
+                    时间: {formatTime(record.flagged_at)}
+                  </div>
+
+                  {record.reasons && record.reasons.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                      {record.reasons.map((r: string, i: number) => (
+                        <Tag key={i} color={record.risk_level === 'high' ? 'red' : 'orange'} style={{ margin: 0, fontSize: 11 }}>
+                          {r}
+                        </Tag>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #e8e8e8', paddingTop: 8, marginTop: 4 }}>
+                    <Space size={4} wrap>
+                      <Button
+                        size="small"
+                        type={record.in_honeypot === 1 ? 'primary' : 'default'}
+                        danger={record.in_honeypot !== 1}
+                        onClick={() => {
+                          Modal.confirm({
+                            title: '提示',
+                            content: `确定要将该用户 ${record.email} ${record.in_honeypot === 1 ? '移出蜜罐' : '加入蜜罐'}吗？`,
+                            onOk: async () => {
+                              await post(adminPath('/user/toggleHoneypot'), { id: record.user_id });
+                              message.success('操作成功');
+                              fetchAnomalies();
+                            }
+                          });
+                        }}
+                      >
+                        {record.in_honeypot === 1 ? '解除蜜罐' : '一键蜜罐'}
+                      </Button>
+                      <Button
+                        size="small"
+                        danger
+                        disabled={record.banned === 1}
+                        onClick={() => {
+                          Modal.confirm({
+                            title: '警告',
+                            content: `确定要封禁用户 ${record.email} 吗？`,
+                            okType: 'danger',
+                            onOk: async () => {
+                              await post(adminPath('/user/ban'), { filter: [{ key: 'id', condition: '=', value: record.user_id }] });
+                              message.success('封禁成功');
+                              fetchAnomalies();
+                            }
+                          });
+                        }}
+                      >
+                        {record.banned === 1 ? '已封' : '封禁'}
+                      </Button>
+                      <Dropdown
+                        menu={{
+                          items: [
+                            ...(record.type === 'flagged' ? [{
+                              key: 'ignore',
+                              label: '忽略预警',
+                              onClick: () => {
+                                Modal.confirm({
+                                  title: '提示',
+                                  content: `确定要忽略此条对用户 ${record.email} 的审计拦截吗？`,
+                                  onOk: async () => {
+                                    await post(adminPath('/stat/ignoreAnomaly'), { id: record.user_id });
+                                    message.success('已忽略');
+                                    fetchAnomalies();
+                                  }
+                                });
                               }
-                            });
-                          }
-                        }] : []),
-                        {
-                          key: 'whitelist',
-                          label: '加入白名单',
-                          onClick: () => {
-                            Modal.confirm({
-                              title: '提示',
-                              content: `确定要将用户 ${record.email} 加入白名单吗？`,
-                              onOk: async () => {
-                                await post(adminPath('/stat/whitelistUser'), { id: record.user_id });
-                                message.success('已加入白名单');
-                                fetchAnomalies();
+                            }] : []),
+                            {
+                              key: 'whitelist',
+                              label: '加入白名单',
+                              onClick: () => {
+                                Modal.confirm({
+                                  title: '提示',
+                                  content: `确定要将用户 ${record.email} 加入白名单吗？`,
+                                  onOk: async () => {
+                                    await post(adminPath('/stat/whitelistUser'), { id: record.user_id });
+                                    message.success('已加入白名单');
+                                    fetchAnomalies();
+                                  }
+                                });
                               }
-                            });
+                            }
+                          ]
+                        }}
+                      >
+                        <Button size="small">更多 <DownOutlined /></Button>
+                      </Dropdown>
+                    </Space>
+
+                    <Button type="link" size="small" style={{ padding: 0 }} onClick={() => toggleMobileExpand(record.user_id)}>
+                      {isExpanded ? '收起轨迹' : '轨迹'}
+                    </Button>
+                  </div>
+
+                  {isExpanded && (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f0f0f0' }}>
+                      <AnomalyHistory record={record} onRefresh={fetchAnomalies} />
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+
+            {filteredAnomaliesList.length === 0 && !loading && (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无审计记录" />
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+              <Pagination
+                simple
+                current={mobilePage}
+                pageSize={mobilePageSize}
+                total={filteredAnomaliesList.length}
+                onChange={setMobilePage}
+              />
+            </div>
+          </div>
+        ) : (
+          <Table 
+            dataSource={filteredAnomaliesList} 
+            rowKey="user_id" 
+            loading={loading}
+            pagination={{ pageSize: 15 }}
+            expandable={{
+              expandedRowRender: record => <AnomalyHistory record={record} onRefresh={fetchAnomalies} />
+            }}
+            columns={[
+              {
+                title: 'ID',
+                dataIndex: 'user_id',
+                width: 80,
+                render: (text) => <a onClick={() => { setActiveUserId(text); setUserDetailVisible(true); }}>{text}</a>
+              },
+              {
+                title: '邮箱',
+                dataIndex: 'email',
+                render: (text, record) => <a onClick={() => { setActiveUserId(record.user_id); setUserDetailVisible(true); }}>{text}</a>
+              },
+              {
+                title: '审计时间',
+                dataIndex: 'flagged_at',
+                render: text => formatTime(text)
+              },
+              {
+                title: '风险评估',
+                dataIndex: 'risk_level',
+                render: text => text === 'high' ? <Tag color="red">审计拦截 (高)</Tag> : <Tag color="orange">疑似工具 (低)</Tag>
+              },
+              {
+                title: '判定原委',
+                dataIndex: 'reasons',
+                render: (reasons: string[], record) => (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {reasons && reasons.map((r, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Tag color={record.risk_level === 'high' ? 'red' : 'orange'} style={{ whiteSpace: 'normal', height: 'auto', padding: '2px 6px' }}>
+                          {r}
+                        </Tag>
+                        {r.toLowerCase().includes('curl') && (
+                          <Tooltip title="提示: curl 请求极有可能是 OpenWrt 软路由插件正常拉取，请结合下方的拉取 IP 记录进行确认，不要误封正常用户。">
+                            <QuestionCircleOutlined style={{ color: '#faad14', cursor: 'help' }} />
+                          </Tooltip>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              },
+              {
+                title: '蜜罐状态',
+                dataIndex: 'in_honeypot',
+                render: val => val === 1 ? <Tag color="orange">蜜罐接管中</Tag> : <Tag>未接管</Tag>
+              },
+              {
+                title: '操作',
+                key: 'action',
+                width: 250,
+                align: 'right',
+                render: (_, record) => (
+                  <Space>
+                    <Button 
+                      size="small" 
+                      type={record.in_honeypot === 1 ? 'primary' : 'default'} 
+                      danger={record.in_honeypot !== 1}
+                      onClick={() => {
+                        Modal.confirm({
+                          title: '提示',
+                          content: `确定要将该用户 ${record.email} ${record.in_honeypot === 1 ? '移出蜜罐' : '加入蜜罐'}吗？`,
+                          onOk: async () => {
+                            await post(adminPath('/user/toggleHoneypot'), { id: record.user_id });
+                            message.success('操作成功');
+                            fetchAnomalies();
                           }
-                        }
-                      ]
-                    }}
-                  >
-                    <Button size="small">更多 <DownOutlined /></Button>
-                  </Dropdown>
-                </Space>
-              )
-            }
-          ]}
-        />
+                        });
+                      }}
+                    >
+                      {record.in_honeypot === 1 ? '解除蜜罐' : '一键蜜罐'}
+                    </Button>
+                    <Button 
+                      size="small" 
+                      danger 
+                      disabled={record.banned === 1}
+                      onClick={() => {
+                        Modal.confirm({
+                          title: '警告',
+                          content: `确定要封禁用户 ${record.email} 吗？`,
+                          okType: 'danger',
+                          onOk: async () => {
+                            await post(adminPath('/user/ban'), { filter: [{ key: 'id', condition: '=', value: record.user_id }] });
+                            message.success('封禁成功');
+                            fetchAnomalies();
+                          }
+                        });
+                      }}
+                    >
+                      {record.banned === 1 ? '已封禁' : '封禁'}
+                    </Button>
+                    <Dropdown
+                      menu={{
+                        items: [
+                          ...(record.type === 'flagged' ? [{
+                            key: 'ignore',
+                            label: '忽略预警',
+                            onClick: () => {
+                              Modal.confirm({
+                                title: '提示',
+                                content: `确定要忽略此条对用户 ${record.email} 的审计拦截吗？`,
+                                onOk: async () => {
+                                  await post(adminPath('/stat/ignoreAnomaly'), { id: record.user_id });
+                                  message.success('已忽略');
+                                  fetchAnomalies();
+                                }
+                              });
+                            }
+                          }] : []),
+                          {
+                            key: 'whitelist',
+                            label: '加入白名单',
+                            onClick: () => {
+                              Modal.confirm({
+                                title: '提示',
+                                content: `确定要将用户 ${record.email} 加入白名单吗？`,
+                                onOk: async () => {
+                                  await post(adminPath('/stat/whitelistUser'), { id: record.user_id });
+                                  message.success('已加入白名单');
+                                  fetchAnomalies();
+                                }
+                              });
+                            }
+                          }
+                        ]
+                      }}
+                    >
+                      <Button size="small">更多 <DownOutlined /></Button>
+                    </Dropdown>
+                  </Space>
+                )
+              }
+            ]}
+          />
+        )}
       </Card>
 
       {settingsVisible && (

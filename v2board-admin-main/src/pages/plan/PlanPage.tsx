@@ -8,7 +8,7 @@ import {
 } from '@ant-design/icons'
 import { arrayMove } from '@dnd-kit/sortable'
 import { useQueryClient } from '@tanstack/react-query'
-import { Button, Dropdown, Switch, Tag, Tooltip, type TableColumnsType } from 'antd'
+import { Button, Dropdown, Switch, Tag, Tooltip, Card, Empty, Space, type TableColumnsType } from 'antd'
 import { useMemo, useState, type AnchorHTMLAttributes } from 'react'
 import { queryKeys, usePlans, useRefetch, useServerGroups } from '@/api/queries'
 import { dropPlan, sortPlans, updatePlan } from '@/api/services/plan'
@@ -212,28 +212,101 @@ export default function PlanPage() {
           </PlanDrawer>
         }
       >
-        <V2Table<Plan>
-          dataSource={plans}
-          columns={columns}
-          pagination={false}
-          scroll={{ x: isMobile ? 650 : 1300 }}
-          onDragSort={(from, to) => void sort(from, to)}
-          onRowContextMenu={setContextRecord}
-          contextMenu={
-            <ul className="ant-dropdown-menu ant-dropdown-menu-light ant-dropdown-menu-root ant-dropdown-menu-vertical">
-              <li className="ant-dropdown-menu-item">
-                <PlanDrawer record={contextRecord} key={contextRecord?.id}>
-                  <EditLabel />
-                </PlanDrawer>
-              </li>
-              <li className="ant-dropdown-menu-item" onClick={() => drop(contextRecord?.id)}>
-                <a style={{ color: 'var(--v2b-danger-text, #ff4d4f)' }}>
-                  <DeleteOutlined /> 删除
-                </a>
-              </li>
-            </ul>
-          }
-        />
+        {isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 4px' }}>
+            {plans.map((record) => {
+              const parts: string[] = []
+              if (record.month_price !== null && typeof record.month_price === 'number') parts.push(`月付: ¥${record.month_price.toFixed(2)}`)
+              if (record.quarter_price !== null && typeof record.quarter_price === 'number') parts.push(`季付: ¥${record.quarter_price.toFixed(2)}`)
+              if (record.year_price !== null && typeof record.year_price === 'number') parts.push(`年付: ¥${record.year_price.toFixed(2)}`)
+              if (record.onetime_price !== null && typeof record.onetime_price === 'number') parts.push(`一次性: ¥${record.onetime_price.toFixed(2)}`)
+              if (parts.length === 0) {
+                for (const [k, name] of PRICE_COLUMNS) {
+                  if (record[k] !== null && typeof record[k] === 'number') {
+                    parts.push(`${name}: ¥${(record[k] as number).toFixed(2)}`)
+                  }
+                }
+              }
+
+              const groupName = groups.find((g) => g.id === Number.parseInt(String(record.group_id), 10))?.name;
+
+              return (
+                <Card
+                  key={record.id}
+                  size="small"
+                  style={{ borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0', background: '#fafafa' }}
+                  bodyStyle={{ padding: '12px 14px' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontWeight: 600, fontSize: 15, color: '#333' }}>{record.name}</span>
+                    <Space size={10}>
+                      <span style={{ fontSize: 12 }}>
+                        销售 <Switch size="small" checked={Boolean(record.show)} onClick={() => void update(record.id, 'show', record.show ? 0 : 1)} />
+                      </span>
+                      <span style={{ fontSize: 12 }}>
+                        续费 <Switch size="small" checked={Boolean(record.renew)} onClick={() => void update(record.id, 'renew', record.renew ? 0 : 1)} />
+                      </span>
+                    </Space>
+                  </div>
+
+                  <div style={{ fontSize: 12, color: '#666', marginBottom: 8, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                    <span>流量: <strong>{record.transfer_enable} GB</strong></span>
+                    <span>设备数: {record.device_limit !== null ? `${record.device_limit} 台` : '无限制'}</span>
+                    {groupName && <Tag color="blue" style={{ margin: 0 }}>权限: {groupName}</Tag>}
+                  </div>
+
+                  {parts.length > 0 && (
+                    <div style={{ fontSize: 12, color: '#1677ff', background: '#f0f5ff', padding: '6px 10px', borderRadius: 4, marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {parts.map((p, idx) => (
+                        <span key={idx}>{p}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px dashed #e8e8e8', paddingTop: 8 }}>
+                    <PlanDrawer record={record} key={record.id}>
+                      <Button size="small" icon={<EditOutlined />}>编辑</Button>
+                    </PlanDrawer>
+                    <Button
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => drop(record.id)}
+                    >
+                      删除
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+            {plans.length === 0 && (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无订阅套餐" />
+            )}
+          </div>
+        ) : (
+          <V2Table<Plan>
+            dataSource={plans}
+            columns={columns}
+            pagination={false}
+            scroll={{ x: 1300 }}
+            onDragSort={(from, to) => void sort(from, to)}
+            onRowContextMenu={setContextRecord}
+            contextMenu={
+              <ul className="ant-dropdown-menu ant-dropdown-menu-light ant-dropdown-menu-root ant-dropdown-menu-vertical">
+                <li className="ant-dropdown-menu-item">
+                  <PlanDrawer record={contextRecord} key={contextRecord?.id}>
+                    <EditLabel />
+                  </PlanDrawer>
+                </li>
+                <li className="ant-dropdown-menu-item" onClick={() => drop(contextRecord?.id)}>
+                  <a style={{ color: 'var(--v2b-danger-text, #ff4d4f)' }}>
+                    <DeleteOutlined /> 删除
+                  </a>
+                </li>
+              </ul>
+            }
+          />
+        )}
       </TableBlock>
     </AdminLayout>
   )

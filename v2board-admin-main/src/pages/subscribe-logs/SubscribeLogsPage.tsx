@@ -1,4 +1,4 @@
-import { Card, Table, message, Modal, Input, Button, Space, Tag, Tooltip, Typography } from 'antd';
+import { Card, Table, message, Modal, Input, Button, Space, Tag, Tooltip, Typography, Pagination, Empty } from 'antd';
 import { SearchOutlined, ReloadOutlined, TrophyOutlined, LinkOutlined, MonitorOutlined } from '@ant-design/icons';
 import { useEffect, useState, useCallback } from 'react';
 import { get, post } from '@/api/request';
@@ -432,23 +432,93 @@ export default function SubscribeLogsPage() {
             </Space>
           </div>
 
-          <Table
-            dataSource={data}
-            columns={columns}
-            loading={loading}
-            rowKey={(record, index) => record.id || index}
-            scroll={{ x: 950 }}
-            pagination={{
-              current: query.current,
-              pageSize: query.page_size,
-              total: total,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-              showTotal: (t) => `共 ${t} 条`
-            }}
-            onChange={handleTableChange}
-            bordered
-          />
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {data.map((item, index) => {
+                const count = item.today_count || 0;
+                let countColor = 'success';
+                if (count > 10) countColor = 'error';
+                else if (count > 5) countColor = 'warning';
+                return (
+                  <Card
+                    key={item.id || index}
+                    size="small"
+                    style={{
+                      borderRadius: 8,
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                      border: '1px solid #f0f0f0',
+                      background: '#fafafa'
+                    }}
+                    bodyStyle={{ padding: '12px 14px' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1, marginRight: 8 }}>
+                        <a
+                          onClick={() => showUserDetail(item.user_id)}
+                          style={{ fontWeight: 600, fontSize: 14, color: '#1677ff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        >
+                          {item.email || '未知用户'}
+                        </a>
+                        <Tag color="default" style={{ margin: 0, fontSize: 11, flexShrink: 0 }}>UID:{item.user_id}</Tag>
+                      </div>
+                      <Tag color={countColor} style={{ margin: 0, fontWeight: 500, flexShrink: 0 }} onClick={() => filterByUser(item.user_id)}>
+                        今日 {count} 次
+                      </Tag>
+                    </div>
+
+                    <div style={{ fontSize: 12, color: '#555', marginBottom: 4, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+                      <span>客户端: <Tag style={{ margin: 0, fontSize: 11 }}>{item.type || '未知'}</Tag></span>
+                      <span style={{ color: '#888' }}>{formatTime(item.created_at)}</span>
+                    </div>
+
+                    <div style={{ fontSize: 12, color: '#666', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>IP: <code style={{ padding: '2px 4px', background: '#f0f0f0', borderRadius: 4, fontSize: 11 }}>{item.ip}</code></span>
+                      <span style={{ color: '#888' }}>{item.location || '-'}</span>
+                    </div>
+
+                    {item.ua && (
+                      <div style={{ fontSize: 11, color: '#999', marginTop: 6, paddingTop: 6, borderTop: '1px dashed #e8e8e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        UA: {item.ua}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+
+              {data.length === 0 && !loading && (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无订阅拉取记录" />
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+                <Pagination
+                  simple
+                  current={query.current}
+                  pageSize={query.page_size}
+                  total={total}
+                  onChange={(page, pageSize) => {
+                    handleTableChange({ current: page, pageSize });
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <Table
+              dataSource={data}
+              columns={columns}
+              loading={loading}
+              rowKey={(record, index) => record.id || index}
+              pagination={{
+                current: query.current,
+                pageSize: query.page_size,
+                total: total,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+                showTotal: (t) => `共 ${t} 条`
+              }}
+              onChange={handleTableChange}
+              bordered
+            />
+          )}
         </Card>
       </div>
 

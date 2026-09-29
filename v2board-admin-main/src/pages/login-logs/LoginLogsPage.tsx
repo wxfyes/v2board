@@ -12,7 +12,9 @@ import {
   Modal,
   message,
   Space,
-  Typography
+  Typography,
+  Pagination,
+  Empty
 } from 'antd';
 import { SearchOutlined, ReloadOutlined, ApiOutlined, DesktopOutlined } from '@ant-design/icons';
 import { get, post } from '@/api/request';
@@ -269,33 +271,100 @@ export default function LoginLogsPage() {
           </Form.Item>
         </Form>
 
-        <div style={{ marginBottom: 16 }}>
-          <span style={{ fontSize: 13, marginRight: 8, color: '#888' }}>显示表项:</span>
-          <Checkbox.Group
-            options={showColumnOptions}
-            value={showColumns}
-            onChange={(checkedValues) => setShowColumns(checkedValues as string[])}
-          />
-        </div>
+        {!isMobile && (
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ fontSize: 13, marginRight: 8, color: '#888' }}>显示表项:</span>
+            <Checkbox.Group
+              options={showColumnOptions}
+              value={showColumns}
+              onChange={(checkedValues) => setShowColumns(checkedValues as string[])}
+            />
+          </div>
+        )}
 
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={list}
-          loading={loading}
-          bordered
-          scroll={{ x: 850 }}
-          pagination={{
-            current,
-            pageSize,
-            total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 条`,
-            pageSizeOptions: ['10', '20', '50', '100'],
-          }}
-          onChange={handleTableChange}
-        />
+        {isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {list.map((item) => (
+              <Card
+                key={item.id}
+                size="small"
+                style={{
+                  borderRadius: 8,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  border: '1px solid #f0f0f0',
+                  background: '#fafafa'
+                }}
+                bodyStyle={{ padding: '12px 14px' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1, marginRight: 8 }}>
+                    <a
+                      onClick={() => item.user_id ? showUserDetail(item.user_id) : null}
+                      style={{ fontWeight: 600, fontSize: 14, color: '#1677ff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {item.email || '未知用户'}
+                    </a>
+                    {item.user_id && <Tag color="default" style={{ margin: 0, fontSize: 11, flexShrink: 0 }}>UID:{item.user_id}</Tag>}
+                  </div>
+                  <Tag color={item.type && item.type.includes('成功') ? 'success' : 'error'} style={{ margin: 0, fontWeight: 500, flexShrink: 0 }}>
+                    {item.type || '未知'}
+                  </Tag>
+                </div>
+
+                <div style={{ fontSize: 12, color: '#555', marginBottom: 4, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+                  <span>IP: <Text code style={{ fontSize: 12 }}>{item.ip}</Text></span>
+                  <span style={{ color: '#888' }}>{item.location || '-'}</span>
+                </div>
+
+                <div style={{ fontSize: 12, color: '#888', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>时间: {formatTime(item.created_at)}</span>
+                  <span style={{ fontSize: 11, color: '#bbb' }}>#{item.id}</span>
+                </div>
+
+                {item.ua && (
+                  <div style={{ fontSize: 11, color: '#999', marginTop: 6, paddingTop: 6, borderTop: '1px dashed #e8e8e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    设备: {item.ua}
+                  </div>
+                )}
+              </Card>
+            ))}
+
+            {list.length === 0 && !loading && (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无登录记录" />
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+              <Pagination
+                simple
+                current={current}
+                pageSize={pageSize}
+                total={total}
+                onChange={(page) => {
+                  setCurrent(page);
+                  fetchList(page, pageSize);
+                }}
+              />
+            </div>
+          </div>
+        ) : (
+          <Table
+            rowKey="id"
+            columns={columns}
+            dataSource={list}
+            loading={loading}
+            bordered
+            pagination={{
+              current,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total) => `共 ${total} 条`,
+              pageSizeOptions: ['10', '20', '50', '100'],
+            }}
+            onChange={handleTableChange}
+          />
+        )}
 
       <Modal
         title="多账号共用 IP 关联分析雷达 (登录记录)"
