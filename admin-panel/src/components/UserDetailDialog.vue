@@ -38,6 +38,7 @@
           <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
             <el-button type="primary" plain size="small" @click="goToSubscribeLogs">TA的拉取记录</el-button>
             <el-button type="primary" plain size="small" @click="goToLoginLogs">TA的登录记录</el-button>
+            <el-button type="primary" plain size="small" @click="goToOrders">TA的订单</el-button>
           </div>
         </div>
       </template>
@@ -176,6 +177,16 @@ const goToLoginLogs = () => {
   handleClose();
   router.push({
     path: '/system/login-logs',
+    query: { user_id: userInfo.value.id, email: userInfo.value.email }
+  });
+};
+
+const goToOrders = () => {
+  if (!userInfo.value) return;
+  visible.value = false;
+  handleClose();
+  router.push({
+    name: 'Orders',
     query: { user_id: userInfo.value.id, email: userInfo.value.email }
   });
 };

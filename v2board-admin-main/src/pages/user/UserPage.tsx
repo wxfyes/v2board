@@ -94,9 +94,12 @@ export default function UserPage() {
   const delUser = (user?: AdminUser) =>
     user && confirm('删除用户', `确定要删除${user.email}的用户信息吗？`, () => void model.delUser(user.id))
   /** 「TA的订单」：在订单管理里设置过滤条件后跳过去（订单页挂载时拉取） */
-  const orderFilter = (key: string, condition: string, value: unknown) => {
+  const orderFilter = (key: string, condition: string, value: unknown, email?: string) => {
     useOrderManageStore.getState().presetFilter([{ key, condition, value }])
-    navigate('/order')
+    const query = new URLSearchParams()
+    if (key === 'user_id') query.set('user_id', String(value))
+    if (email) query.set('email', email)
+    navigate(`/order${query.toString() ? `?${query.toString()}` : ''}`)
   }
 
   // 与原版一致：在线状态按渲染时的当前时间判断（最近 10 分钟内在线）
@@ -313,7 +316,7 @@ export default function UserPage() {
               },
               {
                 key: 'orders',
-                onClick: () => orderFilter('user_id', '=', user.id),
+                onClick: () => orderFilter('user_id', '=', user.id, user.email),
                 label: (
                   <a>
                     <AccountBookOutlined /> TA的订单
@@ -517,7 +520,7 @@ export default function UserPage() {
                       <ReloadOutlined /> 重置UUID及订阅URL
                     </a>
                   </li>
-                  <li className="ant-dropdown-menu-item" onClick={() => orderFilter('user_id', '=', record?.id)}>
+                  <li className="ant-dropdown-menu-item" onClick={() => orderFilter('user_id', '=', record?.id, record?.email)}>
                     <a>
                       <AccountBookOutlined /> TA的订单
                     </a>

@@ -37,12 +37,12 @@
     </el-card>
 
     <!-- Filter Indicator for User/Inviter -->
-    <el-card v-if="routeFilterEmail || routeFilterInviteId" class="filter-indicator-card mt-20" shadow="never">
+    <el-card v-if="routeFilterEmail || routeFilterUserId || routeFilterInviteId" class="filter-indicator-card mt-20" shadow="never">
       <div class="flex-between">
         <div class="flex-center" style="gap: 8px;">
           <el-icon><InfoFilled /></el-icon>
-          <span v-if="routeFilterEmail">
-            正在查看用户 <strong style="color: var(--el-color-primary);">{{ routeFilterEmail }}</strong> 的订单列表
+          <span v-if="routeFilterEmail || routeFilterUserId">
+            正在查看用户 <strong style="color: var(--el-color-primary);">{{ routeFilterEmail || ('ID: #' + routeFilterUserId) }}</strong> 的订单列表
           </span>
           <span v-else-if="routeFilterInviteId">
             正在查看用户 <strong style="color: var(--el-color-primary);">{{ routeFilterInviteEmail || routeFilterInviteId }}</strong> 的邀请人返利订单
@@ -61,13 +61,10 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="user_id" label="购买用户" min-width="160" show-overflow-tooltip>
+        <el-table-column prop="user_id" label="购买用户" min-width="170" show-overflow-tooltip>
           <template #default="scope">
-            <!-- Note: Usually we would join the email, but since order fetch filters by email, 
-                 we will display user ID or simple placeholder if email fetching is complex, 
-                 but wait, the backend fetch returns email or user_id?
-                 Let's check the API: it returns user_id, but we can search by email. -->
-            <span>用户 ID: {{ scope.row.user_id }}</span>
+            <div v-if="scope.row.email" style="font-weight: 500;">{{ scope.row.email }}</div>
+            <span style="font-size: 12px; color: #909399;">ID: #{{ scope.row.user_id }}</span>
           </template>
         </el-table-column>
 
@@ -228,11 +225,13 @@ const filterCommission = ref('all');
 const plans = ref([]);
 
 const routeFilterEmail = ref('');
+const routeFilterUserId = ref('');
 const routeFilterInviteId = ref('');
 const routeFilterInviteEmail = ref('');
 
 const clearRouteFilter = () => {
   routeFilterEmail.value = '';
+  routeFilterUserId.value = '';
   routeFilterInviteId.value = '';
   routeFilterInviteEmail.value = '';
   currentPage.value = 1;
@@ -307,7 +306,9 @@ const fetchOrders = async () => {
   try {
     const securePath = getSecurePath();
     const filter = [];
-    if (routeFilterEmail.value) {
+    if (routeFilterUserId.value) {
+      filter.push({ key: 'user_id', condition: '=', value: Number(routeFilterUserId.value) });
+    } else if (routeFilterEmail.value) {
       filter.push({ key: 'email', condition: '=', value: routeFilterEmail.value });
     } else if (routeFilterInviteId.value) {
       filter.push({ key: 'invite_user_id', condition: '=', value: routeFilterInviteId.value });
@@ -467,6 +468,9 @@ onMounted(() => {
     filterCommission.value = 'commission';
   }
   
+  if (route.query.user_id) {
+    routeFilterUserId.value = route.query.user_id;
+  }
   if (route.query.email) {
     routeFilterEmail.value = route.query.email;
   }
@@ -485,17 +489,20 @@ onMounted(() => {
 watch(
   () => route.query,
   (newQuery) => {
-    if (newQuery.email) {
-      routeFilterEmail.value = newQuery.email;
+    if (newQuery.user_id || newQuery.email) {
+      routeFilterUserId.value = newQuery.user_id || '';
+      routeFilterEmail.value = newQuery.email || '';
       routeFilterInviteId.value = '';
       routeFilterInviteEmail.value = '';
     } else if (newQuery.invite_user_id) {
       routeFilterInviteId.value = newQuery.invite_user_id;
       routeFilterInviteEmail.value = newQuery.invite_user_email || '';
       routeFilterEmail.value = '';
+      routeFilterUserId.value = '';
       filterCommission.value = 'commission';
     } else {
       routeFilterEmail.value = '';
+      routeFilterUserId.value = '';
       routeFilterInviteId.value = '';
       routeFilterInviteEmail.value = '';
     }

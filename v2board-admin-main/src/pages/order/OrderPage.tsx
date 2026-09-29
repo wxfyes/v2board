@@ -1,6 +1,7 @@
-import { CaretDownOutlined, FilterOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons'
-import { Badge, Button, Dropdown, Tag, Tooltip, type TableColumnsType } from 'antd'
+import { CaretDownOutlined, FilterOutlined, PlusOutlined, QuestionCircleOutlined, UserOutlined } from '@ant-design/icons'
+import { Alert, Badge, Button, Dropdown, Tag, Tooltip, type TableColumnsType } from 'antd'
 import { useEffect } from 'react'
+import { useSearchParams } from 'react-router'
 import { usePlans } from '@/api/queries'
 import type { Order } from '@/api/types'
 import { FilterDrawer, type FilterKey } from '@/components/FilterDrawer'
@@ -56,16 +57,30 @@ export default function OrderPage() {
   // 与原版一样随 orderManage 的任何变化重新渲染
   const model = useOrderManageStore()
   const { orders, fetchLoading, pagination, filter } = model
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlUserId = searchParams.get('user_id')
+  const urlEmail = searchParams.get('email')
   usePlans()
 
   useEffect(() => {
-    void useOrderManageStore.getState().fetch()
-    return () => {
-      const store = useOrderManageStore.getState()
-      store.empty()
-      store.setState({ filter: [] })
+    const store = useOrderManageStore.getState()
+    if (urlUserId) {
+      store.presetFilter([{ key: 'user_id', condition: '=', value: Number(urlUserId) }])
     }
-  }, [])
+    void store.fetch()
+    return () => {
+      const s = useOrderManageStore.getState()
+      s.empty()
+      s.setState({ filter: [] })
+    }
+  }, [urlUserId])
+
+  const userFilter = filter.find((f) => f.key === 'user_id' || f.key === 'email')
+
+  const handleClearUserFilter = () => {
+    setSearchParams({})
+    model.filterBy([])
+  }
 
   const columns: TableColumnsType<Order> = [
     {
@@ -78,6 +93,20 @@ export default function OrderPage() {
             {tradeNo.substr(0, 3)}...{tradeNo.substr(-3)}
           </JsLink>
         </OrderDetailModal>
+      ),
+    },
+    {
+      title: '下单用户',
+      dataIndex: 'user_id',
+      key: 'user_id',
+      width: 170,
+      render: (userId: number, record: any) => (
+        <div>
+          {record.email ? (
+            <div style={{ fontWeight: 500, wordBreak: 'break-all' }}>{record.email}</div>
+          ) : null}
+          <span style={{ fontSize: 12, color: '#8c8c8c' }}>ID: #{userId}</span>
+        </div>
       ),
     },
     { title: '类型', dataIndex: 'type', key: 'type', render: (type: number) => TYPE_TEXT[type] },
@@ -198,6 +227,24 @@ export default function OrderPage() {
       <Loading loading={fetchLoading}>
         <div className="block block-rounded">
           <div className="bg-white">
+            {(userFilter || urlUserId) && (
+              <div style={{ padding: '15px 15px 0' }}>
+                <Alert
+                  type="info"
+                  showIcon
+                  message={
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <span>
+                        正在查看用户 <strong>{urlEmail || (userFilter?.key === 'email' ? userFilter.value : `ID: #${urlUserId || userFilter?.value}`)}</strong> 的专属订单记录
+                      </span>
+                      <Button size="small" type="link" danger onClick={handleClearUserFilter}>
+                        清除用户筛选，查看全站订单
+                      </Button>
+                    </div>
+                  }
+                />
+              </div>
+            )}
             <div style={{ padding: 15 }}>
               <Button.Group>
                 <FilterDrawer value={filter} onOk={model.filterBy} keys={FILTER_KEYS}>

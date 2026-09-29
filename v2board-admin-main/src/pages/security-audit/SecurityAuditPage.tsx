@@ -16,6 +16,7 @@ import { UserDrawer } from '../user/UserDrawer';
 import { useNavigate } from 'react-router';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { useMobile } from '@/hooks/useMobile';
+import { useOrderManageStore } from '@/stores/orderManage';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -1009,7 +1010,11 @@ export function UserDetailModal({ visible, userId, onCancel }: any) {
           <Space wrap>
             <Button onClick={() => { onCancel(); navigate(`/subscribe-logs?user_id=${data?.id}`); }}>TA的拉取记录</Button>
             <Button onClick={() => { onCancel(); navigate(`/login-logs?user_id=${data?.id}&email=${encodeURIComponent(data?.email || '')}`); }}>TA的登录记录</Button>
-            <Button onClick={() => { onCancel(); navigate(`/order`); }}>TA的订单</Button>
+            <Button onClick={() => {
+              onCancel();
+              useOrderManageStore.getState().presetFilter([{ key: 'user_id', condition: '=', value: data?.id }]);
+              navigate(`/order?user_id=${data?.id}&email=${encodeURIComponent(data?.email || '')}`);
+            }}>TA的订单</Button>
             <UserDrawer userId={data?.id}>
               <Button>编辑资料</Button>
             </UserDrawer>

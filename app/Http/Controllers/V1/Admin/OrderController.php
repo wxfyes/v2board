@@ -23,9 +23,21 @@ class OrderController extends Controller
         if ($request->input('filter')) {
             foreach ($request->input('filter') as $filter) {
                 if ($filter['key'] === 'email') {
-                    $user = User::where('email', 'like', "%{$filter['value']}%")->first();
-                    if (!$user) continue;
-                    $builder->where('user_id', $user->id);
+                    if (isset($filter['condition']) && $filter['condition'] === '=') {
+                        $user = User::where('email', $filter['value'])->first();
+                        if ($user) {
+                            $builder->where('user_id', $user->id);
+                        } else {
+                            $builder->where('user_id', 0);
+                        }
+                    } else {
+                        $userIds = User::where('email', 'like', "%{$filter['value']}%")->pluck('id');
+                        if (count($userIds) > 0) {
+                            $builder->whereIn('user_id', $userIds);
+                        } else {
+                            $builder->where('user_id', 0);
+                        }
+                    }
                     continue;
                 }
                 if ($filter['condition'] === '模糊') {
@@ -65,7 +77,11 @@ class OrderController extends Controller
         $res = $orderModel->forPage($current, $pageSize)
             ->get();
         $plan = Plan::get();
+        $userIds = $res->pluck('user_id')->filter()->unique();
+        $users = count($userIds) > 0 ? User::whereIn('id', $userIds)->select(['id', 'email'])->get()->keyBy('id') : collect();
         for ($i = 0; $i < count($res); $i++) {
+            $uId = $res[$i]['user_id'];
+            $res[$i]['email'] = isset($users[$uId]) ? $users[$uId]->email : null;
             for ($k = 0; $k < count($plan); $k++) {
                 if ($plan[$k]['id'] == $res[$i]['plan_id']) {
                     $res[$i]['plan_name'] = $plan[$k]['name'];
