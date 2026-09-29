@@ -103,7 +103,7 @@ export default function TraitorPage() {
         >
           <Alert
             message="拦截说明"
-            description="系统会在用户注册或登录时自动拦截：只要用户注册/登录的 IP 或邮箱在此列表中，发配权限前会自动转入蜜罐，全局静默。"
+            description="系统会在用户注册、登录以及拉取订阅时自动拦截：只要用户邮箱或请求 IP/网段在此列表中，会自动转入蜜罐下发诱饵节点，全局静默。"
             type="warning"
             showIcon
             style={{ marginBottom: isMobile ? '12px' : '20px' }}
@@ -147,13 +147,13 @@ export default function TraitorPage() {
                 }
               >
                 <div style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>
-                  一行一个 IP 地址，只匹配绝对 IP。
+                  一行一个 IP 地址或 CIDR 网段，支持单个 IP（如 1.1.1.1）及子网段（如 211.145.0.0/16）。
                 </div>
                 <Input.TextArea
                   value={ips}
                   onChange={(e) => setIps(e.target.value)}
                   rows={isMobile ? 8 : 15}
-                  placeholder="192.168.1.1&#10;8.8.8.8"
+                  placeholder="1.1.1.1&#10;211.145.0.0/16&#10;211.94.162.0/24"
                 />
               </Card>
             </Col>

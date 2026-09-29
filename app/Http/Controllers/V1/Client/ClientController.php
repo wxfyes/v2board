@@ -225,6 +225,22 @@ class ClientController extends Controller
                 }
             }
 
+            // 🛡️ 内鬼主动防御：检测订阅拉取请求 IP 是否命中黑名单/CIDR 网段
+            $isTraitorIp = \App\Utils\TraitorDefense::isIpTraitor($realIp);
+            if ($isTraitorIp) {
+                $isInHoneypot = true;
+                // 顺藤摸瓜：将使用此黑名单 IP 拉取订阅的用户直接打入蜜罐
+                if (!empty($user)) {
+                    \App\Utils\TraitorDefense::putIntoHoneypot(
+                        $user,
+                        $realIp,
+                        $tmpUa ?? ($request->header('User-Agent') ?? 'unknown'),
+                        '订阅拉取',
+                        "订阅拉取 IP ({$realIp}) 命中内鬼黑名单/网段"
+                    );
+                }
+            }
+
             // 只要被封禁或者身处灰名单，一律触发拦截与蜜罐防御
             $triggerBlock = $isBanned || $isInHoneypot;
 

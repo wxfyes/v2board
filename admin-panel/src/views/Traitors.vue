@@ -29,7 +29,7 @@
       <el-alert
         title="防御机制说明"
         type="warning"
-        description="系统会在用户注册或登录时自动检查此名单。只要用户的注册邮箱或登录 IP 命中，将在颁发鉴权令牌前将其自动加入蜜罐，全程静默拦截。"
+        description="系统会在用户注册、登录以及拉取订阅时自动检查此名单。只要用户邮箱或请求 IP/网段命中，将自动导入蜜罐下发诱饵节点并全程静默拦截。"
         show-icon
         :closable="false"
         style="margin-bottom: 20px;"
@@ -60,12 +60,12 @@
               <span>内鬼 IP 列表</span>
               <el-tag size="small" type="info" effect="plain" style="margin-left: 8px;">共 {{ ipCount }} 个</el-tag>
             </div>
-            <div class="section-desc">一行一个 IP 地址，建议只填具体的恶意 IP</div>
+            <div class="section-desc">一行一个 IP 地址或 CIDR 网段，支持单个 IP（如 1.1.1.1）及子网段（如 211.145.0.0/16）</div>
             <el-input
               v-model="ips"
               type="textarea"
               :rows="isMobile ? 8 : 15"
-              placeholder="192.168.1.1&#10;8.8.8.8"
+              placeholder="1.1.1.1&#10;211.145.0.0/16&#10;211.94.162.0/24"
             />
           </div>
         </el-col>

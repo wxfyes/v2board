@@ -44,12 +44,87 @@ class TraitorDefense
     }
 
     /**
+     * 判断指定 IP 是否匹配黑名单规则（支持绝对 IP 与 CIDR 网段，如 211.145.0.0/16）
+     *
+     * @param string $ip 待检测 IP
+     * @return bool
+     */
+    public static function isIpTraitor(string $ip): bool
+    {
+        if (empty($ip)) {
+            return false;
+        }
+
+        $traitorData = self::getTraitorData();
+        $traitorIps = $traitorData['ips'] ?? [];
+        if (empty($traitorIps)) {
+            return false;
+        }
+
+        return self::matchIpList($ip, $traitorIps);
+    }
+
+    /**
+     * 高性能 IP / CIDR 匹配函数
+     *
+     * @param string $ip 目标 IP
+     * @param array $rules 规则列表 (包含纯 IP 或 IP/mask)
+     * @return bool
+     */
+    public static function matchIpList(string $ip, array $rules): bool
+    {
+        $ip = trim($ip);
+        if ($ip === '') {
+            return false;
+        }
+
+        $ipLong = ip2long($ip);
+        if ($ipLong === false) {
+            return false;
+        }
+
+        foreach ($rules as $rule) {
+            $rule = trim($rule);
+            if ($rule === '') {
+                continue;
+            }
+
+            if (strpos($rule, '/') !== false) {
+                // CIDR 掩码匹配 (例如 211.145.0.0/16, 211.94.162.0/24)
+                list($subnet, $bits) = explode('/', $rule, 2);
+                $subnetLong = ip2long(trim($subnet));
+                $bits = (int)trim($bits);
+
+                if ($subnetLong === false || $bits < 0 || $bits > 32) {
+                    continue;
+                }
+
+                if ($bits === 0) {
+                    return true;
+                }
+
+                $mask = ~((1 << (32 - $bits)) - 1);
+                if (($ipLong & $mask) === ($subnetLong & $mask)) {
+                    return true;
+                }
+            } else {
+                // 绝对 IP 匹配
+                if ($ip === $rule) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * 检查并自动将命中的内鬼用户加入蜜罐
      *
-     * @param \App\Models\User $user 用户模型
+     * @param mixed $user 用户模型或数组
      * @param string $ip 客户端真实 IP
      * @param string $userAgent 客户端 UA
-     * @param string $action 触发动作 (如 '注册', '登录', '第三方登录')
+     * @param string $action 触发动作 (如 '注册', '登录', '第三方登录', '订阅拉取')
      * @return void
      */
     public static function checkAndHoneypot($user, string $ip, string $userAgent = 'unknown', string $action = '注册')
@@ -64,15 +139,15 @@ class TraitorDefense
                 return;
             }
 
-            $userEmail = strtolower($user->email ?? '');
+            $userEmail = strtolower(is_array($user) ? ($user['email'] ?? '') : ($user->email ?? ''));
             $isTraitorEmail = !empty($traitorEmails) && in_array($userEmail, $traitorEmails, true);
-            $isTraitorIp = !empty($traitorIps) && in_array($ip, $traitorIps, true);
+            $isTraitorIp = self::matchIpList($ip, $traitorIps);
 
             if ($isTraitorEmail || $isTraitorIp) {
                 // 命中内鬼特征
                 $reason = [];
                 if ($isTraitorEmail) $reason[] = "邮箱在黑名单中";
-                if ($isTraitorIp) $reason[] = "IP在黑名单中";
+                if ($isTraitorIp) $reason[] = "IP在黑名单中(命中网段或绝对IP)";
                 $reasonStr = implode("，", $reason);
 
                 self::putIntoHoneypot($user, $ip, $userAgent, $action, $reasonStr);
@@ -82,7 +157,7 @@ class TraitorDefense
         }
     }
 
-    private static function putIntoHoneypot($user, string $ip, string $userAgent, string $action, string $reasonStr)
+    public static function putIntoHoneypot($user, string $ip, string $userAgent, string $action, string $reasonStr)
     {
         $configPath = storage_path('tianque_config.json');
         $config = [];
@@ -101,7 +176,13 @@ class TraitorDefense
             $config['flagged_users'] = [];
         }
 
-        $userId = (int)$user->id;
+        $userId = (int)(is_array($user) ? ($user['id'] ?? 0) : ($user->id ?? 0));
+        $userEmail = (string)(is_array($user) ? ($user['email'] ?? '') : ($user->email ?? ''));
+
+        if ($userId <= 0) {
+            return;
+        }
+
         $currentHoneypots = array_map('intval', $config['honeypot_users']);
 
         // 如果用户已在蜜罐中，无需重复写盘和发告警，极速退出
@@ -116,7 +197,7 @@ class TraitorDefense
 
         // 同时记录到 flagged_users 以便在安全审计中展示详细拦截原委
         $config['flagged_users'][(string)$userId] = [
-            'email' => $user->email,
+            'email' => $userEmail,
             'time' => time(),
             'reasons' => ["内鬼防御系统前置拦截", $reasonStr]
         ];
@@ -131,13 +212,15 @@ class TraitorDefense
         if ($writeResult !== false) {
             // 只有成功写入文件后，才清空 session 和发报警
             try {
-                $authService = new \App\Services\AuthService($user);
-                $authService->removeAllSession();
+                if ($user instanceof \App\Models\User) {
+                    $authService = new \App\Services\AuthService($user);
+                    $authService->removeAllSession();
+                }
             } catch (\Throwable $ex) {}
 
             Log::channel('risk')->warning('[主动防御] 用户已自动导入蜜罐（黑名单触发）', [
                 'user_id' => $userId,
-                'email'   => $user->email,
+                'email'   => $userEmail,
                 'reason'  => $reasonStr,
                 'action'  => $action
             ]);
@@ -179,10 +262,13 @@ class TraitorDefense
 
             if (!$botToken || !$chatId) return;
 
+            $userId = (int)(is_array($user) ? ($user['id'] ?? 0) : ($user->id ?? 0));
+            $userEmail = (string)(is_array($user) ? ($user['email'] ?? '') : ($user->email ?? ''));
+
             $text = implode("\n", [
                 "🚨 主动防御告警 (黑名单触发)",
                 "━━━━━━━━━━━━",
-                "👤 {$user->email}（ID: {$user->id}）",
+                "👤 {$userEmail}（ID: {$userId}）",
                 "🛠️ 触发动作：{$action}",
                 "⚠️ 命中原因：{$reasonStr}",
                 "🌐 IP：{$ip}",
