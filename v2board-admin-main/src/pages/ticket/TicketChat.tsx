@@ -1,5 +1,5 @@
-import { SolutionOutlined, UserOutlined, PictureOutlined } from '@ant-design/icons'
-import { Button, ConfigProvider, Divider, Tooltip, Image, Input, Upload, message, Spin, Empty } from 'antd'
+import { SolutionOutlined, UserOutlined, PictureOutlined, LeftOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { Button, ConfigProvider, Divider, Tooltip, Image, Input, Upload, message, Spin, Empty, Modal } from 'antd'
 import type { Locale } from 'antd/es/locale'
 import enUS from 'antd/locale/en_US'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -32,7 +32,7 @@ const styles = { content: 'content___DW5w1', input: 'input___1j_ND', tag: 'tag__
 const EN_US: Locale = (enUS as Locale & { default?: Locale }).default ?? enUS
 const LEGACY_EN_US: Locale = { ...EN_US, Table: { ...EN_US.Table, emptyText: 'No Data' }, Empty: { description: 'No Data' } }
 
-export function TicketChat({ ticketId }: { ticketId: string | number }) {
+export function TicketChat({ ticketId, onBack }: { ticketId: string | number; onBack?: () => void }) {
   const ticket = useTicketManageStore((s) => s.ticket)
   const chatRef = useRef<HTMLDivElement>(null)
   const [replyText, setReplyText] = useState('')
@@ -77,10 +77,25 @@ export function TicketChat({ ticketId }: { ticketId: string | number }) {
     })
   }
 
+  const handleClose = () => {
+    if (!ticket?.id) return
+    Modal.confirm({
+      title: '确认关闭工单',
+      content: '确定要关闭该工单吗？关闭后用户将无法继续追加回复。',
+      okText: '确认关闭',
+      cancelText: '取消',
+      okType: 'danger',
+      onOk: async () => {
+        await useTicketManageStore.getState().close(ticket.id as number)
+        message.success('工单已成功关闭')
+      }
+    })
+  }
+
   if (!ticketId) {
     return (
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Empty description="请在左侧选择一个工单进行回复" />
+        <Empty description="请在左侧选择一个工单进行查看与回复" />
       </div>
     )
   }
@@ -88,23 +103,41 @@ export function TicketChat({ ticketId }: { ticketId: string | number }) {
   return (
     <ConfigProvider locale={LEGACY_EN_US}>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div className="block-content-full bg-gray-lighter p-3" style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontWeight: 'bold', fontSize: 16 }}>#{ticket?.id || ticketId} {ticket?.subject || '加载中...'}</span>
-            {ticket?.status === 1 ? <span style={{ background: '#f5f5f5', color: '#595959', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>已关闭</span> : null}
+        <div className="block-content-full bg-gray-lighter p-3" style={{ flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, borderBottom: '1px solid #f0f0f0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {onBack && (
+              <Button 
+                type="link" 
+                icon={<LeftOutlined />} 
+                onClick={onBack}
+                style={{ padding: '0 8px 0 0', height: 'auto', fontWeight: 'bold' }}
+              >
+                返回
+              </Button>
+            )}
+            <span style={{ fontWeight: 'bold', fontSize: 15 }}>#{ticket?.id || ticketId} {ticket?.subject || '加载中...'}</span>
+            {ticket?.status === 1 ? (
+              <span style={{ background: '#f5f5f5', color: '#8c8c8c', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>已关闭</span>
+            ) : (
+              <span style={{ background: '#e6f7ff', color: '#1890ff', padding: '2px 8px', borderRadius: 4, fontSize: 12 }}>进行中</span>
+            )}
           </div>
-          <div className={styles.ctrl}>
+          <div className={styles.ctrl} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {ticket?.status === 0 && (
+              <Button size="small" danger onClick={handleClose}>
+                关闭工单
+              </Button>
+            )}
             {ticket?.user_id ? (
               <>
                 <UserDrawer userId={ticket.user_id}>
-                  <Tooltip title="用户" placement="left">
-                    <UserOutlined style={{ cursor: 'pointer' }} />
+                  <Tooltip title="查看用户信息" placement="top">
+                    <Button size="small" icon={<UserOutlined />} />
                   </Tooltip>
                 </UserDrawer>
-                <Divider orientation="vertical" />
                 <TrafficLogModal userId={ticket.user_id} key={ticket.user_id}>
-                  <Tooltip title="TA的流量记录" placement="left">
-                    <SolutionOutlined style={{ cursor: 'pointer' }} />
+                  <Tooltip title="查看流量记录" placement="top">
+                    <Button size="small" icon={<SolutionOutlined />} />
                   </Tooltip>
                 </TrafficLogModal>
               </>
