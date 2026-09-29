@@ -1,0 +1,1 @@
+import{Fi as e}from"./staticApi-CUPwW2Dp.js";import{i as t}from"./table-aYsbQFj8.js";var n=e();function r({loading:e,children:r}){return(0,n.jsx)(t,{spinning:!!e,indicator:(0,n.jsx)(`div`,{className:`spinner-grow text-primary`}),children:r})}export{r as t};

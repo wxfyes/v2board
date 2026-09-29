@@ -1,0 +1,1 @@
+import{n as e,t}from"./SecurityAuditPage-iv8z5J8G.js";export{e as UserDetailModal,t as default};

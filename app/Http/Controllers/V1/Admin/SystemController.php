@@ -118,6 +118,14 @@ class SystemController extends Controller
         $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 20;
         $builder = \App\Models\SubscribeLog::orderBy('created_at', 'DESC');
         if ($request->input('user_id')) $builder->where('user_id', $request->input('user_id'));
+        if ($request->input('email')) {
+            $user = \App\Models\User::where('email', $request->input('email'))->first();
+            if ($user) {
+                $builder->where('user_id', $user->id);
+            } else {
+                $builder->where('user_id', -1);
+            }
+        }
         if ($request->input('ip')) $builder->where('ip', 'LIKE', '%'.$request->input('ip').'%');
         if ($request->input('ua')) $builder->where('ua', 'LIKE', '%'.$request->input('ua').'%');
         $total = $builder->count();
@@ -208,7 +216,17 @@ class SystemController extends Controller
         
         $builder = \Illuminate\Support\Facades\DB::table('v2_user_login_log')->orderBy('created_at', 'DESC');
         
-        if ($request->input('email')) {
+        if ($request->input('user_id')) {
+            $uid = $request->input('user_id');
+            $user = \App\Models\User::find($uid);
+            if ($user) {
+                $builder->where(function($q) use ($uid, $user) {
+                    $q->where('user_id', $uid)->orWhere('email', $user->email);
+                });
+            } else {
+                $builder->where('user_id', $uid);
+            }
+        } elseif ($request->input('email')) {
             $builder->where('email', $request->input('email'));
         }
         if ($request->input('ip')) {

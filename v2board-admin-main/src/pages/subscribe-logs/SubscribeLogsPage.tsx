@@ -1,6 +1,7 @@
 import { Card, Table, message, Modal, Input, Button, Space, Tag, Tooltip, Typography, Pagination, Empty } from 'antd';
-import { SearchOutlined, ReloadOutlined, TrophyOutlined, LinkOutlined, MonitorOutlined } from '@ant-design/icons';
+import { SearchOutlined, ReloadOutlined, TrophyOutlined, LinkOutlined, MonitorOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router';
 import { get, post } from '@/api/request';
 import { adminPath } from '@/app/settings';
 import { AdminLayout } from '@/layouts/AdminLayout';
@@ -8,6 +9,183 @@ import { UserDetailModal } from '../security-audit/SecurityAuditPage';
 import { useMobile } from '@/hooks/useMobile';
 
 const { Text } = Typography;
+
+// 单账号登录 IP 记录快捷浮窗
+function UserLoginLogsModal({
+  visible,
+  user,
+  onCancel
+}: {
+  visible: boolean;
+  user: { id: number; email: string } | null;
+  onCancel: () => void;
+}) {
+  const isMobile = useMobile();
+  const navigate = useNavigate();
+  const [logs, setLogs] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  const fetchUserLogins = useCallback(async (p = 1) => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const res: any = await get(adminPath('/system/getLoginLog'), {
+        user_id: user.id,
+        email: user.email,
+        current: p,
+        page_size: pageSize
+      });
+      if (res && res.data) {
+        setLogs(res.data);
+        setTotal(res.total || 0);
+      }
+    } catch (e) {
+      // handled
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (visible && user) {
+      setPage(1);
+      fetchUserLogins(1);
+    }
+  }, [visible, user, fetchUserLogins]);
+
+  const formatTime = (timestamp: number) => {
+    if (!timestamp) return '-';
+    const d = new Date(timestamp * 1000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  };
+
+  return (
+    <Modal
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span>📋 账号登录 IP 记录</span>
+          <Tag color="blue">{user?.email || '未知用户'}</Tag>
+          <Tag color="default">UID: {user?.id}</Tag>
+        </div>
+      }
+      open={visible}
+      onCancel={onCancel}
+      width={isMobile ? '95%' : 750}
+      footer={[
+        <Button
+          key="goto"
+          onClick={() => {
+            onCancel();
+            navigate(`/login-logs?user_id=${user?.id}&email=${encodeURIComponent(user?.email || '')}`);
+          }}
+        >
+          前往登录记录大厅 &gt;
+        </Button>,
+        <Button key="close" type="primary" onClick={onCancel}>
+          关闭
+        </Button>
+      ]}
+      destroyOnClose
+    >
+      <div style={{ marginBottom: 12, fontSize: 13, color: '#666' }}>
+        查看该账号的历史登录 IP、归属地、终端及登录状态（共 <strong>{total}</strong> 条记录）：
+      </div>
+
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
+          {logs.map((log: any, idx: number) => (
+            <div
+              key={log.id || idx}
+              style={{
+                background: '#fafafa',
+                border: '1px solid #f0f0f0',
+                borderRadius: 6,
+                padding: '10px 12px',
+                fontSize: 12
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ fontWeight: 600, color: '#333' }}>
+                  <code style={{ background: '#eee', padding: '2px 5px', borderRadius: 4 }}>{log.ip}</code>
+                  {log.location && <span style={{ marginLeft: 6, color: '#888', fontWeight: 'normal' }}>{log.location}</span>}
+                </span>
+                <Tag color={log.type && log.type.includes('成功') ? 'success' : 'error'} style={{ margin: 0 }}>
+                  {log.type || '未知'}
+                </Tag>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#999', fontSize: 11 }}>
+                <span>{formatTime(log.created_at)}</span>
+              </div>
+              {log.ua && (
+                <div style={{ color: '#aaa', fontSize: 10, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  UA: {log.ua}
+                </div>
+              )}
+            </div>
+          ))}
+          {logs.length === 0 && !loading && (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无该账号的登录记录" />
+          )}
+        </div>
+      ) : (
+        <Table
+          dataSource={logs}
+          rowKey={(r, i) => r.id || i}
+          loading={loading}
+          pagination={false}
+          size="small"
+          scroll={{ y: 360 }}
+          columns={[
+            {
+              title: '登录 IP',
+              dataIndex: 'ip',
+              render: (ip: string, r: any) => (
+                <div>
+                  <code>{ip}</code>
+                  {r.location && <div style={{ fontSize: 11, color: '#888' }}>{r.location}</div>}
+                </div>
+              )
+            },
+            {
+              title: '状态',
+              dataIndex: 'type',
+              width: 90,
+              render: (t: string) => <Tag color={t && t.includes('成功') ? 'success' : 'error'}>{t || '-'}</Tag>
+            },
+            {
+              title: '登录时间',
+              dataIndex: 'created_at',
+              width: 170,
+              render: (t: number) => formatTime(t)
+            },
+            {
+              title: '客户端 UA',
+              dataIndex: 'ua',
+              ellipsis: true,
+              render: (ua: string) => <Tooltip title={ua}><span>{ua}</span></Tooltip>
+            }
+          ]}
+        />
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+        <Pagination
+          simple
+          current={page}
+          pageSize={pageSize}
+          total={total}
+          onChange={(p) => {
+            setPage(p);
+            fetchUserLogins(p);
+          }}
+        />
+      </div>
+    </Modal>
+  );
+}
 
 export default function SubscribeLogsPage() {
   const isMobile = useMobile();
@@ -22,6 +200,15 @@ export default function SubscribeLogsPage() {
     ip: '',
     ua: ''
   });
+
+  // 单账号登录 IP 记录弹窗状态
+  const [loginModalVisible, setLoginModalVisible] = useState(false);
+  const [targetUser, setTargetUser] = useState<{ id: number; email: string } | null>(null);
+
+  const openUserLoginModal = (user: { id: number; email: string }) => {
+    setTargetUser(user);
+    setLoginModalVisible(true);
+  };
 
   const fetchLogs = useCallback(async (params = query) => {
     setLoading(true);
@@ -53,7 +240,24 @@ export default function SubscribeLogsPage() {
   };
 
   useEffect(() => {
-    fetchLogs();
+    // 检查是否有 URL 预填充参数
+    let initialUserId = '';
+    const hash = window.location.hash;
+    const qIndex = hash.indexOf('?');
+    if (qIndex !== -1) {
+      const sp = new URLSearchParams(hash.slice(qIndex));
+      initialUserId = sp.get('user_id') || '';
+    } else {
+      initialUserId = new URLSearchParams(window.location.search).get('user_id') || '';
+    }
+
+    if (initialUserId) {
+      const initQuery = { ...query, user_id: initialUserId };
+      setQuery(initQuery);
+      fetchLogs(initQuery);
+    } else {
+      fetchLogs();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -171,6 +375,37 @@ export default function SubscribeLogsPage() {
           <span>{val}</span>
         </Tooltip>
       )
+    },
+    {
+      title: '快捷操作',
+      key: 'actions',
+      width: 220,
+      align: 'center' as const,
+      render: (_: any, record: any) => (
+        <Space size={4}>
+          <Button
+            size="small"
+            type={query.user_id === String(record.user_id) ? "primary" : "link"}
+            onClick={() => filterByUser(record.user_id)}
+          >
+            {query.user_id === String(record.user_id) ? '筛选中' : '全部拉取'}
+          </Button>
+          <Button
+            size="small"
+            type="link"
+            onClick={() => openUserLoginModal({ id: record.user_id, email: record.email })}
+          >
+            登录IP
+          </Button>
+          <Button
+            size="small"
+            type="link"
+            onClick={() => showUserDetail(record.user_id)}
+          >
+            档案
+          </Button>
+        </Space>
+      )
     }
   ];
 
@@ -180,7 +415,6 @@ export default function SubscribeLogsPage() {
   const [ipLoading, setIpLoading] = useState(false);
   const [userDetailVisible, setUserDetailVisible] = useState(false);
   const [activeUserId, setActiveUserId] = useState<number | null>(null);
-
 
   const fetchIpAssociation = async () => {
     setIpLoading(true);
@@ -432,6 +666,33 @@ export default function SubscribeLogsPage() {
             </Space>
           </div>
 
+          {/* 正在筛选单账号拉取记录的醒目提示 Banner */}
+          {query.user_id && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: '#e6f7ff',
+                border: '1px solid #91d5ff',
+                padding: '8px 12px',
+                borderRadius: 6,
+                marginBottom: 14,
+                color: '#0050b3',
+                fontSize: 13,
+                flexWrap: 'wrap',
+                gap: 6
+              }}
+            >
+              <span>
+                🔍 正在查看账号 <strong>UID: {query.user_id}</strong> 的全部拉取记录 (共 {total} 条)
+              </span>
+              <Button type="primary" size="small" icon={<CloseCircleOutlined />} onClick={resetFilter}>
+                清除筛选 / 查看全部
+              </Button>
+            </div>
+          )}
+
           {isMobile ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {data.map((item, index) => {
@@ -461,7 +722,7 @@ export default function SubscribeLogsPage() {
                         </a>
                         <Tag color="default" style={{ margin: 0, fontSize: 11, flexShrink: 0 }}>UID:{item.user_id}</Tag>
                       </div>
-                      <Tag color={countColor} style={{ margin: 0, fontWeight: 500, flexShrink: 0 }} onClick={() => filterByUser(item.user_id)}>
+                      <Tag color={countColor} style={{ margin: 0, fontWeight: 500, flexShrink: 0, cursor: 'pointer' }} onClick={() => filterByUser(item.user_id)}>
                         今日 {count} 次
                       </Tag>
                     </div>
@@ -481,6 +742,29 @@ export default function SubscribeLogsPage() {
                         UA: {item.ua}
                       </div>
                     )}
+
+                    {/* 快捷操作区：直接查看该账号的所有拉取 IP、所有登录 IP 与用户档案 */}
+                    <div style={{ display: 'flex', gap: 6, marginTop: 10, paddingTop: 8, borderTop: '1px solid #f0f0f0', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      <Button
+                        size="small"
+                        type={query.user_id === String(item.user_id) ? "primary" : "default"}
+                        onClick={() => filterByUser(item.user_id)}
+                      >
+                        {query.user_id === String(item.user_id) ? '筛选中' : 'TA的全部拉取'}
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => openUserLoginModal({ id: item.user_id, email: item.email })}
+                      >
+                        TA的登录IP
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => showUserDetail(item.user_id)}
+                      >
+                        用户档案
+                      </Button>
+                    </div>
                   </Card>
                 );
               })}
@@ -521,6 +805,18 @@ export default function SubscribeLogsPage() {
           )}
         </Card>
       </div>
+
+      {/* 单账号历史登录 IP 快捷浮窗 */}
+      {loginModalVisible && targetUser && (
+        <UserLoginLogsModal
+          visible={loginModalVisible}
+          user={targetUser}
+          onCancel={() => {
+            setLoginModalVisible(false);
+            setTargetUser(null);
+          }}
+        />
+      )}
 
       <Modal
         title="多账号共用 IP 关联分析雷达 (订阅拉取)"
@@ -580,5 +876,3 @@ export default function SubscribeLogsPage() {
     </AdminLayout>
   );
 }
-
-

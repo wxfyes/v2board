@@ -1007,6 +1007,8 @@ export function UserDetailModal({ visible, userId, onCancel }: any) {
           </Space>
 
           <Space wrap>
+            <Button onClick={() => { onCancel(); navigate(`/subscribe-logs?user_id=${data?.id}`); }}>TA的拉取记录</Button>
+            <Button onClick={() => { onCancel(); navigate(`/login-logs?user_id=${data?.id}&email=${encodeURIComponent(data?.email || '')}`); }}>TA的登录记录</Button>
             <Button onClick={() => { onCancel(); navigate(`/order`); }}>TA的订单</Button>
             <UserDrawer userId={data?.id}>
               <Button>编辑资料</Button>

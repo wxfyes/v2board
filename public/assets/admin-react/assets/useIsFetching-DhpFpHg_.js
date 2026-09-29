@@ -1,0 +1,1 @@
+import{r as e}from"./rolldown-runtime-hePW80VL.js";import{Ri as t}from"./staticApi-CUPwW2Dp.js";import{I as n,h as r}from"./darkMode-DKVlENQZ.js";var i=e(t(),1);function a(e,t){let a=n(t),o=a.getQueryCache();return i.useSyncExternalStore(i.useCallback(e=>o.subscribe(r.batchCalls(e)),[o]),()=>a.isFetching(e),()=>a.isFetching(e))}export{a as t};
