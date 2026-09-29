@@ -86,7 +86,116 @@
         </div>
       </div>
 
-      <el-table :data="filteredAnomaliesList" v-loading="anomaliesLoading" stripe style="width: 100%">
+      <!-- 移动端卡片流 -->
+      <div v-if="isMobile" v-loading="anomaliesLoading" class="mobile-audit-list">
+        <el-card
+          v-for="item in pagedAnomalies"
+          :key="item.user_id"
+          class="mobile-audit-card"
+          shadow="hover"
+        >
+          <div class="audit-card-head">
+            <div class="user-meta">
+              <span class="user-email-link" @click="showUserDetail(item.user_id)">{{ item.email }}</span>
+              <el-tag size="small" type="info">UID:{{ item.user_id }}</el-tag>
+            </div>
+            <el-tag :type="item.risk_level === 'high' ? 'danger' : 'warning'" size="small">
+              {{ item.risk_level === 'high' ? '拦截 (高)' : '疑似 (低)' }}
+            </el-tag>
+          </div>
+
+          <div class="audit-status-row">
+            <span>蜜罐: 
+              <el-tag size="small" :type="item.in_honeypot === 1 ? 'warning' : 'info'">
+                {{ item.in_honeypot === 1 ? '蜜罐接管中' : '未接管' }}
+              </el-tag>
+            </span>
+            <span class="time-label">{{ formatTime(item.flagged_at) }}</span>
+          </div>
+
+          <div class="audit-reason-row">
+            <span class="reason-label">判定原委：</span>
+            <div class="reasons-wrap">
+              <el-tag
+                v-for="(reason, rIdx) in item.reasons"
+                :key="rIdx"
+                :type="item.risk_level === 'high' ? 'danger' : 'warning'"
+                size="small"
+                style="height: auto; padding: 2px 6px; white-space: normal; line-height: 1.3;"
+              >
+                {{ reason }}
+              </el-tag>
+            </div>
+          </div>
+
+          <!-- 轨迹折叠展开 -->
+          <div v-if="item.history && item.history.length > 0" class="audit-trajectory-box">
+            <div class="trajectory-toggle" @click="toggleTrajectory(item.user_id)">
+              <span>拉取轨迹 ({{ item.history.length }}条)</span>
+              <el-icon><ArrowDown v-if="!expandedTrajectoryIds.includes(item.user_id)" /><ArrowUp v-else /></el-icon>
+            </div>
+            <div v-if="expandedTrajectoryIds.includes(item.user_id)" class="trajectory-content">
+              <div v-for="(h, hIdx) in item.history" :key="hIdx" class="traj-item">
+                <div class="traj-row">
+                  <code>{{ h.ip }}</code>
+                  <span v-if="h.location" class="traj-loc">({{ h.location }})</span>
+                  <el-button v-if="h.ip" type="danger" link size="small" @click="handleQuickBanIp(h.ip)">封禁</el-button>
+                </div>
+                <div class="traj-meta">
+                  <span>{{ formatTime(h.time) }}</span>
+                  <el-tag size="small" type="info">{{ h.type }}</el-tag>
+                </div>
+                <div v-if="h.ua" class="traj-ua">UA: {{ h.ua }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 操作区 -->
+          <div class="audit-card-actions">
+            <el-button
+              :type="item.in_honeypot === 1 ? 'success' : 'warning'"
+              size="small"
+              plain
+              @click="handleToggleHoneypot(item)"
+            >
+              {{ item.in_honeypot === 1 ? '解除蜜罐' : '一键蜜罐' }}
+            </el-button>
+            <el-button
+              type="danger"
+              size="small"
+              plain
+              :disabled="item.banned === 1"
+              @click="handleBanUser(item)"
+            >
+              {{ item.banned === 1 ? '已封禁' : '封禁' }}
+            </el-button>
+            <el-dropdown trigger="click" @command="(cmd) => handleAnomalyAction(cmd, item)">
+              <el-button size="small" plain>更多</el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="item.type === 'flagged'" command="ignore">忽略预警</el-dropdown-item>
+                  <el-dropdown-item command="whitelist">加入白名单</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </el-card>
+
+        <el-empty v-if="filteredAnomaliesList.length === 0 && !anomaliesLoading" description="暂无审计预警" />
+
+        <div class="mobile-pagination">
+          <el-pagination
+            v-show="filteredAnomaliesList.length > 0"
+            :current-page="mobileAuditPage"
+            :page-size="10"
+            layout="prev, pager, next"
+            :total="filteredAnomaliesList.length"
+            @current-change="(p) => mobileAuditPage = p"
+          />
+        </div>
+      </div>
+
+      <el-table v-else :data="filteredAnomaliesList" v-loading="anomaliesLoading" stripe style="width: 100%">
         <el-table-column type="expand">
           <template #default="props">
             <div class="anomaly-history-detail">
@@ -758,10 +867,12 @@
         </div>
       </div>
       <template #footer>
-        <div class="flex-between" style="display: flex; justify-content: space-between; align-items: center;">
-          <div class="flex-start" style="display: flex; gap: 8px;">
+        <div class="flex-between" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div class="flex-start" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <el-button type="info" plain size="small" icon="Connection" @click="goToUserSubscribeLogs">TA的拉取记录</el-button>
+            <el-button type="info" plain size="small" icon="Monitor" @click="goToUserLoginLogs">TA的登录记录</el-button>
             <el-button type="primary" plain size="small" icon="Tickets" @click="goToUserOrders">TA的订单</el-button>
-            <el-button type="warning" plain size="small" icon="User" @click="goToUserManage">在用户管理中编辑</el-button>
+            <el-button type="warning" plain size="small" icon="User" @click="goToUserManage">编辑资料</el-button>
           </div>
           <el-button size="small" @click="userDetailVisible = false">关闭</el-button>
         </div>
@@ -776,7 +887,9 @@ import { useRouter } from 'vue-router';
 import { getSecurePath } from '../api';
 import api from '../api';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { useMobile } from '../utils/useMobile';
 
+const { isMobile } = useMobile();
 const router = useRouter();
 const systemName = computed(() => {
   return window.settings?.title || '';
@@ -785,6 +898,17 @@ const anomaliesRawList = ref([]);
 const anomaliesSearch = ref('');
 const anomaliesFilterType = ref('all');
 const anomaliesLoading = ref(false);
+
+// 移动端卡片流状态
+const mobileAuditPage = ref(1);
+const expandedTrajectoryIds = ref([]);
+const toggleTrajectory = (id) => {
+  if (expandedTrajectoryIds.value.includes(id)) {
+    expandedTrajectoryIds.value = expandedTrajectoryIds.value.filter(x => x !== id);
+  } else {
+    expandedTrajectoryIds.value.push(id);
+  }
+};
 
 const filteredAnomaliesList = computed(() => {
   let list = anomaliesRawList.value;
@@ -804,9 +928,31 @@ const filteredAnomaliesList = computed(() => {
   } else if (anomaliesFilterType.value === 'honeypot') {
     list = list.filter(item => item.in_honeypot === 1);
   }
-  
   return list;
 });
+
+const pagedAnomalies = computed(() => {
+  const start = (mobileAuditPage.value - 1) * 10;
+  return filteredAnomaliesList.value.slice(start, start + 10);
+});
+
+const goToUserSubscribeLogs = () => {
+  if (!userDetailData.value) return;
+  userDetailVisible.value = false;
+  router.push({
+    path: '/system/subscribe-logs',
+    query: { user_id: userDetailData.value.id }
+  });
+};
+
+const goToUserLoginLogs = () => {
+  if (!userDetailData.value) return;
+  userDetailVisible.value = false;
+  router.push({
+    path: '/system/login-logs',
+    query: { user_id: userDetailData.value.id, email: userDetailData.value.email }
+  });
+};
 
 // Summary numbers
 const flaggedCount = computed(() => {
@@ -1491,5 +1637,133 @@ onMounted(() => {
 :deep(.el-table .excluded-row) {
   opacity: 0.55;
   background-color: var(--el-fill-color-light) !important;
+}
+
+/* 移动端卡片流样式 */
+.mobile-audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+}
+.mobile-audit-card {
+  border-radius: 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  background: #fafafa;
+}
+.audit-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.user-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  margin-right: 8px;
+}
+.user-email-link {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--el-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.audit-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 6px;
+}
+.time-label {
+  font-size: 11px;
+  color: #888;
+}
+.audit-reason-row {
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.reason-label {
+  color: #666;
+  font-weight: 500;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+.reasons-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.audit-trajectory-box {
+  background: #fff;
+  border: 1px solid #ebebeb;
+  border-radius: 6px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+.trajectory-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  background: #f9f9f9;
+}
+.trajectory-content {
+  padding: 8px 10px;
+  border-top: 1px dashed #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+.traj-item {
+  font-size: 11px;
+  border-bottom: 1px solid #f5f5f5;
+  padding-bottom: 6px;
+}
+.traj-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.traj-loc {
+  color: #888;
+}
+.traj-meta {
+  display: flex;
+  justify-content: space-between;
+  color: #999;
+}
+.traj-ua {
+  color: #bbb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+.audit-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+}
+.mobile-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
 }
 </style>

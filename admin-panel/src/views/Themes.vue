@@ -1,16 +1,16 @@
 <template>
   <div class="themes-container">
     <el-card class="action-card" shadow="hover">
-      <div class="flex-between align-center">
-        <span class="action-text">主题配置</span>
-        <el-button type="primary" size="small" :loading="switchLoading" @click="switchToReact">
+      <div class="flex-between align-center flex-wrap gap-10">
+        <span class="action-text">🎨 前端主题配置</span>
+        <el-button type="primary" size="small" :style="{ width: isMobile ? '100%' : 'auto' }" :loading="switchLoading" @click="switchToReact">
           切换到新版 React 后台
         </el-button>
       </div>
     </el-card>
 
     <div class="themes-grid mt-20" v-loading="loading">
-      <el-row :gutter="20">
+      <el-row :gutter="isMobile ? 10 : 20">
         <el-col v-for="(theme, name) in themeList" :key="name" :span="8" :xs="24" :sm="12" :md="8">
           <el-card :class="['theme-card', { active: activeTheme === name }]" shadow="hover" :body-style="{ padding: '0px' }">
             <!-- Theme Preview Banner -->
@@ -30,12 +30,13 @@
                 <span class="meta-item">作者: {{ theme.author || '系统' }}</span>
               </div>
 
-              <div class="theme-actions flex-between mt-15">
+              <div class="theme-actions flex-between mt-15 gap-10">
                 <el-button 
                   :type="activeTheme === name ? 'info' : 'primary'"
                   :disabled="activeTheme === name"
                   :loading="activateLoading === name"
                   size="small"
+                  :style="{ flex: isMobile ? 1 : 'none' }"
                   @click="handleActivateTheme(name)"
                 >
                   {{ activeTheme === name ? '当前主题' : '启用主题' }}
@@ -46,6 +47,7 @@
                   plain 
                   size="small" 
                   icon="Setting"
+                  :style="{ flex: isMobile ? 1 : 'none' }"
                   @click="handleConfigureTheme(name, theme)"
                 >
                   配置参数
@@ -165,7 +167,6 @@ const handleActivateTheme = async (name) => {
   activateLoading.value = name;
   try {
     const securePath = getSecurePath();
-    // V2board changes active theme by updating the system configuration frontend_theme
     await api.post(`/${securePath}/config/save`, {
       frontend_theme: name
     });
@@ -208,9 +209,7 @@ const handleConfigureTheme = async (name, themeSchema) => {
 const handleSubmitConfig = async () => {
   submitLoading.value = true;
   try {
-    // V2board expectations: saveThemeConfig expects config as a base64 encoded JSON string
     const jsonStr = JSON.stringify(themeConfigForm);
-    // Safe UTF-8 Base64 encode
     const base64Str = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => {
       return String.fromCharCode('0x' + p1);
     }));
@@ -246,14 +245,18 @@ const switchToReact = async () => {
     switchLoading.value = false;
   }
 };
+
 onMounted(() => {
   fetchThemes();
 });
 </script>
 
 <style scoped>
+.themes-container {
+  padding: 0 4px;
+}
 .action-card {
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid var(--el-border-color-light);
 }
 
@@ -263,25 +266,25 @@ onMounted(() => {
 }
 
 .theme-card {
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
   border: 1px solid var(--el-border-color-light);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .theme-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
 }
 
 .theme-card.active {
   border-color: var(--el-color-primary);
-  box-shadow: 0 4px 12px rgba(var(--el-color-primary-rgb), 0.1);
+  box-shadow: 0 4px 12px rgba(var(--el-color-primary-rgb), 0.15);
 }
 
 .theme-banner {
-  height: 140px;
+  height: 120px;
   background: linear-gradient(135deg, var(--el-color-primary-light-7), var(--el-color-primary-light-9));
   color: var(--el-color-primary);
   position: relative;
@@ -294,35 +297,35 @@ onMounted(() => {
 
 .active-badge {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 10px;
+  right: 10px;
   background-color: var(--el-color-success);
   color: white;
-  padding: 4px 8px;
-  border-radius: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
 }
 
 .theme-info-box {
-  padding: 16px;
+  padding: 14px;
 }
 
 .theme-name {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .theme-version {
   font-family: monospace;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--el-text-color-secondary);
 }
 
 .theme-desc {
   font-size: 12px;
-  margin-top: 8px;
-  height: 36px;
+  margin-top: 6px;
+  height: 34px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;

@@ -8,8 +8,78 @@
       </div>
     </el-card>
 
-    <!-- Plans List / Table -->
-    <el-card class="table-card mt-20" shadow="hover">
+    <!-- 移动端卡片流 -->
+    <div v-if="isMobile" v-loading="loading" class="mobile-plan-list mt-20">
+      <el-card
+        v-for="item in plans"
+        :key="item.id"
+        class="mobile-plan-card"
+        shadow="hover"
+      >
+        <div class="plan-card-head">
+          <div class="plan-title-wrap">
+            <span class="plan-name">{{ item.name }}</span>
+            <el-tag size="small" type="success">{{ getGroupName(item.group_id) }}</el-tag>
+          </div>
+          <div class="plan-users-badge">
+            <el-icon><User /></el-icon>
+            <span>{{ item.count }} 人</span>
+          </div>
+        </div>
+
+        <div class="plan-switches-row">
+          <div class="switch-item">
+            <span class="switch-label">销售:</span>
+            <el-switch
+              v-model="item.show"
+              size="small"
+              :active-value="1"
+              :inactive-value="0"
+              @change="(val) => handleToggleStatus(item, 'show', val)"
+            />
+          </div>
+          <div class="switch-item">
+            <span class="switch-label">续费:</span>
+            <el-switch
+              v-model="item.renew"
+              size="small"
+              :active-value="1"
+              :inactive-value="0"
+              @change="(val) => handleToggleStatus(item, 'renew', val)"
+            />
+          </div>
+        </div>
+
+        <div class="plan-specs-row">
+          <div>流量: <strong>{{ item.transfer_enable }} GB</strong></div>
+          <div>设备限制: <strong>{{ item.device_limit || '无限制' }}</strong></div>
+          <div v-if="item.speed_limit">速率: <strong>{{ item.speed_limit }} Mbps</strong></div>
+        </div>
+
+        <div class="plan-pricing-box">
+          <span v-if="item.month_price">月付: <strong class="price-hl">￥{{ formatPriceSimple(item.month_price) }}</strong></span>
+          <span v-if="item.quarter_price">季付: ￥{{ formatPriceSimple(item.quarter_price) }}</span>
+          <span v-if="item.half_year_price">半年: ￥{{ formatPriceSimple(item.half_year_price) }}</span>
+          <span v-if="item.year_price">年付: <strong class="price-hl">￥{{ formatPriceSimple(item.year_price) }}</strong></span>
+          <span v-if="item.onetime_price">一次性: ￥{{ formatPriceSimple(item.onetime_price) }}</span>
+          <span v-if="item.reset_price">重置包: ￥{{ formatPriceSimple(item.reset_price) }}</span>
+        </div>
+
+        <div class="plan-actions-row">
+          <el-button type="primary" size="small" icon="Edit" @click="openEditDialog(item)">
+            编辑套餐
+          </el-button>
+          <el-button type="danger" size="small" icon="Delete" plain @click="handleDelete(item)">
+            删除
+          </el-button>
+        </div>
+      </el-card>
+
+      <el-empty v-if="plans.length === 0 && !loading" description="暂无订阅套餐" />
+    </div>
+
+    <!-- PC Plans List / Table -->
+    <el-card v-else class="table-card mt-20" shadow="hover">
       <el-table :data="plans" v-loading="loading" stripe style="width: 100%">
         <el-table-column prop="sort" label="排序" width="55" align="center">
           <template #default>
@@ -567,5 +637,86 @@ onMounted(() => {
 .flex-align {
   display: flex;
   align-items: center;
+}
+
+/* 移动端套餐卡片流样式 */
+.mobile-plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mobile-plan-card {
+  border-radius: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  background: #fafafa;
+}
+.plan-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.plan-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.plan-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--el-text-color-primary);
+}
+.plan-users-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #888;
+}
+.plan-switches-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.switch-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.switch-label {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+}
+.plan-specs-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: #555;
+  padding: 6px 0;
+  border-top: 1px dashed #eee;
+  border-bottom: 1px dashed #eee;
+  margin-bottom: 8px;
+}
+.plan-pricing-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+}
+.price-hl {
+  color: var(--el-color-danger);
+  font-size: 13px;
+}
+.plan-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
 }
 </style>

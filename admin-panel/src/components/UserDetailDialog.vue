@@ -1,9 +1,10 @@
 <template>
-  <el-dialog v-model="visible" title="用户详情与操作" width="500px" @close="handleClose">
+  <el-dialog v-model="visible" title="用户详情与操作" :width="isMobile ? '95%' : '500px'" @close="handleClose">
     <div v-loading="loading">
       <template v-if="userInfo">
         <el-descriptions :column="1" border size="small">
           <el-descriptions-item label="用户邮箱">{{ userInfo.email }}</el-descriptions-item>
+          <el-descriptions-item label="用户 ID">#{{ userInfo.id }}</el-descriptions-item>
           <el-descriptions-item label="账户余额">{{ (userInfo.balance / 100).toFixed(2) }} ￥</el-descriptions-item>
           <el-descriptions-item label="注册时间">{{ formatTime(userInfo.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="到期时间">{{ userInfo.expired_at ? formatTime(userInfo.expired_at) : '长期有效' }}</el-descriptions-item>
@@ -13,22 +14,31 @@
           </el-descriptions-item>
         </el-descriptions>
         
-        <div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
-          <el-button 
-            :type="userInfo.banned ? 'success' : 'danger'" 
-            @click="toggleBan"
-            :loading="actionLoading"
-          >
-            {{ userInfo.banned ? '解封账号' : '封禁账号' }}
-          </el-button>
-          
-          <el-button 
-            :type="userInfo.is_honeypot ? 'info' : 'warning'" 
-            @click="toggleHoneypot"
-            :loading="actionLoading"
-          >
-            {{ userInfo.is_honeypot ? '移出蜜罐' : '加入蜜罐' }}
-          </el-button>
+        <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+            <el-button 
+              :type="userInfo.banned ? 'success' : 'danger'" 
+              size="small"
+              @click="toggleBan"
+              :loading="actionLoading"
+            >
+              {{ userInfo.banned ? '解封账号' : '封禁账号' }}
+            </el-button>
+            
+            <el-button 
+              :type="userInfo.is_honeypot ? 'info' : 'warning'" 
+              size="small"
+              @click="toggleHoneypot"
+              :loading="actionLoading"
+            >
+              {{ userInfo.is_honeypot ? '移出蜜罐' : '加入蜜罐' }}
+            </el-button>
+          </div>
+
+          <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+            <el-button type="primary" plain size="small" @click="goToSubscribeLogs">TA的拉取记录</el-button>
+            <el-button type="primary" plain size="small" @click="goToLoginLogs">TA的登录记录</el-button>
+          </div>
         </div>
       </template>
       <el-empty v-else-if="!loading" description="未能获取到用户信息" />
@@ -38,8 +48,13 @@
 
 <script setup>
 import { ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import api, { getSecurePath } from '../api';
+import { useMobile } from '../utils/useMobile';
+
+const { isMobile } = useMobile();
+const router = useRouter();
 
 const props = defineProps({
   modelValue: {
@@ -143,5 +158,25 @@ const toggleHoneypot = () => {
       actionLoading.value = false;
     }
   }).catch(() => {});
+};
+
+const goToSubscribeLogs = () => {
+  if (!userInfo.value) return;
+  visible.value = false;
+  handleClose();
+  router.push({
+    path: '/system/subscribe-logs',
+    query: { user_id: userInfo.value.id }
+  });
+};
+
+const goToLoginLogs = () => {
+  if (!userInfo.value) return;
+  visible.value = false;
+  handleClose();
+  router.push({
+    path: '/system/login-logs',
+    query: { user_id: userInfo.value.id, email: userInfo.value.email }
+  });
 };
 </script>

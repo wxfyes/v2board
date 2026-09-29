@@ -1,26 +1,26 @@
 import { useEffect, useState } from 'react'
-import { message } from 'antd'
+import { message, Card, Button, Tag, Space, Alert } from 'antd'
+import { CheckOutlined, SettingOutlined, SwapOutlined } from '@ant-design/icons'
 import { saveConfig } from '@/api/services/config'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { useThemeManageStore } from '@/stores/themeManage'
 import { useConfigManageStore } from '@/stores/configManage'
 import { settings } from '@/app/settings'
 import { ThemeConfigModal } from './ThemeConfigModal'
+import { useMobile } from '@/hooks/useMobile'
 
-// 原版所有主题卡片共用的背景图（不是主题 config.json 里的 images）
 const CARD_BACKGROUND =
-  'url(https://images.unsplash.com/photo-1567095761054-7a02e69e5c43?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1374&q=80)'
+  'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(240,244,250,0.95) 100%), url(https://images.unsplash.com/photo-1567095761054-7a02e69e5c43?ixlib=rb-1.2.1&auto=format&fit=crop&w=1374&q=80)'
 
-/** 激活主题：保存系统配置的 frontend_theme，成功后重新读取主题列表 */
 async function activeTheme(name: string) {
   const res = await saveConfig({ frontend_theme: name })
   if (res.code !== 200) return
   void useThemeManageStore.getState().getThemes()
-    void useConfigManageStore.getState().fetch()
+  void useConfigManageStore.getState().fetch()
 }
 
-// 主题配置（原版模块 8drl + model theme）。与原版一致：还没读取到主题时整页显示加载中
 export default function ThemePage() {
+  const isMobile = useMobile()
   const { themes, active } = useThemeManageStore()
   const adminTheme = useConfigManageStore((s) => s.frontend?.admin_theme) || 'react'
   const [switching, setSwitching] = useState(false)
@@ -32,33 +32,61 @@ export default function ThemePage() {
 
   return (
     <AdminLayout title="主题配置" loading={Object.keys(themes).length <= 0}>
-      <div className="row">
-        <div className="col-lg-12">
-          <div className="alert alert-warning mb-0 mb-md-4" role="alert">
-            <p className="mb-0">
-              如果你采用前后分离的方式部署V2board，那么主题配置将不会生效。了解
-              <b>
-                <a href="https://docs.v2board.com/use/advanced.html#%E5%89%8D%E7%AB%AF%E5%88%86%E7%A6%BB">前后分离</a>
-              </b>
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      <h2 className="content-heading pt-0">后台前端主题配置</h2>
-      <div className="row">
-        <div className="col-lg-6">
-          <div className="block block-transparent bg-image mb-md-3 bg-primary" style={{ backgroundImage: CARD_BACKGROUND }}>
-            <div className="block-content block-content-full bg-gd-white-op-l">
-              <div className="d-md-flex justify-content-md-between align-items-md-center">
-                <div className="p-2 py-4">
-                  <h3 className="font-size-h4 font-w400 text-black mb-1">React (全新版)</h3>
-                  <p className="text-black-75 mb-0">Ant Design 设计的现代化后台前端</p>
+      <div style={{ padding: isMobile ? '12px 10px' : '20px 24px', maxWidth: 1200, margin: '0 auto' }}>
+        <Alert
+          type="warning"
+          showIcon
+          message={
+            <span style={{ fontSize: 13 }}>
+              如果你采用前后分离的方式部署V2board，那么主题配置将不会生效。{' '}
+              <a
+                href="https://docs.v2board.com/use/advanced.html#%E5%89%8D%E7%AB%AF%E5%88%86%E7%A6%BB"
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontWeight: 600 }}
+              >
+                了解前后分离
+              </a>
+            </span>
+          }
+          style={{ marginBottom: 20, borderRadius: 8 }}
+        />
+
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, marginBottom: 14, color: '#1f2937' }}>
+            🖥️ 后台前端主题配置
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14 }}>
+            {/* React 全新版 */}
+            <Card
+              bordered={false}
+              style={{
+                borderRadius: 12,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                border: adminTheme === 'react' ? '2px solid #1677ff' : '1px solid #e5e7eb',
+                backgroundImage: CARD_BACKGROUND,
+                backgroundSize: 'cover',
+                overflow: 'hidden'
+              }}
+              bodyStyle={{ padding: isMobile ? '16px' : '20px' }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#111827' }}>
+                      React (全新版)
+                    </h3>
+                    {adminTheme === 'react' && <Tag color="processing" icon={<CheckOutlined />}>当前激活</Tag>}
+                  </div>
+                  <p style={{ color: '#4b5563', fontSize: 13, margin: '0 0 16px 0', lineHeight: 1.5 }}>
+                    Ant Design 架构，响应式卡片流与现代化管理面板
+                  </p>
                 </div>
-                <div className="p-2 py-4">
-                  <button
-                    type="button"
-                    className="btn btn-sm rounded-pill btn-outline-light px-3"
+                <div>
+                  <Button
+                    type={adminTheme === 'react' ? 'default' : 'primary'}
+                    icon={<SwapOutlined />}
+                    block={isMobile}
                     disabled={adminTheme === 'react' || switching}
                     onClick={() => {
                       setSwitching(true)
@@ -69,25 +97,42 @@ export default function ThemePage() {
                       })
                     }}
                   >
-                    {adminTheme === 'react' ? '当前主题' : '激活该主题'}
-                  </button>
+                    {adminTheme === 'react' ? '当前使用中' : '切换至此主题'}
+                  </Button>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-        <div className="col-lg-6">
-          <div className="block block-transparent bg-image mb-md-3 bg-primary" style={{ backgroundImage: CARD_BACKGROUND }}>
-            <div className="block-content block-content-full bg-gd-white-op-l">
-              <div className="d-md-flex justify-content-md-between align-items-md-center">
-                <div className="p-2 py-4">
-                  <h3 className="font-size-h4 font-w400 text-black mb-1">Vue (旧原版)</h3>
-                  <p className="text-black-75 mb-0">原始 V2Board Vue 版本后台前端</p>
+            </Card>
+
+            {/* Vue 旧原版 */}
+            <Card
+              bordered={false}
+              style={{
+                borderRadius: 12,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                border: adminTheme === 'vue' ? '2px solid #1677ff' : '1px solid #e5e7eb',
+                backgroundImage: CARD_BACKGROUND,
+                backgroundSize: 'cover',
+                overflow: 'hidden'
+              }}
+              bodyStyle={{ padding: isMobile ? '16px' : '20px' }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#111827' }}>
+                      Vue (旧原版)
+                    </h3>
+                    {adminTheme === 'vue' && <Tag color="processing" icon={<CheckOutlined />}>当前激活</Tag>}
+                  </div>
+                  <p style={{ color: '#4b5563', fontSize: 13, margin: '0 0 16px 0', lineHeight: 1.5 }}>
+                    原始经典 V2Board Vue 3 + Element Plus 管理后台
+                  </p>
                 </div>
-                <div className="p-2 py-4">
-                  <button
-                    type="button"
-                    className="btn btn-sm rounded-pill btn-outline-light px-3"
+                <div>
+                  <Button
+                    type={adminTheme === 'vue' ? 'default' : 'primary'}
+                    icon={<SwapOutlined />}
+                    block={isMobile}
                     disabled={adminTheme === 'vue' || switching}
                     onClick={() => {
                       setSwitching(true)
@@ -98,50 +143,80 @@ export default function ThemePage() {
                       })
                     }}
                   >
-                    {adminTheme === 'vue' ? '当前主题' : '激活该主题'}
-                  </button>
+                    {adminTheme === 'vue' ? '当前使用中' : '切换至此主题'}
+                  </Button>
                 </div>
               </div>
-            </div>
+            </Card>
+          </div>
+        </div>
+
+        <div>
+          <h2 style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, marginBottom: 14, color: '#1f2937' }}>
+            🎨 用户前端主题配置
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {Object.keys(themes).map((key) => {
+              const theme = themes[key]
+              const isCurrent = active === key
+              return (
+                <Card
+                  key={key}
+                  bordered={false}
+                  style={{
+                    borderRadius: 12,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+                    border: isCurrent ? '2px solid #52c41a' : '1px solid #e5e7eb',
+                    backgroundImage: CARD_BACKGROUND,
+                    backgroundSize: 'cover',
+                    overflow: 'hidden'
+                  }}
+                  bodyStyle={{ padding: isMobile ? '14px' : '18px 20px' }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: isMobile ? 'column' : 'row',
+                      justifyContent: 'space-between',
+                      alignItems: isMobile ? 'stretch' : 'center',
+                      gap: 12
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#111827' }}>
+                          {theme.name || key}
+                        </h3>
+                        {isCurrent && <Tag color="success">当前主题</Tag>}
+                      </div>
+                      <p style={{ color: '#4b5563', fontSize: 13, margin: 0, lineHeight: 1.4 }}>
+                        {theme.description || '无主题描述'}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>
+                      <Button
+                        type={isCurrent ? 'default' : 'primary'}
+                        disabled={isCurrent}
+                        block={isMobile}
+                        style={{ flex: isMobile ? 1 : undefined }}
+                        onClick={() => void activeTheme(key)}
+                      >
+                        {isCurrent ? '当前使用中' : '激活主题'}
+                      </Button>
+                      <ThemeConfigModal keyName={key} themeName={theme.name} configs={theme.configs}>
+                        <Button icon={<SettingOutlined />} block={isMobile} style={{ flex: isMobile ? 1 : undefined }}>
+                          主题设置
+                        </Button>
+                      </ThemeConfigModal>
+                    </div>
+                  </div>
+                </Card>
+              )
+            })}
           </div>
         </div>
       </div>
-      <h2 className="content-heading">用户前端主题配置</h2>
-
-      {Object.keys(themes).map((key) => {
-        const theme = themes[key]
-        return (
-          <div
-            key={key}
-            className="block block-transparent bg-image mb-0 mb-md-3 bg-primary"
-            style={{ backgroundImage: CARD_BACKGROUND }}
-          >
-            <div className="block-content block-content-full bg-gd-white-op-l">
-              <div className="d-md-flex justify-content-md-between align-items-md-center">
-                <div className="p-2 py-4">
-                  <h3 className="font-size-h4 font-w400 text-black mb-1">{theme.name}</h3>
-                  <p className="text-black-75 mb-0">{theme.description}</p>
-                </div>
-                <div className="p-2 py-4">
-                  <button
-                    type="button"
-                    className="btn btn-sm rounded-pill btn-outline-light px-3 mr-2"
-                    onClick={() => void activeTheme(key)}
-                    disabled={active === key}
-                  >
-                    {active === key ? '当前主题' : '激活主题'}
-                  </button>
-                  <ThemeConfigModal keyName={key} themeName={theme.name} configs={theme.configs}>
-                    <button type="button" className="btn btn-sm rounded-pill btn-outline-light px-3">
-                      主题设置
-                    </button>
-                  </ThemeConfigModal>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      })}
     </AdminLayout>
   )
 }

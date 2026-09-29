@@ -1,14 +1,14 @@
 <template>
   <div class="traitors-container">
-    <el-card shadow="never">
+    <el-card shadow="never" class="traitors-card">
       <template #header>
-        <div class="card-header flex-between">
+        <div class="card-header" :class="{ 'mobile-header': isMobile }">
           <div class="header-left">
             <span class="title">内鬼主动防御名单</span>
-            <el-tag size="small" type="danger" style="margin-left: 10px;">防守拦截</el-tag>
+            <el-tag size="small" type="danger" style="margin-left: 6px;">防守拦截</el-tag>
             <el-popover v-if="matchCount > 0" placement="bottom" title="已注册的疑似内鬼" width="300" trigger="hover">
               <template #reference>
-                <el-tag size="small" type="warning" style="margin-left: 10px; cursor: pointer;">发现 {{ matchCount }} 个疑似内鬼注册账号</el-tag>
+                <el-tag size="small" type="warning" style="margin-left: 6px; cursor: pointer;">发现 {{ matchCount }} 个疑似内鬼</el-tag>
               </template>
               <div style="max-height: 200px; overflow-y: auto;">
                 <div v-for="email in matchedEmails" :key="email" style="margin-bottom: 5px;">
@@ -16,11 +16,13 @@
                 </div>
               </div>
             </el-popover>
-            <el-tag v-else-if="matchCount === 0 && (emails || ips)" size="small" type="success" style="margin-left: 10px;">目前暂无该名单内的注册账号</el-tag>
+            <el-tag v-else-if="matchCount === 0 && (emails || ips)" size="small" type="success" style="margin-left: 6px;">暂无命中</el-tag>
           </div>
-          <el-button type="primary" :icon="Check" :loading="loading" @click="saveConfig">
-            保存配置
-          </el-button>
+          <div class="header-right">
+            <el-button type="primary" :block="isMobile" :icon="Check" :loading="loading" @click="saveConfig">
+              保存配置
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -45,7 +47,7 @@
             <el-input
               v-model="emails"
               type="textarea"
-              :rows="15"
+              :rows="isMobile ? 8 : 15"
               placeholder="example1@gmail.com&#10;example2@gmail.com"
             />
           </div>
@@ -62,7 +64,7 @@
             <el-input
               v-model="ips"
               type="textarea"
-              :rows="15"
+              :rows="isMobile ? 8 : 15"
               placeholder="192.168.1.1&#10;8.8.8.8"
             />
           </div>
@@ -78,6 +80,9 @@ import { ElMessage } from 'element-plus';
 import { Check, Message, Place } from '@element-plus/icons-vue';
 import { getSecurePath } from '../api';
 import api from '../api';
+import { useMobile } from '../utils/useMobile';
+
+const { isMobile } = useMobile();
 
 const loading = ref(false);
 const emails = ref('');
@@ -98,15 +103,32 @@ const ipCount = computed(() => {
 const fetchConfig = async () => {
   try {
     const securePath = getSecurePath();
-    const res = await api.get(`/${securePath}/traitor/fetch`);
+    const res = await api.get(`/${securePath}/stat/getSubscriptionAnomalies`);
+    if (res.data && res.data.config) {
+      if (res.data.config.traitor_emails) {
+        emails.value = res.data.config.traitor_emails.join('\n');
+      }
+      if (res.data.config.traitor_ips) {
+        ips.value = res.data.config.traitor_ips.join('\n');
+      }
+    }
+    // 检查是否有匹配的内鬼
+    checkMatches();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const checkMatches = async () => {
+  try {
+    const securePath = getSecurePath();
+    const res = await api.get(`/${securePath}/stat/checkTraitorMatches`);
     if (res.data) {
-      emails.value = res.data.emails || '';
-      ips.value = res.data.ips || '';
-      matchCount.value = res.data.match_count || 0;
+      matchCount.value = res.data.count || 0;
       matchedEmails.value = res.data.matched_emails || [];
     }
   } catch (err) {
-    ElMessage.error(err.response?.data?.message || '获取配置失败');
+    console.error(err);
   }
 };
 
@@ -114,14 +136,28 @@ const saveConfig = async () => {
   loading.value = true;
   try {
     const securePath = getSecurePath();
-    await api.post(`/${securePath}/traitor/save`, {
-      emails: emails.value,
-      ips: ips.value
+    
+    // 解析邮箱列表
+    const emailList = emails.value
+      .split('\n')
+      .map(item => item.trim().toLowerCase())
+      .filter(item => item !== '');
+      
+    // 解析IP列表
+    const ipList = ips.value
+      .split('\n')
+      .map(item => item.trim())
+      .filter(item => item !== '');
+
+    await api.post(`/${securePath}/stat/saveSecurityConfig`, {
+      traitor_emails: Array.from(new Set(emailList)),
+      traitor_ips: Array.from(new Set(ipList))
     });
-    ElMessage.success('保存成功');
-    fetchConfig(); // 刷新格式化后的数据
+
+    ElMessage.success('内鬼主动防御名单已保存生效！');
+    fetchConfig();
   } catch (err) {
-    ElMessage.error(err.response?.data?.message || '保存失败');
+    ElMessage.error(err.message || '保存配置失败');
   } finally {
     loading.value = false;
   }
@@ -134,39 +170,62 @@ onMounted(() => {
 
 <style scoped>
 .traitors-container {
-  max-width: 1200px;
+  padding: 0 4px;
 }
-
-.title {
-  font-size: 16px;
-  font-weight: 600;
+.traitors-card {
+  border-radius: 12px;
 }
-
-.config-section {
-  background-color: var(--el-fill-color-light);
-  padding: 16px;
-  border-radius: 8px;
-  height: 100%;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
-
-.section-title {
-  font-size: 15px;
-  font-weight: 500;
+.card-header.mobile-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
-
+.header-right {
+  width: auto;
+}
+.mobile-header .header-right {
+  width: 100%;
+}
+.title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.config-section {
+  background: var(--el-fill-color-light);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
 .section-desc {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   margin-bottom: 12px;
 }
-
-@media (max-width: 768px) {
+.mt-xs {
+  margin-top: 16px;
+}
+@media (min-width: 768px) {
   .mt-xs {
-    margin-top: 20px;
+    margin-top: 0;
   }
 }
 </style>
