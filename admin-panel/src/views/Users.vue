@@ -177,7 +177,11 @@
                   <div class="client-tooltip-content">
                     <div v-for="(log, idx) in parseClientHistory(scope.row.client_type)" :key="idx" class="client-tooltip-item">
                       <span style="color: var(--el-color-primary)">{{ formatTime(log.time) }}</span><br/>
-                      <span>{{ log.type }} (IP: {{ log.ip }})</span><br/>
+                      <span>{{ log.type }} (IP: {{ log.ip }})</span>
+                      <span v-if="log.location && log.location !== '未知'" style="color: #67c23a; margin-left: 6px; font-size: 11px; background: rgba(103,194,58,0.18); padding: 1px 5px; border-radius: 3px;">
+                        {{ log.location }}
+                      </span>
+                      <br/>
                       <span style="color: var(--el-text-color-secondary); font-size: 11px">{{ log.ua }}</span>
                     </div>
                   </div>

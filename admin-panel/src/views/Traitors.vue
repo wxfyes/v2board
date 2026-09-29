@@ -103,32 +103,16 @@ const ipCount = computed(() => {
 const fetchConfig = async () => {
   try {
     const securePath = getSecurePath();
-    const res = await api.get(`/${securePath}/stat/getSubscriptionAnomalies`);
-    if (res.data && res.data.config) {
-      if (res.data.config.traitor_emails) {
-        emails.value = res.data.config.traitor_emails.join('\n');
-      }
-      if (res.data.config.traitor_ips) {
-        ips.value = res.data.config.traitor_ips.join('\n');
-      }
-    }
-    // 检查是否有匹配的内鬼
-    checkMatches();
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-const checkMatches = async () => {
-  try {
-    const securePath = getSecurePath();
-    const res = await api.get(`/${securePath}/stat/checkTraitorMatches`);
+    const res = await api.get(`/${securePath}/traitor/fetch`);
     if (res.data) {
-      matchCount.value = res.data.count || 0;
+      emails.value = res.data.emails || '';
+      ips.value = res.data.ips || '';
+      matchCount.value = res.data.match_count || 0;
       matchedEmails.value = res.data.matched_emails || [];
     }
   } catch (err) {
     console.error(err);
+    ElMessage.error(err.message || '获取配置失败');
   }
 };
 
@@ -136,22 +120,9 @@ const saveConfig = async () => {
   loading.value = true;
   try {
     const securePath = getSecurePath();
-    
-    // 解析邮箱列表
-    const emailList = emails.value
-      .split('\n')
-      .map(item => item.trim().toLowerCase())
-      .filter(item => item !== '');
-      
-    // 解析IP列表
-    const ipList = ips.value
-      .split('\n')
-      .map(item => item.trim())
-      .filter(item => item !== '');
-
-    await api.post(`/${securePath}/stat/saveSecurityConfig`, {
-      traitor_emails: Array.from(new Set(emailList)),
-      traitor_ips: Array.from(new Set(ipList))
+    await api.post(`/${securePath}/traitor/save`, {
+      emails: emails.value,
+      ips: ips.value
     });
 
     ElMessage.success('内鬼主动防御名单已保存生效！');

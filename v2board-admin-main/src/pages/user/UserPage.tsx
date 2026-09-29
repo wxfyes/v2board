@@ -240,7 +240,15 @@ export default function UserPage() {
                     {history.map((log, idx) => (
                       <div key={idx} style={{ borderBottom: idx < history.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none', paddingBottom: idx < history.length - 1 ? 8 : 0 }}>
                         <div style={{ color: '#409EFF', fontSize: 12 }}>{formatTime(log.time)}</div>
-                        <div style={{ color: '#fff' }}>{log.type} (IP: {log.ip})</div>
+                        <div style={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span>{log.type}</span>
+                          <span style={{ color: '#d9d9d9' }}>(IP: {log.ip})</span>
+                          {log.location && log.location !== '未知' && (
+                            <span style={{ color: '#67c23a', fontSize: 11, backgroundColor: 'rgba(103,194,58,0.18)', padding: '1px 5px', borderRadius: 3 }}>
+                              {log.location}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ color: '#909399', fontSize: 11, wordBreak: 'break-all' }}>{log.ua}</div>
                       </div>
                     ))}

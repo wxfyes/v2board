@@ -156,6 +156,20 @@ class UserController extends Controller
                 // 处理登录域名
                 $lastLoginDomain = $latestSession['login_domain'] ?? '';
             }
+            // 为客户端历史记录解析 IP 归属地 (基于极速本地 ip2region xdb 库)
+            if (!empty($res[$i]['client_type'])) {
+                $clientHistory = json_decode($res[$i]['client_type'], true);
+                if (is_array($clientHistory)) {
+                    foreach ($clientHistory as &$item) {
+                        if (!empty($item['ip']) && empty($item['location'])) {
+                            $item['location'] = $this->getIpLocation($item['ip']);
+                        }
+                    }
+                    unset($item);
+                    $res[$i]['client_type'] = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
+                }
+            }
+
             $res[$i]['last_login_ip'] = $lastLoginIp;
             $res[$i]['last_login_time'] = $lastLoginTime;
             $res[$i]['last_login_location'] = $lastLoginLocation;
@@ -194,6 +208,19 @@ class UserController extends Controller
             }
         }
         $user['is_honeypot'] = $isHoneypot;
+
+        if (!empty($user->client_type)) {
+            $clientHistory = json_decode($user->client_type, true);
+            if (is_array($clientHistory)) {
+                foreach ($clientHistory as &$item) {
+                    if (!empty($item['ip']) && empty($item['location'])) {
+                        $item['location'] = $this->getIpLocation($item['ip']);
+                    }
+                }
+                unset($item);
+                $user['client_type'] = json_encode($clientHistory, JSON_UNESCAPED_UNICODE);
+            }
+        }
 
         return response([
             'data' => $user

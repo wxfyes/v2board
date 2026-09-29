@@ -265,6 +265,7 @@ class ClientController extends Controller
                         'type' => $clientType,
                         'time' => time(),
                         'ip' => $realIp,
+                        'location' => \App\Utils\IpHelper::ipLocation($realIp),
                         'ua' => substr($userAgent, 0, 128)
                     ]);
                     $clientHistory = array_slice($clientHistory, 0, 5);
@@ -628,6 +629,7 @@ class ClientController extends Controller
                         'type' => $clientType,
                         'time' => time(),
                         'ip' => $realIp,
+                        'location' => \App\Utils\IpHelper::ipLocation($realIp),
                         'ua' => substr($userAgent, 0, 128)
                     ]);
                     $clientHistory = array_slice($clientHistory, 0, 5);
