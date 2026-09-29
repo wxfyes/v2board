@@ -20,6 +20,7 @@ import { adminPath } from '@/app/settings';
 import dayjs from 'dayjs';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { UserDetailModal } from '../security-audit/SecurityAuditPage';
+import { useMobile } from '@/hooks/useMobile';
 
 
 const { Text } = Typography;
@@ -35,6 +36,7 @@ const showColumnOptions = [
 ];
 
 export default function LoginLogsPage() {
+  const isMobile = useMobile();
   const [form] = Form.useForm();
 
   // 列表数据
@@ -232,64 +234,68 @@ export default function LoginLogsPage() {
 
   return (
     <AdminLayout title="登录记录">
-      <Card title="📝 用户登录记录" className="box-card">
-      <Form form={form} layout="inline" style={{ marginBottom: 16 }}>
-        <Form.Item name="email">
-          <Input placeholder="邮箱" style={{ width: 200 }} allowClear onPressEnter={handleSearch} />
-        </Form.Item>
-        <Form.Item name="ip">
-          <Input placeholder="IP 地址" style={{ width: 200 }} allowClear onPressEnter={handleSearch} />
-        </Form.Item>
-        <Form.Item name="type">
-          <Select placeholder="登录状态" style={{ width: 150 }} allowClear onChange={handleSearch}>
-            <Select.Option value="成功">成功</Select.Option>
-            <Select.Option value="失败">失败</Select.Option>
-          </Select>
-        </Form.Item>
-        <Form.Item>
-          <Space>
-            <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-              查询
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={handleReset}>
-              重置
-            </Button>
-            <Button danger icon={<ApiOutlined />} onClick={openIpAssociationModal} style={{ marginLeft: 8 }}>
-              IP 关联分析
-            </Button>
-            <Button danger icon={<DesktopOutlined />} onClick={openDeviceAssociationModal}>
-              异常设备雷达
-            </Button>
-          </Space>
-        </Form.Item>
-      </Form>
+      <div style={{ padding: isMobile ? '12px 8px' : '24px' }}>
+      <Card title="📝 用户登录记录" className="box-card" bodyStyle={{ padding: isMobile ? 12 : 24 }}>
+        <Form form={form} layout={isMobile ? 'vertical' : 'inline'} style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 8, marginBottom: 8, width: isMobile ? '100%' : 'auto' }}>
+            <Form.Item name="email" style={{ margin: 0, flex: 1 }}>
+              <Input placeholder="邮箱" style={{ width: isMobile ? '100%' : 180 }} allowClear onPressEnter={handleSearch} />
+            </Form.Item>
+            <Form.Item name="ip" style={{ margin: 0, flex: 1 }}>
+              <Input placeholder="IP 地址" style={{ width: isMobile ? '100%' : 180 }} allowClear onPressEnter={handleSearch} />
+            </Form.Item>
+            <Form.Item name="type" style={{ margin: 0, width: isMobile ? '100%' : 140 }}>
+              <Select placeholder="登录状态" style={{ width: '100%' }} allowClear onChange={handleSearch}>
+                <Select.Option value="成功">成功</Select.Option>
+                <Select.Option value="失败">失败</Select.Option>
+              </Select>
+            </Form.Item>
+          </div>
+          <Form.Item style={{ margin: 0 }}>
+            <Space wrap size={[6, 6]}>
+              <Button type="primary" size={isMobile ? 'small' : 'middle'} icon={<SearchOutlined />} onClick={handleSearch}>
+                查询
+              </Button>
+              <Button size={isMobile ? 'small' : 'middle'} icon={<ReloadOutlined />} onClick={handleReset}>
+                重置
+              </Button>
+              <Button danger size={isMobile ? 'small' : 'middle'} icon={<ApiOutlined />} onClick={openIpAssociationModal}>
+                IP 关联
+              </Button>
+              <Button danger size={isMobile ? 'small' : 'middle'} icon={<DesktopOutlined />} onClick={openDeviceAssociationModal}>
+                设备雷达
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
 
-      <div style={{ marginBottom: 16 }}>
-        <span style={{ fontSize: 14, marginRight: 16 }}>显示表项:</span>
-        <Checkbox.Group
-          options={showColumnOptions}
-          value={showColumns}
-          onChange={(checkedValues) => setShowColumns(checkedValues as string[])}
+        <div style={{ marginBottom: 16 }}>
+          <span style={{ fontSize: 13, marginRight: 8, color: '#888' }}>显示表项:</span>
+          <Checkbox.Group
+            options={showColumnOptions}
+            value={showColumns}
+            onChange={(checkedValues) => setShowColumns(checkedValues as string[])}
+          />
+        </div>
+
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={list}
+          loading={loading}
+          bordered
+          scroll={{ x: 850 }}
+          pagination={{
+            current,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 条`,
+            pageSizeOptions: ['10', '20', '50', '100'],
+          }}
+          onChange={handleTableChange}
         />
-      </div>
-
-      <Table
-        rowKey="id"
-        columns={columns}
-        dataSource={list}
-        loading={loading}
-        bordered
-        pagination={{
-          current,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total) => `共 ${total} 条`,
-          pageSizeOptions: ['10', '20', '50', '100'],
-        }}
-        onChange={handleTableChange}
-      />
 
       <Modal
         title="多账号共用 IP 关联分析雷达 (登录记录)"
@@ -298,7 +304,7 @@ export default function LoginLogsPage() {
         footer={
           <Button onClick={() => setIpModalVisible(false)}>关闭</Button>
         }
-        width={900}
+        width={isMobile ? '95%' : 900}
         destroyOnClose
       >
         <div style={{ fontSize: 13, color: 'rgba(0, 0, 0, 0.45)', marginBottom: 15, lineHeight: 1.5 }}>
@@ -309,7 +315,7 @@ export default function LoginLogsPage() {
           dataSource={ipList}
           loading={ipLoading}
           size="small"
-          scroll={{ y: 450 }}
+          scroll={{ x: 650, y: 450 }}
           pagination={false}
           columns={[
             {
@@ -408,7 +414,7 @@ export default function LoginLogsPage() {
         footer={
           <Button onClick={() => setDeviceModalVisible(false)}>关闭</Button>
         }
-        width={950}
+        width={isMobile ? '95%' : 950}
         destroyOnClose
       >
         <div style={{ fontSize: 13, color: 'rgba(0, 0, 0, 0.45)', marginBottom: 15, lineHeight: 1.5 }}>
@@ -419,7 +425,7 @@ export default function LoginLogsPage() {
           dataSource={deviceList}
           loading={deviceLoading}
           size="small"
-          scroll={{ y: 450 }}
+          scroll={{ x: 750, y: 450 }}
           pagination={false}
           columns={[
             {
@@ -494,6 +500,7 @@ export default function LoginLogsPage() {
         />
       </Modal>
     </Card>
+    </div>
     
       {userDetailVisible && activeUserId && (
         <UserDetailModal 

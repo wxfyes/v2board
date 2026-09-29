@@ -19,6 +19,7 @@ import { get, post } from '@/api/request'
 import { adminPath } from '@/app/settings'
 import { message } from '@/app/staticApi'
 import { TableBlock } from '@/components/TableBlock'
+import { useMobile } from '@/hooks/useMobile'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { formatTime } from '@/utils/format'
 
@@ -44,6 +45,7 @@ export interface CardItem {
 }
 
 export default function CardPage() {
+  const isMobile = useMobile()
   const [products, setProducts] = useState<CardProduct[]>([])
   const [loading, setLoading] = useState(false)
   const [activeProduct, setActiveProduct] = useState<CardProduct | null>(null)
@@ -229,20 +231,20 @@ export default function CardPage() {
 
   // 商品列表列定义
   const productColumns: TableColumnsType<CardProduct> = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 70, align: 'center' },
-    { title: '商品名称', dataIndex: 'name', key: 'name', minWidth: 160 },
+    !isMobile && { title: 'ID', dataIndex: 'id', key: 'id', width: 70, align: 'center' },
+    { title: '商品名称', dataIndex: 'name', key: 'name', minWidth: 140 },
     {
       title: '单价',
       dataIndex: 'price',
       key: 'price',
-      width: 120,
+      width: 100,
       align: 'right',
       render: (price: number) => <span style={{ fontWeight: 600 }}>¥{(price / 100).toFixed(2)}</span>,
     },
     {
       title: '库存 (余/总)',
       key: 'stock',
-      width: 140,
+      width: 120,
       align: 'center',
       render: (_, record) => (
         <Tag color={record.unsold_stock > 0 ? 'success' : 'error'}>
@@ -254,22 +256,22 @@ export default function CardPage() {
       title: '上架状态',
       dataIndex: 'show',
       key: 'show',
-      width: 110,
+      width: 100,
       align: 'center',
       render: (show: number, record) => (
         <Switch checked={show === 1} onChange={(checked) => void handleToggleShow(record, checked)} />
       ),
     },
-    { title: '排序', dataIndex: 'sort', key: 'sort', width: 80, align: 'center' },
+    !isMobile && { title: '排序', dataIndex: 'sort', key: 'sort', width: 80, align: 'center' },
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: isMobile ? 160 : 200,
       align: 'right',
       render: (_, record) => (
-        <Space size="middle">
+        <Space size={isMobile ? 'small' : 'middle'}>
           <Button type="link" size="small" icon={<KeyOutlined />} onClick={() => handleViewCards(record)}>
-            卡密管理
+            卡密
           </Button>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEditProduct(record)}>
             编辑
@@ -289,16 +291,16 @@ export default function CardPage() {
         </Space>
       ),
     },
-  ]
+  ].filter(Boolean) as TableColumnsType<CardProduct>
 
   // 卡密列表列定义
   const cardColumns: TableColumnsType<CardItem> = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 70, align: 'center' },
+    !isMobile && { title: 'ID', dataIndex: 'id', key: 'id', width: 70, align: 'center' },
     {
       title: '卡密内容',
       dataIndex: 'code',
       key: 'code',
-      minWidth: 240,
+      minWidth: 180,
       render: (code: string) => (
         <code style={{ background: '#f5f5f5', padding: '2px 8px', borderRadius: 4, fontFamily: 'monospace' }}>
           {code}
@@ -309,7 +311,7 @@ export default function CardPage() {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      width: 110,
+      width: 90,
       align: 'center',
       render: (status: number) => (
         <Tag color={status === 1 ? 'default' : 'success'}>{status === 1 ? '已售出' : '未售出'}</Tag>
@@ -319,17 +321,17 @@ export default function CardPage() {
       title: '购买用户',
       dataIndex: 'user_email',
       key: 'user_email',
-      minWidth: 160,
+      minWidth: 140,
       render: (email: string) => email || '-',
     },
-    {
+    !isMobile && {
       title: '关联订单',
       dataIndex: 'trade_no',
       key: 'trade_no',
       width: 180,
       render: (no: string) => (no ? <span style={{ fontSize: 12 }}>{no}</span> : '-'),
     },
-    {
+    !isMobile && {
       title: '更新时间',
       dataIndex: 'updated_at',
       key: 'updated_at',
@@ -339,7 +341,7 @@ export default function CardPage() {
     {
       title: '操作',
       key: 'action',
-      width: 90,
+      width: 70,
       align: 'right',
       render: (_, record) => (
         <Popconfirm
@@ -356,12 +358,19 @@ export default function CardPage() {
         </Popconfirm>
       ),
     },
-  ]
+  ].filter(Boolean) as TableColumnsType<CardItem>
 
   return (
     <AdminLayout title="发卡管理">
       <TableBlock>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          gap: isMobile ? 12 : 0,
+          marginBottom: 20
+        }}>
           <Space size="middle">
             <h2 className="content-heading" style={{ margin: 0, padding: 0, border: 'none' }}>
               卡密发卡管理
@@ -405,6 +414,7 @@ export default function CardPage() {
             loading={loading}
             dataSource={products}
             columns={productColumns}
+            scroll={{ x: isMobile ? 550 : undefined }}
             pagination={{ defaultPageSize: 15, showSizeChanger: true }}
           />
         ) : (
@@ -413,6 +423,7 @@ export default function CardPage() {
               <span style={{ marginRight: 8, color: '#666' }}>库存状态：</span>
               <Radio.Group
                 value={statusFilter}
+                size={isMobile ? 'small' : 'middle'}
                 onChange={(e) => {
                   setStatusFilter(e.target.value)
                   void fetchCards(activeProduct.id, e.target.value)
@@ -429,6 +440,7 @@ export default function CardPage() {
               loading={cardsLoading}
               dataSource={cards}
               columns={cardColumns}
+              scroll={{ x: isMobile ? 500 : undefined }}
               pagination={{ defaultPageSize: 20, showSizeChanger: true }}
             />
           </div>
@@ -443,7 +455,7 @@ export default function CardPage() {
         confirmLoading={productSubmitting}
         onCancel={() => setProductModalVisible(false)}
         destroyOnClose
-        width={560}
+        width={isMobile ? '95%' : 560}
       >
         <Form form={productForm} layout="vertical" preserve={false}>
           <Form.Item name="name" label="商品名称" rules={[{ required: true, message: '请输入商品名称' }]}>

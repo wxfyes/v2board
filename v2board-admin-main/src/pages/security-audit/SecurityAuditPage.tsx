@@ -15,6 +15,7 @@ import { adminPath } from '@/app/settings';
 import { UserDrawer } from '../user/UserDrawer';
 import { useNavigate } from 'react-router';
 import { AdminLayout } from '@/layouts/AdminLayout';
+import { useMobile } from '@/hooks/useMobile';
 
 const { Option } = Select;
 const { TabPane } = Tabs;
@@ -125,47 +126,48 @@ export default function SecurityAuditPage() {
   const [customAuditVisible, setCustomAuditVisible] = useState(false);
   const [userDetailVisible, setUserDetailVisible] = useState(false);
   const [activeUserId, setActiveUserId] = useState<number | null>(null);
+  const isMobile = useMobile();
 
   return (
     <AdminLayout title="安全审计">
-      <div style={{ padding: "0 4px" }}>
-      <Row gutter={16} style={{ marginBottom: 20 }}>
+      <div style={{ padding: isMobile ? "0 2px" : "0 4px" }}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={8}>
-          <Card hoverable bodyStyle={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Card hoverable bodyStyle={{ padding: isMobile ? 14 : 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ color: '#8c8c8c', marginBottom: 6 }}>待处理高风险拦截</div>
-                <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>{flaggedCount}</div>
+                <div style={{ color: '#8c8c8c', marginBottom: 4, fontSize: 13 }}>待处理高风险拦截</div>
+                <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 'bold', color: '#ff4d4f' }}>{flaggedCount}</div>
               </div>
-              <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(245, 108, 108, 0.12)', color: '#ff4d4f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(245, 108, 108, 0.12)', color: '#ff4d4f', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
                 <WarningOutlined />
               </div>
             </div>
           </Card>
         </Col>
         <Col xs={24} sm={8}>
-          <Card hoverable bodyStyle={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Card hoverable bodyStyle={{ padding: isMobile ? 14 : 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ color: '#8c8c8c', marginBottom: 6 }}>疑似工具拉取记录</div>
-                <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{suspectedCount}</div>
+                <div style={{ color: '#8c8c8c', marginBottom: 4, fontSize: 13 }}>疑似工具拉取记录</div>
+                <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 'bold', color: '#faad14' }}>{suspectedCount}</div>
               </div>
-              <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(250, 173, 20, 0.12)', color: '#faad14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(250, 173, 20, 0.12)', color: '#faad14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
                 <DashboardOutlined />
               </div>
             </div>
           </Card>
         </Col>
         <Col xs={24} sm={8}>
-          <Card hoverable bodyStyle={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Card hoverable bodyStyle={{ padding: isMobile ? 14 : 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ color: '#8c8c8c', marginBottom: 6 }}>已启用白名单/蜜罐</div>
-                <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+                <div style={{ color: '#8c8c8c', marginBottom: 4, fontSize: 13 }}>已启用白名单/蜜罐</div>
+                <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 'bold', color: '#1890ff' }}>
                   {whitelistList.length} <span style={{ fontSize: 12, fontWeight: 'normal', color: '#8c8c8c' }}>白</span> / {honeypotList.length} <span style={{ fontSize: 12, fontWeight: 'normal', color: '#8c8c8c' }}>蜜</span>
                 </div>
               </div>
-              <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(24, 144, 255, 0.12)', color: '#1890ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(24, 144, 255, 0.12)', color: '#1890ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
                 <LockOutlined />
               </div>
             </div>
@@ -181,33 +183,47 @@ export default function SecurityAuditPage() {
           </div>
         }
         extra={
-          <Space wrap>
-            <Button type="primary" ghost icon={<ApiOutlined />} onClick={() => setCustomAuditVisible(true)}>自定义特征探测</Button>
-            <Button style={{ color: '#faad14', borderColor: '#faad14' }} icon={<BlockOutlined />} onClick={() => setRadarVisible(true)}>IP 关联分析</Button>
-            <Button type="primary" icon={<SettingOutlined />} onClick={() => setSettingsVisible(true)}>审计规则 & 白名单</Button>
-            <Button danger icon={<DeleteOutlined />} disabled={flaggedCount === 0} onClick={handleClearAllAnomalies}>一键忽略全部</Button>
-            <Button icon={<SyncOutlined />} loading={loading} onClick={fetchAnomalies}>刷新</Button>
-          </Space>
+          !isMobile ? (
+            <Space wrap>
+              <Button type="primary" ghost icon={<ApiOutlined />} onClick={() => setCustomAuditVisible(true)}>自定义特征探测</Button>
+              <Button style={{ color: '#faad14', borderColor: '#faad14' }} icon={<BlockOutlined />} onClick={() => setRadarVisible(true)}>IP 关联分析</Button>
+              <Button type="primary" icon={<SettingOutlined />} onClick={() => setSettingsVisible(true)}>审计规则 & 白名单</Button>
+              <Button danger icon={<DeleteOutlined />} disabled={flaggedCount === 0} onClick={handleClearAllAnomalies}>一键忽略全部</Button>
+              <Button icon={<SyncOutlined />} loading={loading} onClick={fetchAnomalies}>刷新</Button>
+            </Space>
+          ) : null
         }
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 16 }}>
-          <Space wrap>
+        {isMobile && (
+          <div style={{ marginBottom: 14 }}>
+            <Space wrap size={[6, 6]}>
+              <Button size="small" type="primary" ghost icon={<ApiOutlined />} onClick={() => setCustomAuditVisible(true)}>特征探测</Button>
+              <Button size="small" style={{ color: '#faad14', borderColor: '#faad14' }} icon={<BlockOutlined />} onClick={() => setRadarVisible(true)}>IP关联</Button>
+              <Button size="small" type="primary" icon={<SettingOutlined />} onClick={() => setSettingsVisible(true)}>审计设置</Button>
+              <Button size="small" danger icon={<DeleteOutlined />} disabled={flaggedCount === 0} onClick={handleClearAllAnomalies}>忽略全部</Button>
+              <Button size="small" icon={<SyncOutlined />} loading={loading} onClick={fetchAnomalies}>刷新</Button>
+            </Space>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: 10, marginBottom: 16 }}>
+          <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: isMobile ? '100%' : 'auto' }}>
             <Input 
               placeholder="搜索邮箱或用户 ID..." 
               prefix={<SearchOutlined />} 
               value={searchKw}
               onChange={e => setSearchKw(e.target.value)}
               allowClear
-              style={{ width: 220 }}
+              style={{ width: isMobile ? '100%' : 220 }}
             />
-            <Select value={filterType} onChange={setFilterType} style={{ width: 180 }}>
+            <Select value={filterType} onChange={setFilterType} style={{ width: isMobile ? '100%' : 180 }}>
               <Option value="all">全部记录</Option>
               <Option value="flagged">仅看审计拦截 (高风险)</Option>
               <Option value="suspected">仅看疑似工具 (低风险)</Option>
               <Option value="honeypot">仅看已接管蜜罐</Option>
             </Select>
           </Space>
-          <div style={{ fontSize: 13, color: '#8c8c8c', alignSelf: 'center' }}>
+          <div style={{ fontSize: 13, color: '#8c8c8c', alignSelf: isMobile ? 'flex-start' : 'center' }}>
             共筛选出 <strong>{filteredAnomaliesList.length}</strong> 条审计数据
           </div>
         </div>
@@ -217,6 +233,7 @@ export default function SecurityAuditPage() {
           rowKey="user_id" 
           loading={loading}
           pagination={{ pageSize: 15 }}
+          scroll={{ x: 800 }}
           expandable={{
             expandedRowRender: record => <AnomalyHistory record={record} onRefresh={fetchAnomalies} />
           }}
@@ -450,6 +467,7 @@ function AnomalyHistory({ record, onRefresh }: { record: any, onRefresh: () => v
 function SettingsModal({ visible, onCancel, config, whitelist, bannedIps, ignoreIps, onRefresh }: any) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
+  const isMobile = useMobile();
   
   const [newWhite, setNewWhite] = useState('');
   const [newBanned, setNewBanned] = useState('');
@@ -498,7 +516,7 @@ function SettingsModal({ visible, onCancel, config, whitelist, bannedIps, ignore
   };
 
   return (
-    <Modal open={visible} onCancel={onCancel} title="订阅审计与白名单设置" width={700}
+    <Modal open={visible} onCancel={onCancel} title="订阅审计与白名单设置" width={isMobile ? '95%' : 700}
       footer={[
         <Button key="cancel" onClick={onCancel}>取消</Button>,
         <Button key="save" type="primary" loading={saving} onClick={handleSave}>保存修改</Button>
@@ -508,7 +526,7 @@ function SettingsModal({ visible, onCancel, config, whitelist, bannedIps, ignore
         <TabPane tab="审计参数规则" key="rules">
           <Form form={form} layout="vertical">
             <Form.Item label="24h独立IP阈值" name="ip_limit" extra="同一个订阅 24 小时内独立拉取 IP 达到该数值后，会被自动判定并拦截预警。">
-              <InputNumber min={1} max={100} />
+              <InputNumber min={1} max={100} style={{ width: isMobile ? '100%' : undefined }} />
             </Form.Item>
             <Form.Item label="命令行/客户端 UA 审计" name="audit_ua_enabled" valuePropName="checked" extra="是否对使用指定的客户端 UA 拉取订阅的行为进行检测和审计。">
               <Switch />
@@ -554,7 +572,7 @@ function SettingsModal({ visible, onCancel, config, whitelist, bannedIps, ignore
             </Form.Item>
             <Form.Item noStyle shouldUpdate={(prev, curr) => prev.banned_traffic_enable !== curr.banned_traffic_enable}>
               {({ getFieldValue }) => getFieldValue('banned_traffic_enable') ? (
-                <Space>
+                <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
                   <Form.Item name="banned_traffic_min" label="最小(GB)"><InputNumber min={1} /></Form.Item>
                   <Form.Item name="banned_traffic_max" label="最大(GB)"><InputNumber min={2} /></Form.Item>
                 </Space>
@@ -564,16 +582,16 @@ function SettingsModal({ visible, onCancel, config, whitelist, bannedIps, ignore
         </TabPane>
         <TabPane tab="白名单管理" key="whitelist">
           <div style={{ marginBottom: 16 }}>
-            <Space>
-              <Input value={newWhite} onChange={e => setNewWhite(e.target.value)} placeholder="输入用户邮箱或ID" style={{ width: 300 }} />
-              <Button type="primary" onClick={() => {
+            <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+              <Input value={newWhite} onChange={e => setNewWhite(e.target.value)} placeholder="输入用户邮箱或ID" style={{ width: isMobile ? '100%' : 300 }} />
+              <Button type="primary" block={isMobile} onClick={() => {
                 const isId = /^\d+$/.test(newWhite);
                 actionDirectly('/stat/whitelistUser', isId ? { id: parseInt(newWhite) } : { identity: newWhite }, '添加白名单成功');
                 setNewWhite('');
               }}>添加白名单</Button>
             </Space>
           </div>
-          <Table dataSource={whitelist.map((w: string) => ({ id: w }))} rowKey="id" pagination={false} size="small" scroll={{ y: 250 }}>
+          <Table dataSource={whitelist.map((w: string) => ({ id: w }))} rowKey="id" pagination={false} size="small" scroll={{ x: 300, y: 250 }}>
             <Table.Column title="白名单标识" dataIndex="id" />
             <Table.Column title="操作" width={80} render={(_, rec: any) => (
               <a onClick={() => actionDirectly('/stat/removeWhitelistUser', { identity: rec.id }, '移除成功')}>移除</a>
@@ -582,15 +600,15 @@ function SettingsModal({ visible, onCancel, config, whitelist, bannedIps, ignore
         </TabPane>
         <TabPane tab="IP黑名单" key="blacklist">
           <div style={{ marginBottom: 16 }}>
-            <Space>
-              <Input value={newBanned} onChange={e => setNewBanned(e.target.value)} placeholder="输入要封禁的 IP" style={{ width: 300 }} />
-              <Button type="primary" onClick={() => {
+            <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+              <Input value={newBanned} onChange={e => setNewBanned(e.target.value)} placeholder="输入要封禁的 IP" style={{ width: isMobile ? '100%' : 300 }} />
+              <Button type="primary" block={isMobile} onClick={() => {
                 actionDirectly('/stat/banIp', { ip: newBanned }, '添加封禁成功');
                 setNewBanned('');
               }}>添加封禁</Button>
             </Space>
           </div>
-          <Table dataSource={bannedIps.map((w: string) => ({ ip: w }))} rowKey="ip" pagination={false} size="small" scroll={{ y: 250 }}>
+          <Table dataSource={bannedIps.map((w: string) => ({ ip: w }))} rowKey="ip" pagination={false} size="small" scroll={{ x: 300, y: 250 }}>
             <Table.Column title="封禁 IP" dataIndex="ip" />
             <Table.Column title="操作" width={80} render={(_, rec: any) => (
               <a onClick={() => actionDirectly('/stat/removeBanIp', { ip: rec.ip }, '解封成功')}>解封</a>
@@ -599,9 +617,9 @@ function SettingsModal({ visible, onCancel, config, whitelist, bannedIps, ignore
         </TabPane>
         <TabPane tab="节点IP免审" key="ignoreip">
           <div style={{ marginBottom: 16 }}>
-            <Space>
-              <Input value={newIgnore} onChange={e => setNewIgnore(e.target.value)} placeholder="节点 IP 或网段(CIDR)" style={{ width: 300 }} />
-              <Button type="primary" onClick={() => {
+            <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+              <Input value={newIgnore} onChange={e => setNewIgnore(e.target.value)} placeholder="节点 IP 或网段(CIDR)" style={{ width: isMobile ? '100%' : 300 }} />
+              <Button type="primary" block={isMobile} onClick={() => {
                 actionDirectly('/stat/addIgnoreIp', { ip: newIgnore }, '添加免审成功');
                 setNewIgnore('');
               }}>添加免审</Button>
@@ -622,6 +640,7 @@ function SettingsModal({ visible, onCancel, config, whitelist, bannedIps, ignore
 function IpRadarModal({ visible, onCancel, onRefresh }: any) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const isMobile = useMobile();
 
   useEffect(() => {
     if (visible) {
@@ -647,8 +666,8 @@ function IpRadarModal({ visible, onCancel, onRefresh }: any) {
   };
 
   return (
-    <Modal open={visible} onCancel={onCancel} title="多账号共用 IP 关联分析雷达" width={900} footer={[<Button key="close" onClick={onCancel}>关闭</Button>]}>
-      <Table dataSource={data} rowKey="ip" loading={loading} size="small" scroll={{ y: 450 }}>
+    <Modal open={visible} onCancel={onCancel} title="多账号共用 IP 关联分析雷达" width={isMobile ? '95%' : 900} footer={[<Button key="close" onClick={onCancel}>关闭</Button>]}>
+      <Table dataSource={data} rowKey="ip" loading={loading} size="small" scroll={{ x: 600, y: 450 }}>
         <Table.Column title="共用 IP" dataIndex="ip" render={(ip, rec: any) => <div><strong>{ip}</strong><div style={{ fontSize: 11, color: '#999' }}>{rec.location}</div></div>} />
         <Table.Column title="关联账号数" render={(_, rec: any) => <span><strong>{rec.associated_accounts_count}</strong> 个账号 {rec.honeypot_accounts_count > 0 && <span style={{ color: '#faad14' }}>({rec.honeypot_accounts_count} 蜜罐)</span>}</span>} />
         <Table.Column title="共用账号列表" dataIndex="associated_users" render={(users: any[]) => <Space wrap>{users.map(u => <Tag key={u.id} color={u.in_honeypot ? 'warning' : 'success'}>{u.email} ({u.id})</Tag>)}</Space>} />
@@ -665,6 +684,7 @@ function CustomAuditModal({ visible, onCancel, onRefresh }: any) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([]);
+  const isMobile = useMobile();
 
   const handleScan = async () => {
     try {
@@ -707,25 +727,27 @@ function CustomAuditModal({ visible, onCancel, onRefresh }: any) {
   };
 
   return (
-    <Modal open={visible} onCancel={onCancel} title="自定义特征探测雷达" width={1000} footer={[<Button key="close" onClick={onCancel}>关闭</Button>]}>
-      <Card bodyStyle={{ padding: 16, marginBottom: 16 }}>
-        <Form form={form} layout="inline" initialValues={{ id_min: 10000, ua_keyword: 'clash-verge/733', province_count: 5, time_range: 86400, max_traffic: 1024, only_idc: false }}>
-          <Form.Item label="ID >=" name="id_min"><InputNumber style={{ width: 90 }} /></Form.Item>
-          <Form.Item label="UA 包含" name="ua_keyword"><Input style={{ width: 140 }} /></Form.Item>
-          <Form.Item label="时间" name="time_range">
-            <Select style={{ width: 100 }}>
-              <Option value={86400}>24小时</Option>
-              <Option value={129600}>36小时</Option>
-              <Option value={172800}>48小时</Option>
-              <Option value={259200}>72小时</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item label="跨省 >=" name="province_count"><InputNumber min={0} max={34} style={{ width: 70 }} /></Form.Item>
-          <Form.Item name="only_idc" valuePropName="checked"><Checkbox>仅限机房</Checkbox></Form.Item>
-          <Form.Item label="已用流量 <=" name="max_traffic"><InputNumber min={0} style={{ width: 90 }} /></Form.Item>
-          <Form.Item>
-            <Button type="primary" onClick={handleScan} loading={loading}>开始扫描</Button>
-          </Form.Item>
+    <Modal open={visible} onCancel={onCancel} title="自定义特征探测雷达" width={isMobile ? '95%' : 1000} footer={[<Button key="close" onClick={onCancel}>关闭</Button>]}>
+      <Card bodyStyle={{ padding: isMobile ? 10 : 16, marginBottom: 16 }}>
+        <Form form={form} layout={isMobile ? 'vertical' : 'inline'} initialValues={{ id_min: 10000, ua_keyword: 'clash-verge/733', province_count: 5, time_range: 86400, max_traffic: 1024, only_idc: false }}>
+          <Space wrap size={[8, 8]}>
+            <Form.Item label="ID >=" name="id_min" style={{ marginBottom: 8 }}><InputNumber style={{ width: 90 }} /></Form.Item>
+            <Form.Item label="UA 包含" name="ua_keyword" style={{ marginBottom: 8 }}><Input style={{ width: 130 }} /></Form.Item>
+            <Form.Item label="时间" name="time_range" style={{ marginBottom: 8 }}>
+              <Select style={{ width: 100 }}>
+                <Option value={86400}>24小时</Option>
+                <Option value={129600}>36小时</Option>
+                <Option value={172800}>48小时</Option>
+                <Option value={259200}>72小时</Option>
+              </Select>
+            </Form.Item>
+            <Form.Item label="跨省 >=" name="province_count" style={{ marginBottom: 8 }}><InputNumber min={0} max={34} style={{ width: 70 }} /></Form.Item>
+            <Form.Item name="only_idc" valuePropName="checked" style={{ marginBottom: 8 }}><Checkbox>仅限机房</Checkbox></Form.Item>
+            <Form.Item label="流量 <=" name="max_traffic" style={{ marginBottom: 8 }}><InputNumber min={0} style={{ width: 80 }} /></Form.Item>
+            <Form.Item style={{ marginBottom: 8 }}>
+              <Button type="primary" onClick={handleScan} loading={loading}>开始扫描</Button>
+            </Form.Item>
+          </Space>
         </Form>
       </Card>
       
@@ -741,7 +763,7 @@ function CustomAuditModal({ visible, onCancel, onRefresh }: any) {
         rowKey="user_id" 
         loading={loading} 
         size="small" 
-        scroll={{ y: 400 }}
+        scroll={{ x: 750, y: 400 }}
         rowSelection={{ selectedRowKeys: selectedKeys, onChange: setSelectedKeys }}
       >
         <Table.Column title="ID" dataIndex="user_id" width={70} />
@@ -762,6 +784,7 @@ export function UserDetailModal({ visible, userId, onCancel }: any) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const isMobile = useMobile();
 
   const handleToggleBan = async () => {
     try {
@@ -799,11 +822,10 @@ export function UserDetailModal({ visible, userId, onCancel }: any) {
   const formatGb = (b: number) => (b / 1073741824).toFixed(2) + ' GB';
 
   return (
-    <Modal open={visible} onCancel={onCancel} title="用户全息档案" width={600}
+    <Modal open={visible} onCancel={onCancel} title="用户全息档案" width={isMobile ? '95%' : 600}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          
-          <Space>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: 8 }}>
+          <Space wrap>
             <Button 
               type={data?.banned === 1 ? 'default' : 'primary'} 
               danger={data?.banned !== 1} 
@@ -820,23 +842,23 @@ export function UserDetailModal({ visible, userId, onCancel }: any) {
             </Button>
           </Space>
 
-          <Space>
+          <Space wrap>
             <Button onClick={() => { onCancel(); navigate(`/order`); }}>TA的订单</Button>
-              <UserDrawer userId={data?.id}>
-                <Button>在用户管理中编辑</Button>
-              </UserDrawer>
+            <UserDrawer userId={data?.id}>
+              <Button>编辑资料</Button>
+            </UserDrawer>
+            <Button onClick={onCancel}>关闭</Button>
           </Space>
-          <Button onClick={onCancel}>关闭</Button>
         </div>
       }
     >
-      <div style={{ padding: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, borderBottom: '1px solid #f0f0f0', paddingBottom: 16, marginBottom: 16 }}>
-          <Avatar size={64} icon={<UserOutlined />} style={{ backgroundColor: '#e6f7ff', color: '#1890ff' }} />
+      <div style={{ padding: isMobile ? 8 : 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid #f0f0f0', paddingBottom: 12, marginBottom: 16 }}>
+          <Avatar size={isMobile ? 48 : 64} icon={<UserOutlined />} style={{ backgroundColor: '#e6f7ff', color: '#1890ff' }} />
           <div>
-            <div style={{ fontSize: 18, fontWeight: 'bold' }}>{data?.email}</div>
-            <div style={{ color: '#888', marginTop: 8 }}>
-              ID: <code>{data?.id}</code> | 注册于: {data?.created_at ? new Date(data.created_at * 1000).toLocaleString() : '-'}
+            <div style={{ fontSize: isMobile ? 15 : 18, fontWeight: 'bold', wordBreak: 'break-all' }}>{data?.email}</div>
+            <div style={{ color: '#888', marginTop: 4, fontSize: 12 }}>
+              ID: <code>{data?.id}</code> | 注册: {data?.created_at ? new Date(data.created_at * 1000).toLocaleDateString() : '-'}
             </div>
           </div>
         </div>
@@ -855,8 +877,8 @@ export function UserDetailModal({ visible, userId, onCancel }: any) {
           </div>
         </Card>
 
-        <Descriptions bordered size="small" column={2}>
-          <Descriptions.Item label="到期时间" span={2}>
+        <Descriptions bordered size="small" column={isMobile ? 1 : 2}>
+          <Descriptions.Item label="到期时间" span={isMobile ? 1 : 2}>
             {data?.expired_at ? new Date(data.expired_at * 1000).toLocaleString() : '长期有效'}
           </Descriptions.Item>
           <Descriptions.Item label="账户余额">{((data?.balance || 0) / 100).toFixed(2)} 元</Descriptions.Item>
@@ -868,5 +890,6 @@ export function UserDetailModal({ visible, userId, onCancel }: any) {
     </Modal>
   );
 }
+
 
 

@@ -8,6 +8,7 @@ import { FormGroup } from '@/components/FormGroup'
 import { JsLink } from '@/components/JsLink'
 import { GroupModal } from '@/pages/server/group/GroupModal'
 import { PERIOD_KEYS, type PeriodKey } from '@/utils/constants'
+import { useMobile } from '@/hooks/useMobile'
 
 /** 表单里的订阅：价格单位为元；输入框里改过的值是字符串 */
 export type PlanForm = {
@@ -67,6 +68,7 @@ interface PlanDrawerProps {
 
 // 新建 / 编辑订阅抽屉（原版模块 ih8c 里的抽屉）。与原版一致：表单内容只在组件创建时从 record 初始化。
 export function PlanDrawer({ record: initial, children }: PlanDrawerProps) {
+  const isMobile = useMobile()
   const [visible, setVisible] = useState(false)
   const [record, setRecord] = useState<PlanForm>(() => initial ?? DEFAULT_RECORD)
   const [saving, setSaving] = useState(false)
@@ -101,7 +103,7 @@ export function PlanDrawer({ record: initial, children }: PlanDrawerProps) {
         onClose={() => setVisible(false)}
         title={record.id ? '编辑订阅' : '新建订阅'}
         open={visible}
-        size="80%"
+        width={isMobile ? '100%' : '600px'}
       >
         <div>
           <FormGroup label="套餐名称">
@@ -125,17 +127,17 @@ export function PlanDrawer({ record: initial, children }: PlanDrawerProps) {
               <InfoCircleOutlined />
             </Tooltip>
           </Divider>
-          <Row gutter={10}>
+          <Row gutter={[10, 10]}>
             {PRICE_FIELDS.map(([key, label]) => (
-              <Col md={4} key={key}>
+              <Col xs={12} sm={8} md={4} key={key}>
                 <FormGroup label={label}>
                   <Input value={priceValue(key)} onChange={(e) => priceChange(key, e.target.value)} />
                 </FormGroup>
               </Col>
             ))}
           </Row>
-          <Row gutter={10}>
-            <Col md={12}>
+          <Row gutter={[10, 10]}>
+            <Col xs={24} sm={12}>
               <FormGroup label="一次性">
                 <Input
                   addonAfter={currency}
@@ -144,7 +146,7 @@ export function PlanDrawer({ record: initial, children }: PlanDrawerProps) {
                 />
               </FormGroup>
             </Col>
-            <Col md={12}>
+            <Col xs={24} sm={12}>
               <FormGroup label="重置包">
                 <Input
                   addonAfter={currency}

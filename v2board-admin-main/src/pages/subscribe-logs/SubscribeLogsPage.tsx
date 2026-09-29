@@ -5,11 +5,12 @@ import { get, post } from '@/api/request';
 import { adminPath } from '@/app/settings';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { UserDetailModal } from '../security-audit/SecurityAuditPage';
-
+import { useMobile } from '@/hooks/useMobile';
 
 const { Text } = Typography;
 
 export default function SubscribeLogsPage() {
+  const isMobile = useMobile();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -383,55 +384,60 @@ export default function SubscribeLogsPage() {
 
   return (
     <AdminLayout title="🛡️ 订阅拉取雷达 (无限制监控)">
-      <div style={{ padding: '24px' }}>
-        <Card bordered={false}>
-          <Space wrap style={{ marginBottom: 16 }}>
-            <Input
-              placeholder="User ID"
-              value={query.user_id}
-              onChange={(e) => setQuery({ ...query, user_id: e.target.value })}
-              onPressEnter={handleFilter}
-              allowClear
-              style={{ width: 150 }}
-            />
-            <Input
-              placeholder="IP 地址"
-              value={query.ip}
-              onChange={(e) => setQuery({ ...query, ip: e.target.value })}
-              onPressEnter={handleFilter}
-              allowClear
-              style={{ width: 200 }}
-            />
-            <Input
-              placeholder="User-Agent 关键词"
-              value={query.ua}
-              onChange={(e) => setQuery({ ...query, ua: e.target.value })}
-              onPressEnter={handleFilter}
-              allowClear
-              style={{ width: 250 }}
-            />
-            <Button type="primary" icon={<SearchOutlined />} onClick={handleFilter}>
-              查询
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={resetFilter}>
-              重置
-            </Button>
-            <Button type="primary" style={{ backgroundColor: '#faad14', borderColor: '#faad14' }} icon={<TrophyOutlined />} onClick={getTopUsers}>
-              今日拉取排行
-            </Button>
-            <Button type="primary" danger icon={<LinkOutlined />} onClick={openIpModal}>
-              IP 关联分析
-            </Button>
-            <Button type="primary" danger icon={<MonitorOutlined />} onClick={openDeviceModal}>
-              异常设备雷达
-            </Button>
-          </Space>
+      <div style={{ padding: isMobile ? '12px 8px' : '24px' }}>
+        <Card bordered={false} bodyStyle={{ padding: isMobile ? 12 : 24 }}>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 8, marginBottom: 8 }}>
+              <Input
+                placeholder="User ID"
+                value={query.user_id}
+                onChange={(e) => setQuery({ ...query, user_id: e.target.value })}
+                onPressEnter={handleFilter}
+                allowClear
+                style={{ width: isMobile ? '100%' : 150 }}
+              />
+              <Input
+                placeholder="IP 地址"
+                value={query.ip}
+                onChange={(e) => setQuery({ ...query, ip: e.target.value })}
+                onPressEnter={handleFilter}
+                allowClear
+                style={{ width: isMobile ? '100%' : 200 }}
+              />
+              <Input
+                placeholder="User-Agent 关键词"
+                value={query.ua}
+                onChange={(e) => setQuery({ ...query, ua: e.target.value })}
+                onPressEnter={handleFilter}
+                allowClear
+                style={{ width: isMobile ? '100%' : 250 }}
+              />
+            </div>
+            <Space wrap size={[6, 6]}>
+              <Button type="primary" size={isMobile ? 'small' : 'middle'} icon={<SearchOutlined />} onClick={handleFilter}>
+                查询
+              </Button>
+              <Button size={isMobile ? 'small' : 'middle'} icon={<ReloadOutlined />} onClick={resetFilter}>
+                重置
+              </Button>
+              <Button type="primary" size={isMobile ? 'small' : 'middle'} style={{ backgroundColor: '#faad14', borderColor: '#faad14' }} icon={<TrophyOutlined />} onClick={getTopUsers}>
+                今日排行
+              </Button>
+              <Button type="primary" size={isMobile ? 'small' : 'middle'} danger icon={<LinkOutlined />} onClick={openIpModal}>
+                IP 关联
+              </Button>
+              <Button type="primary" size={isMobile ? 'small' : 'middle'} danger icon={<MonitorOutlined />} onClick={openDeviceModal}>
+                设备雷达
+              </Button>
+            </Space>
+          </div>
 
           <Table
             dataSource={data}
             columns={columns}
             loading={loading}
             rowKey={(record, index) => record.id || index}
+            scroll={{ x: 950 }}
             pagination={{
               current: query.current,
               pageSize: query.page_size,
@@ -453,7 +459,7 @@ export default function SubscribeLogsPage() {
         footer={[
           <Button key="close" onClick={() => setIpModalVisible(false)}>关闭</Button>
         ]}
-        width={900}
+        width={isMobile ? '95%' : 900}
         destroyOnClose
       >
         <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 15, lineHeight: 1.5 }}>
@@ -466,7 +472,7 @@ export default function SubscribeLogsPage() {
           rowKey="ip"
           pagination={false}
           size="small"
-          scroll={{ y: 450 }}
+          scroll={{ x: 650, y: 450 }}
         />
       </Modal>
 
@@ -477,7 +483,7 @@ export default function SubscribeLogsPage() {
         footer={[
           <Button key="close" onClick={() => setDeviceModalVisible(false)}>关闭</Button>
         ]}
-        width={950}
+        width={isMobile ? '95%' : 950}
         destroyOnClose
       >
         <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 15, lineHeight: 1.5 }}>
@@ -490,7 +496,7 @@ export default function SubscribeLogsPage() {
           rowKey="device_id"
           pagination={false}
           size="small"
-          scroll={{ y: 450 }}
+          scroll={{ x: 750, y: 450 }}
         />
       </Modal>
     

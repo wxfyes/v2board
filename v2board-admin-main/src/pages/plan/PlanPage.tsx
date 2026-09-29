@@ -20,6 +20,7 @@ import { DragHandle } from '@/components/table/DragHandle'
 import { V2Table } from '@/components/table/V2Table'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { PERIOD_KEYS } from '@/utils/constants'
+import { useMobile } from '@/hooks/useMobile'
 import { PlanDrawer } from './PlanDrawer'
 
 /** 与原版 plan/fetch 一致：价格由分换算成元（null 保持 null） */
@@ -75,6 +76,8 @@ export default function PlanPage() {
       if (res.code === 200) void refetch()
     })
 
+  const isMobile = useMobile()
+
   // 与原版一致：先在本地调整顺序，再提交全部 id，最后重新拉取
   const sort = async (fromIndex: number, toIndex: number) => {
     const next = arrayMove(rawPlans, fromIndex, toIndex)
@@ -85,13 +88,14 @@ export default function PlanPage() {
     if (res.code === 200) void refetch()
   }
 
-  const columns: TableColumnsType<Plan> = [
-    { title: '排序', dataIndex: 'sort', key: 'sort', render: () => <DragHandle /> },
+  const columns: TableColumnsType<Plan> = useMemo(() => [
+    !isMobile && { title: '排序', dataIndex: 'sort', key: 'sort', render: () => <DragHandle /> },
     {
-      title: '销售状态',
+      title: '销售',
       dataIndex: 'show',
       key: 'show',
-      render: (show: number, record) => (
+      width: isMobile ? 65 : undefined,
+      render: (show: number, record: Plan) => (
         <Switch size="small" checked={Boolean(show)} onClick={() => void update(record.id, 'show', show ? 0 : 1)} />
       ),
     },
@@ -106,12 +110,13 @@ export default function PlanPage() {
       ),
       dataIndex: 'renew',
       key: 'renew',
-      render: (renew: number, record) => (
+      width: isMobile ? 65 : undefined,
+      render: (renew: number, record: Plan) => (
         <Switch size="small" checked={Boolean(renew)} onClick={() => void update(record.id, 'renew', renew ? 0 : 1)} />
       ),
     },
     { title: '名称', dataIndex: 'name', key: 'name' },
-    {
+    !isMobile && {
       title: '统计',
       dataIndex: 'count',
       key: 'count',
@@ -122,13 +127,31 @@ export default function PlanPage() {
       ),
     },
     { title: '流量', dataIndex: 'transfer_enable', key: 'transfer_enable', render: (value: number) => <>{value} GB</> },
-    {
+    !isMobile && {
       title: '设备数限制',
       dataIndex: 'device_limit',
       key: 'device_limit',
       render: (value: number | null) => (value !== null ? value : '-'),
     },
-    ...PRICE_COLUMNS.map(([key, title]) => ({ title, dataIndex: key, key, render: price })),
+    ...(isMobile ? [{
+      title: '价格',
+      key: 'price_summary',
+      render: (_: unknown, r: Plan) => {
+        const parts: string[] = []
+        if (r.month_price !== null && typeof r.month_price === 'number') parts.push(`月:¥${r.month_price.toFixed(2)}`)
+        if (r.year_price !== null && typeof r.year_price === 'number') parts.push(`年:¥${r.year_price.toFixed(2)}`)
+        if (r.onetime_price !== null && typeof r.onetime_price === 'number') parts.push(`单:¥${r.onetime_price.toFixed(2)}`)
+        if (parts.length === 0) {
+          for (const [k, name] of PRICE_COLUMNS) {
+            if (r[k] !== null && typeof r[k] === 'number') {
+              parts.push(`${name}:¥${(r[k] as number).toFixed(2)}`)
+              break
+            }
+          }
+        }
+        return <span style={{ fontSize: 12 }}>{parts.join(' / ') || '-'}</span>
+      }
+    }] : PRICE_COLUMNS.map(([key, title]) => ({ title, dataIndex: key, key, render: price }))),
     {
       title: '权限组',
       dataIndex: 'group_id',
@@ -144,7 +167,7 @@ export default function PlanPage() {
       key: 'action',
       fixed: 'right',
       align: 'right',
-      render: (_: unknown, record) => (
+      render: (_: unknown, record: Plan) => (
         <Dropdown
           trigger={['click']}
           menu={{
@@ -177,7 +200,7 @@ export default function PlanPage() {
         </Dropdown>
       ),
     },
-  ]
+  ].filter(Boolean) as TableColumnsType<Plan>, [isMobile, groups])
 
   return (
     <AdminLayout title="订阅管理">
@@ -193,7 +216,7 @@ export default function PlanPage() {
           dataSource={plans}
           columns={columns}
           pagination={false}
-          scroll={{ x: 1300 }}
+          scroll={{ x: isMobile ? 650 : 1300 }}
           onDragSort={(from, to) => void sort(from, to)}
           onRowContextMenu={setContextRecord}
           contextMenu={
