@@ -140,21 +140,34 @@ class OrderService
     public function setOrderType(User $user)
     {
         $order = $this->order;
+        $userRemainingTraffic = $user->transfer_enable - ($user->u + $user->d);
+        // 一次性套餐是否有效：只有当 expired_at 为 NULL 且剩余流量大于 0 时才算有效
+        $isOnetimeActive = ($user->expired_at === NULL && $userRemainingTraffic > 0);
+        // 周期套餐是否有效：expired_at 大于当前时间
+        $isPeriodActive = ($user->expired_at !== NULL && $user->expired_at > time());
+        // 当前是否有未过期的有效订阅
+        $hasActivePlan = $isPeriodActive || $isOnetimeActive;
+
         if ($order->period === 'deposit'){
             $order->type = 9;
         } else if ($order->period === 'reset_price') {
             $order->type = 4;
-        } else if ($user->plan_id !== NULL && $order->plan_id !== $user->plan_id && ($user->expired_at > time() || $user->expired_at === NULL)) {
+        } else if ($user->plan_id !== NULL && $order->plan_id !== $user->plan_id && $hasActivePlan) {
             if (!(int)config('v2board.plan_change_enable', 1)) abort(500, '目前不允许更改订阅，请联系客服或提交工单操作');
             
-            $lastActiveOrder = Order::where('user_id', $user->id)
-                ->where('period', '!=', 'reset_price')
-                ->where('period', '!=', 'onetime_price')
-                ->where('period', '!=', 'deposit')
-                ->where('period', '!=', 'card')
-                ->where('status', 3)
-                ->orderBy('id', 'DESC')
-                ->first();
+            // 只有当前处于周期套餐有效期的用户 ($isPeriodActive)，才受周期套餐降级规则约束
+            // 一次性套餐用户不具有固定月周期，不能被历史陈旧周期订单错误拦截
+            $lastActiveOrder = null;
+            if ($isPeriodActive) {
+                $lastActiveOrder = Order::where('user_id', $user->id)
+                    ->where('period', '!=', 'reset_price')
+                    ->where('period', '!=', 'onetime_price')
+                    ->where('period', '!=', 'deposit')
+                    ->where('period', '!=', 'card')
+                    ->where('status', 3)
+                    ->orderBy('id', 'DESC')
+                    ->first();
+            }
 
             // 降级拦截逻辑与升级判定
             $isUpgradeOrSamePrice = false;
