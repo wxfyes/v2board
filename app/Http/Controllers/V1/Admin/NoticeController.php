@@ -25,16 +25,18 @@ class NoticeController extends Controller
             'img_url',
             'tags'
         ]);
-        if (!$request->input('id')) {
-            if (!Notice::create($data)) {
-                abort(500, '保存失败');
+        try {
+            if (!$request->input('id')) {
+                Notice::create($data);
+            } else {
+                $notice = Notice::find($request->input('id'));
+                if (!$notice) {
+                    abort(500, '公告不存在');
+                }
+                $notice->update($data);
             }
-        } else {
-            try {
-                Notice::find($request->input('id'))->update($data);
-            } catch (\Exception $e) {
-                abort(500, '保存失败');
-            }
+        } catch (\Exception $e) {
+            abort(500, '保存失败: ' . $e->getMessage());
         }
         return response([
             'data' => true
