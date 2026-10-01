@@ -1,68 +1,32 @@
 {
   "name": "v2nexus",
-  "description": "V2Nexus 现代化 Bento Grid 极速暗黑双模主题",
-  "version": "1.0.0",
-  "images": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+  "description": "V2Nexus 极速现代化 Bento Grid 主题",
+  "version": "2.5.0",
   "configs": [
     {
-      "label": "客户端版本号",
-      "placeholder": "例如: v2.5.0 (留空不显示版本角标)",
-      "field_name": "client_version",
+      "label": "站点自定义名称",
+      "placeholder": "请输入站点名称，留空使用全局系统设置",
+      "field_name": "site_name",
       "field_type": "input",
       "default_value": ""
     },
     {
-      "label": "客户端更新说明",
-      "placeholder": "例如: 全新内核升级，优化节点连接稳定性与自适应分流",
-      "field_name": "client_changelog",
-      "field_type": "textarea",
-      "default_value": ""
-    },
-    {
-      "label": "Android 客户端下载地址",
-      "placeholder": "请输入安卓客户端 APK 下载地址或下载页 (留空则前台不显示该平台)",
-      "field_name": "client_android",
+      "label": "站点自定义 Logo URL",
+      "placeholder": "请输入 Logo 图片链接，留空使用系统 Logo 或自适应矢量徽标",
+      "field_name": "site_logo",
       "field_type": "input",
       "default_value": ""
     },
     {
-      "label": "Windows 客户端下载地址",
-      "placeholder": "请输入 Windows 客户端安装包下载地址 (留空则前台不显示该平台)",
-      "field_name": "client_windows",
+      "label": "专属邀请短链根域名",
+      "placeholder": "例如 tianque.cc，将自动生成 https://[邀请码].tianque.cc",
+      "field_name": "custom_invite_domain",
       "field_type": "input",
       "default_value": ""
     },
     {
-      "label": "iOS 客户端下载地址",
-      "placeholder": "请输入 iOS App Store 链接或 TestFlight 地址 (留空则前台不显示该平台)",
-      "field_name": "client_ios",
-      "field_type": "input",
-      "default_value": ""
-    },
-    {
-      "label": "macOS 客户端下载地址",
-      "placeholder": "请输入 macOS DMG 或 PKG 下载地址 (留空则前台不显示该平台)",
-      "field_name": "client_macos",
-      "field_type": "input",
-      "default_value": ""
-    },
-    {
-      "label": "Linux 客户端下载地址",
-      "placeholder": "请输入 Linux 客户端下载地址或脚本地址 (留空则前台不显示该平台)",
-      "field_name": "client_linux",
-      "field_type": "input",
-      "default_value": ""
-    },
-    {
-      "label": "OpenWrt 客户端下载地址",
-      "placeholder": "请输入 OpenWrt 软路由插件或固件地址 (留空则前台不显示该平台)",
-      "field_name": "client_openwrt",
-      "field_type": "input",
-      "default_value": ""
-    },
-    {
-      "label": "自定义页脚HTML",
-      "placeholder": "可填入客服脚本（如 Crisp / Tawk）、Google Analytics 统计代码等",
+      "label": "自定义页脚/客服代码",
+      "placeholder": "可在此插入客服或统计 JS 代码",
       "field_name": "custom_html",
       "field_type": "textarea",
       "default_value": ""

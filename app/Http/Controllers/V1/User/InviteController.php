@@ -29,19 +29,37 @@ class InviteController extends Controller
     {
         $current = $request->input('current') ? $request->input('current') : 1;
         $pageSize = $request->input('page_size') >= 10 ? $request->input('page_size') : 10;
-        $builder = CommissionLog::where('invite_user_id', $request->user['id'])
-            ->where('get_amount', '>', 0)
+        $builder = CommissionLog::leftJoin('v2_user', 'v2_commission_log.user_id', '=', 'v2_user.id')
+            ->where('v2_commission_log.invite_user_id', $request->user['id'])
+            ->where('v2_commission_log.get_amount', '>', 0)
             ->select([
-                'id',
-                'trade_no',
-                'order_amount',
-                'get_amount',
-                'created_at'
+                'v2_commission_log.id',
+                'v2_commission_log.user_id',
+                'v2_commission_log.trade_no',
+                'v2_commission_log.order_amount',
+                'v2_commission_log.get_amount',
+                'v2_commission_log.created_at',
+                'v2_user.email as user_email'
             ])
-            ->orderBy('created_at', 'DESC');
+            ->orderBy('v2_commission_log.created_at', 'DESC');
         $total = $builder->count();
         $details = $builder->forPage($current, $pageSize)
             ->get();
+        // 对被邀请人邮箱进行安全性脱敏（如 w***5@gmail.com）
+        foreach ($details as $item) {
+            if ($item->user_email) {
+                $parts = explode('@', $item->user_email);
+                $name = $parts[0];
+                $domain = isset($parts[1]) ? '@' . $parts[1] : '';
+                if (strlen($name) > 3) {
+                    $item->user_email = substr($name, 0, 2) . '***' . substr($name, -1) . $domain;
+                } elseif (strlen($name) > 1) {
+                    $item->user_email = substr($name, 0, 1) . '***' . $domain;
+                } else {
+                    $item->user_email = $name . '***' . $domain;
+                }
+            }
+        }
         return response([
             'data' => $details,
             'total' => $total
