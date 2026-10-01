@@ -1,1 +1,0 @@
-import{r as s}from"./request.v_RHpqr4.js";const o=()=>s.get("/guest/comm/config"),e=t=>s.post("/passport/auth/login",t),n=t=>s.post("/passport/auth/register",t),a=t=>s.post("/passport/comm/sendEmailVerify",t),i=t=>s.get("/passport/auth/token2Login",{params:{verify:t}});export{o as g,e as l,n as r,a as s,i as t};
