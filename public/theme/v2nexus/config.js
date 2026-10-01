@@ -8,7 +8,7 @@ window.NEXUS_CONFIG = {
   apiBaseUrl: '/api/v1',
   backendOrigin: '',
   currency: '¥',
-  defaultTheme: 'dark', // 'dark' | 'light' | 'auto'
+  defaultTheme: 'light', // 'light' | 'dark' | 'auto'
   landingText: {
     title: '探索全球网络无限可能',
     subtitle: '高速稳定、安全私密，助力业务数字化转型',
