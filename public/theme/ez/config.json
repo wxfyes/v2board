@@ -1,0 +1,106 @@
+{
+  "name": "ez",
+  "description": "EZ-Theme 经典响应式全功能主题 (插件化独立自包含版)",
+  "version": "2.0.0",
+  "configs": [
+    {
+      "label": "站点自定义名称",
+      "placeholder": "请输入站点名称，留空使用全局系统设置",
+      "field_name": "site_name",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "站点自定义 Logo URL",
+      "placeholder": "请输入 Logo 图片链接，留空使用系统 Logo",
+      "field_name": "site_logo",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "站点副标题 / 标语",
+      "placeholder": "请输入站点副标，留空使用默认",
+      "field_name": "site_subtitle",
+      "field_type": "input",
+      "default_value": "Next TianQue"
+    },
+    {
+      "label": "前台独立品牌落地页开关",
+      "placeholder": "开启后首页展示品牌落地页，关闭则直接进入登录/控制台",
+      "field_name": "enable_landing_page",
+      "field_type": "select",
+      "select_options": {
+        "1": "开启 (展示品牌落地页)",
+        "0": "关闭 (默认关闭，直接进入登录/控制台)"
+      },
+      "default_value": "0"
+    },
+    {
+      "label": "客户端下载卡片总开关",
+      "placeholder": "控制仪表盘首页是否显示客户端下载卡片",
+      "field_name": "show_download_card",
+      "field_type": "select",
+      "select_options": {
+        "1": "开启 (显示客户端下载卡片)",
+        "0": "关闭 (隐藏客户端下载卡片)"
+      },
+      "default_value": "1"
+    },
+    {
+      "label": "Windows 客户端下载链接",
+      "placeholder": "请输入 Windows 客户端下载直链，留空使用内置默认地址",
+      "field_name": "client_windows",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "Android 客户端下载链接",
+      "placeholder": "请输入 Android 客户端下载直链 (APK)，留空使用内置默认地址",
+      "field_name": "client_android",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "iOS 客户端下载 / App Store 链接",
+      "placeholder": "请输入 iOS 客户端下载或应用商店链接，留空使用内置默认地址",
+      "field_name": "client_ios",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "MacOS 客户端下载链接",
+      "placeholder": "请输入 MacOS 客户端下载直链 (DMG/PKG)，留空使用内置默认地址",
+      "field_name": "client_macos",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "Linux 客户端下载链接",
+      "placeholder": "请输入 Linux 客户端下载链接，留空使用内置默认地址",
+      "field_name": "client_linux",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端独立下载发布页",
+      "placeholder": "请输入客户端专属下载站或发布页 URL，如 https://download.xxx.com",
+      "field_name": "client_page",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "官方 Telegram 群组 / 频道",
+      "placeholder": "请输入 Telegram 群组链接，如 https://t.me/xxx",
+      "field_name": "telegram_group",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自定义页脚 / 客服 HTML 代码",
+      "placeholder": "可在此插入在线客服 (如 Crisp/Chatra) 或网站统计代码",
+      "field_name": "custom_html",
+      "field_type": "textarea",
+      "default_value": ""
+    }
+  ]
+}
