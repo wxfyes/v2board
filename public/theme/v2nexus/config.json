@@ -18,6 +18,13 @@
       "default_value": ""
     },
     {
+      "label": "站点自定义副标/标语 (图二登录卡片左上角)",
+      "placeholder": "请输入登录/注册框左上角的副标，如：安全互联平台 或 已取消免费试用，留空使用默认",
+      "field_name": "site_subtitle",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
       "label": "前台独立品牌落地页开关",
       "placeholder": "开启后，访问网站首页将展示全新现代化品牌落地页，关闭则直接进入控制台/登录",
       "field_name": "enable_landing_page",
