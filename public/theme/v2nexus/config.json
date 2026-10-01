@@ -93,7 +93,7 @@
     },
     {
       "label": "专属邀请短链根域名",
-      "placeholder": "例如 tianque.cc，将自动生成 https://[邀请码].tianque.cc",
+      "placeholder": "例如 example.com，将自动生成 https://[邀请码].example.com",
       "field_name": "custom_invite_domain",
       "field_type": "input",
       "default_value": ""

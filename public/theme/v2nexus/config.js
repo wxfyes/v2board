@@ -34,7 +34,7 @@ window.NEXUS_CONFIG = {
   // 客户端导入弹窗展示模式: 'all' (全平台通用) | 'shadowrocket_only' (小火箭独占模式) | 'mobile_only' (仅移动端)
   clientImportMode: 'all',
 
-  // 专属邀请短链根域名 (例如 'tianque.cc'，自动生成 https://[邀请码].tianque.cc，留空使用标准注册链接)
+  // 专属邀请短链根域名 (例如 'example.com'，自动生成 https://[邀请码].example.com，留空使用标准注册链接)
   customInviteDomain: '',
 
   // 官方自研客户端版本与说明 (填入后在仪表盘客户端卡片中展示)
