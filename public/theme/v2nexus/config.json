@@ -1,0 +1,71 @@
+{
+  "name": "v2nexus",
+  "description": "V2Nexus 现代化 Bento Grid 极速暗黑双模主题",
+  "version": "1.0.0",
+  "images": "",
+  "configs": [
+    {
+      "label": "客户端版本号",
+      "placeholder": "例如: v2.5.0 (留空不显示版本角标)",
+      "field_name": "client_version",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "客户端更新说明",
+      "placeholder": "例如: 全新内核升级，优化节点连接稳定性与自适应分流",
+      "field_name": "client_changelog",
+      "field_type": "textarea",
+      "default_value": ""
+    },
+    {
+      "label": "Android 客户端下载地址",
+      "placeholder": "请输入安卓客户端 APK 下载地址或下载页 (留空则前台不显示该平台)",
+      "field_name": "client_android",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "Windows 客户端下载地址",
+      "placeholder": "请输入 Windows 客户端安装包下载地址 (留空则前台不显示该平台)",
+      "field_name": "client_windows",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "iOS 客户端下载地址",
+      "placeholder": "请输入 iOS App Store 链接或 TestFlight 地址 (留空则前台不显示该平台)",
+      "field_name": "client_ios",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "macOS 客户端下载地址",
+      "placeholder": "请输入 macOS DMG 或 PKG 下载地址 (留空则前台不显示该平台)",
+      "field_name": "client_macos",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "Linux 客户端下载地址",
+      "placeholder": "请输入 Linux 客户端下载地址或脚本地址 (留空则前台不显示该平台)",
+      "field_name": "client_linux",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "OpenWrt 客户端下载地址",
+      "placeholder": "请输入 OpenWrt 软路由插件或固件地址 (留空则前台不显示该平台)",
+      "field_name": "client_openwrt",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自定义页脚HTML",
+      "placeholder": "可填入客服脚本（如 Crisp / Tawk）、Google Analytics 统计代码等",
+      "field_name": "custom_html",
+      "field_type": "textarea",
+      "default_value": ""
+    }
+  ]
+}
