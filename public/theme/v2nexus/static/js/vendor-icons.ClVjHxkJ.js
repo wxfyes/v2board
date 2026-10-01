@@ -1,4 +1,4 @@
-import{h as v}from"./vendor-core.ZnRt578C.js";/**
+import{h as v}from"./vendor-core.CsrWZcL9.js";/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
@@ -258,139 +258,144 @@ import{h as v}from"./vendor-core.ZnRt578C.js";/**
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var r1=a("outline","percentage","Percentage",[["path",{d:"M16 17a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-0"}],["path",{d:"M6 7a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-1"}],["path",{d:"M6 18l12 -12",key:"svg-2"}]]);/**
+ */var r1=a("outline","palette","Palette",[["path",{d:"M12 21a9 9 0 0 1 0 -18c4.97 0 9 3.582 9 8c0 1.06 -.474 2.078 -1.318 2.828c-.844 .75 -1.989 1.172 -3.182 1.172h-2.5a2 2 0 0 0 -1 3.75a1.3 1.3 0 0 1 -1 2.25",key:"svg-0"}],["path",{d:"M7.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-1"}],["path",{d:"M11.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-2"}],["path",{d:"M15.5 10.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-3"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var y1=a("outline","photo","Photo",[["path",{d:"M15 8h.01",key:"svg-0"}],["path",{d:"M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12",key:"svg-1"}],["path",{d:"M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5",key:"svg-2"}],["path",{d:"M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3",key:"svg-3"}]]);/**
+ */var y1=a("outline","percentage","Percentage",[["path",{d:"M16 17a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-0"}],["path",{d:"M6 7a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-1"}],["path",{d:"M6 18l12 -12",key:"svg-2"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var M1=a("outline","plus","Plus",[["path",{d:"M12 5l0 14",key:"svg-0"}],["path",{d:"M5 12l14 0",key:"svg-1"}]]);/**
+ */var M1=a("outline","photo","Photo",[["path",{d:"M15 8h.01",key:"svg-0"}],["path",{d:"M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12",key:"svg-1"}],["path",{d:"M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5",key:"svg-2"}],["path",{d:"M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3",key:"svg-3"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var c1=a("outline","qrcode","Qrcode",[["path",{d:"M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4",key:"svg-0"}],["path",{d:"M7 17l0 .01",key:"svg-1"}],["path",{d:"M14 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4",key:"svg-2"}],["path",{d:"M7 7l0 .01",key:"svg-3"}],["path",{d:"M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4",key:"svg-4"}],["path",{d:"M17 7l0 .01",key:"svg-5"}],["path",{d:"M14 14l3 0",key:"svg-6"}],["path",{d:"M20 14l0 .01",key:"svg-7"}],["path",{d:"M14 14l0 3",key:"svg-8"}],["path",{d:"M14 20l3 0",key:"svg-9"}],["path",{d:"M17 17l3 0",key:"svg-10"}],["path",{d:"M20 17l0 3",key:"svg-11"}]]);/**
+ */var c1=a("outline","plus","Plus",[["path",{d:"M12 5l0 14",key:"svg-0"}],["path",{d:"M5 12l14 0",key:"svg-1"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var i1=a("outline","receipt-off","ReceiptOff",[["path",{d:"M5 21v-16m2 -2h10a2 2 0 0 1 2 2v10m0 4.01v1.99l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2",key:"svg-0"}],["path",{d:"M11 7l4 0",key:"svg-1"}],["path",{d:"M9 11l2 0",key:"svg-2"}],["path",{d:"M13 15l2 0",key:"svg-3"}],["path",{d:"M15 11l0 .01",key:"svg-4"}],["path",{d:"M3 3l18 18",key:"svg-5"}]]);/**
+ */var i1=a("outline","qrcode","Qrcode",[["path",{d:"M4 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4",key:"svg-0"}],["path",{d:"M7 17l0 .01",key:"svg-1"}],["path",{d:"M14 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4",key:"svg-2"}],["path",{d:"M7 7l0 .01",key:"svg-3"}],["path",{d:"M4 15a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -4",key:"svg-4"}],["path",{d:"M17 7l0 .01",key:"svg-5"}],["path",{d:"M14 14l3 0",key:"svg-6"}],["path",{d:"M20 14l0 .01",key:"svg-7"}],["path",{d:"M14 14l0 3",key:"svg-8"}],["path",{d:"M14 20l3 0",key:"svg-9"}],["path",{d:"M17 17l3 0",key:"svg-10"}],["path",{d:"M20 17l0 3",key:"svg-11"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var u1=a("outline","receipt-tax","ReceiptTax",[["path",{d:"M9 14l6 -6",key:"svg-0"}],["path",{d:"M9 8.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0",fill:"currentColor",key:"svg-1"}],["path",{d:"M14 13.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0",fill:"currentColor",key:"svg-2"}],["path",{d:"M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2",key:"svg-3"}]]);/**
+ */var u1=a("outline","receipt-off","ReceiptOff",[["path",{d:"M5 21v-16m2 -2h10a2 2 0 0 1 2 2v10m0 4.01v1.99l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2",key:"svg-0"}],["path",{d:"M11 7l4 0",key:"svg-1"}],["path",{d:"M9 11l2 0",key:"svg-2"}],["path",{d:"M13 15l2 0",key:"svg-3"}],["path",{d:"M15 11l0 .01",key:"svg-4"}],["path",{d:"M3 3l18 18",key:"svg-5"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var I1=a("outline","receipt","Receipt",[["path",{d:"M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2m4 -14h6m-6 4h6m-2 4h2",key:"svg-0"}]]);/**
+ */var I1=a("outline","receipt-tax","ReceiptTax",[["path",{d:"M9 14l6 -6",key:"svg-0"}],["path",{d:"M9 8.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0",fill:"currentColor",key:"svg-1"}],["path",{d:"M14 13.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0",fill:"currentColor",key:"svg-2"}],["path",{d:"M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2",key:"svg-3"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var f1=a("outline","refresh","Refresh",[["path",{d:"M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4",key:"svg-0"}],["path",{d:"M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4",key:"svg-1"}]]);/**
+ */var f1=a("outline","receipt","Receipt",[["path",{d:"M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2m4 -14h6m-6 4h6m-2 4h2",key:"svg-0"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var w1=a("outline","rocket","Rocket",[["path",{d:"M4 13a8 8 0 0 1 7 7a6 6 0 0 0 3 -5a9 9 0 0 0 6 -8a3 3 0 0 0 -3 -3a9 9 0 0 0 -8 6a6 6 0 0 0 -5 3",key:"svg-0"}],["path",{d:"M7 14a6 6 0 0 0 -3 6a6 6 0 0 0 6 -3",key:"svg-1"}],["path",{d:"M14 9a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-2"}]]);/**
+ */var w1=a("outline","refresh","Refresh",[["path",{d:"M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4",key:"svg-0"}],["path",{d:"M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4",key:"svg-1"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var C1=a("outline","router","Router",[["path",{d:"M3 15a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -4",key:"svg-0"}],["path",{d:"M17 17l0 .01",key:"svg-1"}],["path",{d:"M13 17l0 .01",key:"svg-2"}],["path",{d:"M15 13l0 -2",key:"svg-3"}],["path",{d:"M11.75 8.75a4 4 0 0 1 6.5 0",key:"svg-4"}],["path",{d:"M8.5 6.5a8 8 0 0 1 13 0",key:"svg-5"}]]);/**
+ */var C1=a("outline","rocket","Rocket",[["path",{d:"M4 13a8 8 0 0 1 7 7a6 6 0 0 0 3 -5a9 9 0 0 0 6 -8a3 3 0 0 0 -3 -3a9 9 0 0 0 -8 6a6 6 0 0 0 -5 3",key:"svg-0"}],["path",{d:"M7 14a6 6 0 0 0 -3 6a6 6 0 0 0 6 -3",key:"svg-1"}],["path",{d:"M14 9a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-2"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var m1=a("outline","search","Search",[["path",{d:"M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0",key:"svg-0"}],["path",{d:"M21 21l-6 -6",key:"svg-1"}]]);/**
+ */var m1=a("outline","router","Router",[["path",{d:"M3 15a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -4",key:"svg-0"}],["path",{d:"M17 17l0 .01",key:"svg-1"}],["path",{d:"M13 17l0 .01",key:"svg-2"}],["path",{d:"M15 13l0 -2",key:"svg-3"}],["path",{d:"M11.75 8.75a4 4 0 0 1 6.5 0",key:"svg-4"}],["path",{d:"M8.5 6.5a8 8 0 0 1 13 0",key:"svg-5"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var B1=a("outline","send","Send",[["path",{d:"M10 14l11 -11",key:"svg-0"}],["path",{d:"M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5",key:"svg-1"}]]);/**
+ */var B1=a("outline","search","Search",[["path",{d:"M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0",key:"svg-0"}],["path",{d:"M21 21l-6 -6",key:"svg-1"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var b1=a("outline","server-off","ServerOff",[["path",{d:"M12 12h-6a3 3 0 0 1 -3 -3v-2c0 -1.083 .574 -2.033 1.435 -2.56m3.565 -.44h10a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-2",key:"svg-0"}],["path",{d:"M16 12h2a3 3 0 0 1 3 3v2m-1.448 2.568a2.986 2.986 0 0 1 -1.552 .432h-12a3 3 0 0 1 -3 -3v-2a3 3 0 0 1 3 -3h6",key:"svg-1"}],["path",{d:"M7 8v.01",key:"svg-2"}],["path",{d:"M7 16v.01",key:"svg-3"}],["path",{d:"M3 3l18 18",key:"svg-4"}]]);/**
+ */var b1=a("outline","send","Send",[["path",{d:"M10 14l11 -11",key:"svg-0"}],["path",{d:"M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5",key:"svg-1"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var x1=a("outline","server","Server",[["path",{d:"M3 7a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-2",key:"svg-0"}],["path",{d:"M3 15a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3l0 -2",key:"svg-1"}],["path",{d:"M7 8l0 .01",key:"svg-2"}],["path",{d:"M7 16l0 .01",key:"svg-3"}]]);/**
+ */var x1=a("outline","server-off","ServerOff",[["path",{d:"M12 12h-6a3 3 0 0 1 -3 -3v-2c0 -1.083 .574 -2.033 1.435 -2.56m3.565 -.44h10a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-2",key:"svg-0"}],["path",{d:"M16 12h2a3 3 0 0 1 3 3v2m-1.448 2.568a2.986 2.986 0 0 1 -1.552 .432h-12a3 3 0 0 1 -3 -3v-2a3 3 0 0 1 3 -3h6",key:"svg-1"}],["path",{d:"M7 8v.01",key:"svg-2"}],["path",{d:"M7 16v.01",key:"svg-3"}],["path",{d:"M3 3l18 18",key:"svg-4"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var L1=a("outline","share","Share",[["path",{d:"M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",key:"svg-0"}],["path",{d:"M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",key:"svg-1"}],["path",{d:"M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",key:"svg-2"}],["path",{d:"M8.7 10.7l6.6 -3.4",key:"svg-3"}],["path",{d:"M8.7 13.3l6.6 3.4",key:"svg-4"}]]);/**
+ */var L1=a("outline","server","Server",[["path",{d:"M3 7a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-2",key:"svg-0"}],["path",{d:"M3 15a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v2a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3l0 -2",key:"svg-1"}],["path",{d:"M7 8l0 .01",key:"svg-2"}],["path",{d:"M7 16l0 .01",key:"svg-3"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var S1=a("outline","shield-lock","ShieldLock",[["path",{d:"M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3",key:"svg-0"}],["path",{d:"M11 11a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-1"}],["path",{d:"M12 12l0 2.5",key:"svg-2"}]]);/**
+ */var S1=a("outline","share","Share",[["path",{d:"M3 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",key:"svg-0"}],["path",{d:"M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",key:"svg-1"}],["path",{d:"M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",key:"svg-2"}],["path",{d:"M8.7 10.7l6.6 -3.4",key:"svg-3"}],["path",{d:"M8.7 13.3l6.6 3.4",key:"svg-4"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var A1=a("outline","shopping-cart","ShoppingCart",[["path",{d:"M4 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",key:"svg-0"}],["path",{d:"M15 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",key:"svg-1"}],["path",{d:"M17 17h-11v-14h-2",key:"svg-2"}],["path",{d:"M6 5l14 1l-1 7h-13",key:"svg-3"}]]);/**
+ */var A1=a("outline","shield-lock","ShieldLock",[["path",{d:"M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3",key:"svg-0"}],["path",{d:"M11 11a1 1 0 1 0 2 0a1 1 0 1 0 -2 0",key:"svg-1"}],["path",{d:"M12 12l0 2.5",key:"svg-2"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var R1=a("outline","speakerphone","Speakerphone",[["path",{d:"M18 8a3 3 0 0 1 0 6",key:"svg-0"}],["path",{d:"M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5",key:"svg-1"}],["path",{d:"M12 8l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8",key:"svg-2"}]]);/**
+ */var R1=a("outline","shopping-cart","ShoppingCart",[["path",{d:"M4 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",key:"svg-0"}],["path",{d:"M15 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",key:"svg-1"}],["path",{d:"M17 17h-11v-14h-2",key:"svg-2"}],["path",{d:"M6 5l14 1l-1 7h-13",key:"svg-3"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var T1=a("outline","sun","Sun",[["path",{d:"M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",key:"svg-0"}],["path",{d:"M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7",key:"svg-1"}]]);/**
+ */var T1=a("outline","speakerphone","Speakerphone",[["path",{d:"M18 8a3 3 0 0 1 0 6",key:"svg-0"}],["path",{d:"M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5",key:"svg-1"}],["path",{d:"M12 8l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8",key:"svg-2"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var D1=a("outline","terminal-2","Terminal2",[["path",{d:"M8 9l3 3l-3 3",key:"svg-0"}],["path",{d:"M13 15l3 0",key:"svg-1"}],["path",{d:"M3 6a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -12",key:"svg-2"}]]);/**
+ */var D1=a("outline","sun","Sun",[["path",{d:"M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",key:"svg-0"}],["path",{d:"M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7",key:"svg-1"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var U1=a("outline","ticket","Ticket",[["path",{d:"M15 5l0 2",key:"svg-0"}],["path",{d:"M15 11l0 2",key:"svg-1"}],["path",{d:"M15 17l0 2",key:"svg-2"}],["path",{d:"M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2",key:"svg-3"}]]);/**
+ */var U1=a("outline","terminal-2","Terminal2",[["path",{d:"M8 9l3 3l-3 3",key:"svg-0"}],["path",{d:"M13 15l3 0",key:"svg-1"}],["path",{d:"M3 6a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2l0 -12",key:"svg-2"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var P1=a("outline","user-cog","UserCog",[["path",{d:"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0",key:"svg-0"}],["path",{d:"M6 21v-2a4 4 0 0 1 4 -4h2.5",key:"svg-1"}],["path",{d:"M17.001 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",key:"svg-2"}],["path",{d:"M19.001 15.5v1.5",key:"svg-3"}],["path",{d:"M19.001 21v1.5",key:"svg-4"}],["path",{d:"M22.032 17.25l-1.299 .75",key:"svg-5"}],["path",{d:"M17.27 20l-1.3 .75",key:"svg-6"}],["path",{d:"M15.97 17.25l1.3 .75",key:"svg-7"}],["path",{d:"M20.733 20l1.3 .75",key:"svg-8"}]]);/**
+ */var P1=a("outline","ticket","Ticket",[["path",{d:"M15 5l0 2",key:"svg-0"}],["path",{d:"M15 11l0 2",key:"svg-1"}],["path",{d:"M15 17l0 2",key:"svg-2"}],["path",{d:"M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-3a2 2 0 0 0 0 -4v-3a2 2 0 0 1 2 -2",key:"svg-3"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var E1=a("outline","user-plus","UserPlus",[["path",{d:"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0",key:"svg-0"}],["path",{d:"M16 19h6",key:"svg-1"}],["path",{d:"M19 16v6",key:"svg-2"}],["path",{d:"M6 21v-2a4 4 0 0 1 4 -4h4",key:"svg-3"}]]);/**
+ */var E1=a("outline","user-cog","UserCog",[["path",{d:"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0",key:"svg-0"}],["path",{d:"M6 21v-2a4 4 0 0 1 4 -4h2.5",key:"svg-1"}],["path",{d:"M17.001 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0",key:"svg-2"}],["path",{d:"M19.001 15.5v1.5",key:"svg-3"}],["path",{d:"M19.001 21v1.5",key:"svg-4"}],["path",{d:"M22.032 17.25l-1.299 .75",key:"svg-5"}],["path",{d:"M17.27 20l-1.3 .75",key:"svg-6"}],["path",{d:"M15.97 17.25l1.3 .75",key:"svg-7"}],["path",{d:"M20.733 20l1.3 .75",key:"svg-8"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var O1=a("outline","user","User",[["path",{d:"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0",key:"svg-0"}],["path",{d:"M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2",key:"svg-1"}]]);/**
+ */var O1=a("outline","user-plus","UserPlus",[["path",{d:"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0",key:"svg-0"}],["path",{d:"M16 19h6",key:"svg-1"}],["path",{d:"M19 16v6",key:"svg-2"}],["path",{d:"M6 21v-2a4 4 0 0 1 4 -4h4",key:"svg-3"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var F1=a("outline","users","Users",[["path",{d:"M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",key:"svg-0"}],["path",{d:"M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2",key:"svg-1"}],["path",{d:"M16 3.13a4 4 0 0 1 0 7.75",key:"svg-2"}],["path",{d:"M21 21v-2a4 4 0 0 0 -3 -3.85",key:"svg-3"}]]);/**
+ */var F1=a("outline","user","User",[["path",{d:"M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0",key:"svg-0"}],["path",{d:"M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2",key:"svg-1"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var W1=a("outline","wallet","Wallet",[["path",{d:"M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12",key:"svg-0"}],["path",{d:"M20 12v4h-4a2 2 0 0 1 0 -4h4",key:"svg-1"}]]);/**
+ */var W1=a("outline","users","Users",[["path",{d:"M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",key:"svg-0"}],["path",{d:"M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2",key:"svg-1"}],["path",{d:"M16 3.13a4 4 0 0 1 0 7.75",key:"svg-2"}],["path",{d:"M21 21v-2a4 4 0 0 0 -3 -3.85",key:"svg-3"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var j1=a("outline","x","X",[["path",{d:"M18 6l-12 12",key:"svg-0"}],["path",{d:"M6 6l12 12",key:"svg-1"}]]);/**
+ */var j1=a("outline","wallet","Wallet",[["path",{d:"M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12",key:"svg-0"}],["path",{d:"M20 12v4h-4a2 2 0 0 1 0 -4h4",key:"svg-1"}]]);/**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *
  * This source code is licensed under the MIT license.
  * See the LICENSE file in the root directory of this source tree.
- */var G1=a("outline","zoom-in","ZoomIn",[["path",{d:"M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0",key:"svg-0"}],["path",{d:"M7 10l6 0",key:"svg-1"}],["path",{d:"M10 7l0 6",key:"svg-2"}],["path",{d:"M21 21l-6 -6",key:"svg-3"}]]);export{W as $,G as A,Y as B,H as C,q as D,c1 as E,u as F,N as G,b as H,T1 as I,z as J,J as K,P as L,T as M,A as N,R as O,$ as P,D1 as Q,C1 as R,m1 as S,b1 as T,S as U,f as V,Q as W,v1 as X,X as Y,K as Z,i1 as _,g1 as a,y1 as a0,B1 as a1,e1 as a2,G1 as a3,m as a4,E as a5,F1 as a6,Z as a7,r1 as a8,U1 as a9,l1 as aa,D as ab,U as ac,u1 as ad,a1 as ae,S1 as af,B as ag,t1 as ah,x as ai,_ as aj,C as ak,w as al,V as am,o1 as b,I as c,p1 as d,j as e,F as f,h1 as g,A1 as h,E1 as i,M1 as j,w1 as k,j1 as l,n1 as m,L as n,x1 as o,O as p,W1 as q,I1 as r,L1 as s,P1 as t,s1 as u,O1 as v,d1 as w,k1 as x,f1 as y,R1 as z};
+ */var G1=a("outline","x","X",[["path",{d:"M18 6l-12 12",key:"svg-0"}],["path",{d:"M6 6l12 12",key:"svg-1"}]]);/**
+ * @license @tabler/icons-vue v3.48.0 - MIT
+ *
+ * This source code is licensed under the MIT license.
+ * See the LICENSE file in the root directory of this source tree.
+ */var H1=a("outline","zoom-in","ZoomIn",[["path",{d:"M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0",key:"svg-0"}],["path",{d:"M7 10l6 0",key:"svg-1"}],["path",{d:"M10 7l0 6",key:"svg-2"}],["path",{d:"M21 21l-6 -6",key:"svg-3"}]]);export{u1 as $,T1 as A,G as B,Y as C,H as D,q as E,i1 as F,u as G,N as H,D1 as I,b as J,z as K,J as L,P as M,T as N,A as O,R as P,$ as Q,U1 as R,m1 as S,B1 as T,x1 as U,S as V,f as W,Q as X,v1 as Y,X as Z,K as _,g1 as a,W as a0,M1 as a1,b1 as a2,e1 as a3,H1 as a4,m as a5,E as a6,W1 as a7,Z as a8,y1 as a9,P1 as aa,l1 as ab,D as ac,U as ad,I1 as ae,a1 as af,A1 as ag,B as ah,t1 as ai,x as aj,_ as ak,C as al,w as am,V as an,o1 as b,I as c,p1 as d,j as e,F as f,h1 as g,R1 as h,O1 as i,c1 as j,r1 as k,C1 as l,G1 as m,n1 as n,L as o,L1 as p,O as q,j1 as r,f1 as s,S1 as t,E1 as u,s1 as v,F1 as w,d1 as x,k1 as y,w1 as z};
