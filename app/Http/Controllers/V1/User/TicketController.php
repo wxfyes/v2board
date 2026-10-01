@@ -31,7 +31,7 @@ class TicketController extends Controller
 
             $ticket['message'] = TicketMessage::where('ticket_id', $ticket->id)->get();
             for ($i = 0; $i < count($ticket['message']); $i++) {
-                if ($ticket['message'][$i]['user_id'] !== $ticket->user_id) {
+                if ($ticket['message'][$i]['user_id'] !== $ticket->user_id || (int)$ticket['message'][$i]['user_id'] === 0) {
                     $ticket['message'][$i]['is_me'] = false;
                 } else {
                     $ticket['message'][$i]['is_me'] = true;
@@ -120,7 +120,8 @@ class TicketController extends Controller
         if ($ticket->status) {
             abort(500, __('The ticket is closed and cannot be replied'));
         }
-        if ($request->user['id'] == $this->getLastMessage($ticket->id)->user_id) {
+        $lastMessage = $this->getLastMessage($ticket->id);
+        if ($ticket->reply_status === 0 && $lastMessage && $lastMessage->user_id !== 0 && $request->user['id'] == $lastMessage->user_id) {
             abort(500, __('Please wait for the technical enginneer to reply'));
         }
         $ticketService = new TicketService();

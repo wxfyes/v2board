@@ -40,17 +40,17 @@ class TicketService {
         }
         
         DB::beginTransaction();
+        // 当回复管理员与工单创建人为同一账号（如站长自测或超级管理员账号）时，
+        // 将回复消息的 user_id 设为 0 (代表官方技术支持)，彻底解决前后台身份混淆与禁止用户回复死锁
+        $msgUserId = ($userId == $ticket->user_id) ? 0 : $userId;
+
         $ticketMessage = TicketMessage::create([
-            'user_id' => $userId,
+            'user_id' => $msgUserId,
             'ticket_id' => $ticket->id,
             'message' => $message
         ]);
         $ticket->status = 0;
-        if ($userId !== $ticket->user_id) {
-            $ticket->reply_status = 1;
-        } else {
-            $ticket->reply_status = 0;
-        }
+        $ticket->reply_status = 1; // 管理员已回复，工单状态置为等待用户回复
         $ticket->touch();
         if (!$ticketMessage || !$ticket->save()) {
             DB::rollback();
