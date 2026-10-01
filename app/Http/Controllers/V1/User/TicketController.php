@@ -29,17 +29,20 @@ class TicketController extends Controller
                 ->where('user_id', $userId)
                 ->firstOrFail();
 
-            $ticket['message'] = TicketMessage::where('ticket_id', $ticket->id)->get();
-            for ($i = 0; $i < count($ticket['message']); $i++) {
-                if ($ticket['message'][$i]['user_id'] !== $ticket->user_id || (int)$ticket['message'][$i]['user_id'] === 0) {
-                    $ticket['message'][$i]['is_me'] = false;
-                } else {
-                    $ticket['message'][$i]['is_me'] = true;
-                }
-            }
+            $messages = TicketMessage::where('ticket_id', $ticket->id)
+                ->orderBy('id', 'ASC')
+                ->get();
 
-            return response(['data' => $ticket]);
+            $ticketData = $ticket->toArray();
+            $ticketData['message'] = $messages->map(function ($msg) use ($ticket) {
+                $item = $msg->toArray();
+                // 凡是 user_id 为 0，或者 user_id 与工单创建者不一致的，全部明确为客服消息 (is_me = false)
+                $isMe = ((int)$msg->user_id !== 0 && (int)$msg->user_id === (int)$ticket->user_id);
+                $item['is_me'] = $isMe;
+                return $item;
+            })->values()->all();
 
+            return response(['data' => $ticketData]);
         }
         $ticket = Ticket::where('user_id', $userId)
             ->orderBy('created_at', 'DESC')

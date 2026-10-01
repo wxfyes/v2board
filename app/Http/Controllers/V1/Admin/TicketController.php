@@ -21,16 +21,21 @@ class TicketController extends Controller
             if (!$ticket) {
                 abort(500, '工单不存在');
             }
-            $ticket['message'] = TicketMessage::where('ticket_id', $ticket->id)->get();
-            for ($i = 0; $i < count($ticket['message']); $i++) {
-                if ($ticket['message'][$i]['user_id'] !== $ticket->user_id || (int)$ticket['message'][$i]['user_id'] === 0) {
-                    $ticket['message'][$i]['is_me'] = true;
-                } else {
-                    $ticket['message'][$i]['is_me'] = false;
-                }
-            }
+            $messages = TicketMessage::where('ticket_id', $ticket->id)
+                ->orderBy('id', 'ASC')
+                ->get();
+
+            $ticketData = $ticket->toArray();
+            $ticketData['message'] = $messages->map(function ($msg) use ($ticket) {
+                $item = $msg->toArray();
+                // 在后台管理端：凡是 user_id 为 0 或 user_id 与工单创建人不一致的，代表管理员/客服发出的消息 (is_me = true)
+                $isMe = ((int)$msg->user_id === 0 || (int)$msg->user_id !== (int)$ticket->user_id);
+                $item['is_me'] = $isMe;
+                return $item;
+            })->values()->all();
+
             return response([
-                'data' => $ticket
+                'data' => $ticketData
             ]);
         }
         $current = $request->input('current') ? $request->input('current') : 1;
