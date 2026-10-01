@@ -1,1 +1,0 @@
-import{r}from"./request.By32xhn7.js";const s=()=>r.get("/user/plan/fetch"),o=e=>r.post("/user/coupon/check",e),c=e=>r.post("/user/order/save",e),n=e=>r.post("/user/order/checkout",e),u=()=>r.get("/user/order/getPaymentMethod");export{c as a,u as b,o as c,n as d,s as g};
