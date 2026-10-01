@@ -21,7 +21,7 @@
     <link rel="icon" type="image/svg+xml" href="/theme/{{$theme}}/favicon.svg" />
     <!-- 引入运行时外部配置 (兼容 v2board 后台直出与静态托管) -->
     <script src="/theme/{{$theme}}/config.js"></script>
-    <script type="module" crossorigin src="/theme/v2nexus/static/js/index.v-4liY3Q.js"></script>
+    <script type="module" crossorigin src="/theme/v2nexus/static/js/index.DgKiRH4A.js"></script>
     <link rel="modulepreload" crossorigin href="/theme/v2nexus/static/js/vendor-core.IREN5Vzh.js">
     <link rel="stylesheet" crossorigin href="/theme/v2nexus/static/css/index.toFtNkb_.css">
   </head>
