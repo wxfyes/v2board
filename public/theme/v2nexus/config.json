@@ -18,6 +18,39 @@
       "default_value": ""
     },
     {
+      "label": "快捷登录 - Telegram 开关",
+      "placeholder": "是否在登录与注册页面展示 Telegram 快捷登录",
+      "field_name": "enable_telegram_login",
+      "field_type": "select",
+      "select_options": {
+        "0": "关闭 (默认关闭)",
+        "1": "开启 (需后台已配置 Telegram Bot)"
+      },
+      "default_value": "0"
+    },
+    {
+      "label": "快捷登录 - Google 开关",
+      "placeholder": "是否在登录与注册页面展示 Google 快捷登录",
+      "field_name": "enable_google_login",
+      "field_type": "select",
+      "select_options": {
+        "1": "开启 (默认开启)",
+        "0": "关闭 (隐藏 Google 登录)"
+      },
+      "default_value": "1"
+    },
+    {
+      "label": "快捷登录 - GitHub 开关",
+      "placeholder": "是否在登录与注册页面展示 GitHub 快捷登录",
+      "field_name": "enable_github_login",
+      "field_type": "select",
+      "select_options": {
+        "1": "开启 (默认开启)",
+        "0": "关闭 (隐藏 GitHub 登录)"
+      },
+      "default_value": "1"
+    },
+    {
       "label": "允许前端复制/扫码订阅 (封端防盗链模式)",
       "placeholder": "请选择是否允许在前端复制或扫码裸订阅链接",
       "field_name": "allow_copy_subscribe",
