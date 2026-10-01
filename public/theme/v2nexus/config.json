@@ -118,6 +118,24 @@
       "default_value": ""
     },
     {
+      "label": "发卡账号/虚拟商品商店开关",
+      "placeholder": "若后端数据库具备发卡表支持请开启，开启后前台商店显示独立发卡页面",
+      "field_name": "shop_card_enable",
+      "field_type": "select",
+      "select_options": {
+        "1": "开启 (展示独立发卡商品与账号购买分类)",
+        "0": "关闭 (仅展示订阅套餐，避免后端未适配报错)"
+      },
+      "default_value": "1"
+    },
+    {
+      "label": "发卡商品分类导航名称",
+      "placeholder": "例如：独立ios账号/付费 或 独享账号/发卡商品",
+      "field_name": "shop_card_nav_name",
+      "field_type": "input",
+      "default_value": "独立ios账号/付费"
+    },
+    {
       "label": "自定义页脚/客服代码",
       "placeholder": "可在此插入客服或统计 JS 代码",
       "field_name": "custom_html",
