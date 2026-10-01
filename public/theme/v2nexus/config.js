@@ -3,10 +3,10 @@
  * 自动向下兼容 v2board 原生 window.settings，亦支持独立前端部署
  */
 window.NEXUS_CONFIG = {
-  siteName: '天阙',
+  siteName: 'V2Nexus',
   siteSubtitle: '全球高速网络互联平台',
   apiBaseUrl: '/api/v1',
-  backendOrigin: 'https://go.tianquege.top',
+  backendOrigin: '',
   currency: '¥',
   defaultTheme: 'dark', // 'dark' | 'light' | 'auto'
   landingText: {
