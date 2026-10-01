@@ -18,9 +18,74 @@
       "default_value": ""
     },
     {
+      "label": "允许前端复制/扫码订阅 (封端防盗链模式)",
+      "placeholder": "请选择是否允许在前端复制或扫码裸订阅链接",
+      "field_name": "allow_copy_subscribe",
+      "field_type": "select",
+      "select_options": {
+        "0": "关闭 (开启封端防盗链，禁止复制/扫码裸链)",
+        "1": "开启 (允许常规复制与二维码扫码)"
+      },
+      "default_value": "0"
+    },
+    {
+      "label": "客户端导入选项",
+      "placeholder": "选择导入弹窗中展示的客户端模式",
+      "field_name": "client_import_mode",
+      "field_type": "select",
+      "select_options": {
+        "all": "全平台通用客户端 (推荐)",
+        "shadowrocket_only": "仅 Shadowrocket (小火箭独占封端模式)",
+        "mobile_only": "移动端专属 (Shadowrocket / Sing-box / 圈X / v2rayNG)"
+      },
+      "default_value": "all"
+    },
+    {
       "label": "专属邀请短链根域名",
       "placeholder": "例如 tianque.cc，将自动生成 https://[邀请码].tianque.cc",
       "field_name": "custom_invite_domain",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端版本号",
+      "placeholder": "例如 v2.5.0",
+      "field_name": "client_version",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端更新说明",
+      "placeholder": "例如 全新双核分流加速引擎，智能探测",
+      "field_name": "client_changelog",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端 Windows 下载链接",
+      "placeholder": "留空则不展示此平台卡片",
+      "field_name": "client_windows",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端 Android 下载链接",
+      "placeholder": "留空则不展示此平台卡片",
+      "field_name": "client_android",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端 iOS 下载链接",
+      "placeholder": "留空则不展示此平台卡片",
+      "field_name": "client_ios",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端 MacOS 下载链接",
+      "placeholder": "留空则不展示此平台卡片",
+      "field_name": "client_macos",
       "field_type": "input",
       "default_value": ""
     },
