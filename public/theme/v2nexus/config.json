@@ -90,6 +90,13 @@
       "default_value": ""
     },
     {
+      "label": "ImgBB 图床 API Key (工单图片上传)",
+      "placeholder": "请输入 ImgBB API Key (从 api.imgbb.com 申请，留空则关闭工单图片上传)",
+      "field_name": "imgbb_api_key",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
       "label": "自定义页脚/客服代码",
       "placeholder": "可在此插入客服或统计 JS 代码",
       "field_name": "custom_html",

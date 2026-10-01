@@ -21,9 +21,9 @@
     <link rel="icon" type="image/svg+xml" href="/theme/{{$theme}}/favicon.svg" />
     <!-- 引入运行时外部配置 (兼容 v2board 后台直出与静态托管) -->
     <script src="/theme/{{$theme}}/config.js"></script>
-    <script type="module" crossorigin src="/theme/v2nexus/static/js/index.BSGjwuAq.js"></script>
-    <link rel="modulepreload" crossorigin href="/theme/v2nexus/static/js/vendor-core.DokVKDR6.js">
-    <link rel="stylesheet" crossorigin href="/theme/v2nexus/static/css/index.BmpE5AQG.css">
+    <script type="module" crossorigin src="/theme/v2nexus/static/js/index.B3PVDSxF.js"></script>
+    <link rel="modulepreload" crossorigin href="/theme/v2nexus/static/js/vendor-core.ZnRt578C.js">
+    <link rel="stylesheet" crossorigin href="/theme/v2nexus/static/css/index.BTs7VHv6.css">
   </head>
   <body class="bg-nexus-50 text-nexus-900 dark:bg-nexus-950 dark:text-nexus-100 transition-colors duration-200 antialiased selection:bg-blue-500 selection:text-white">
     <div id="app"></div>
