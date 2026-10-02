@@ -13,16 +13,18 @@ class CreateUserSocialsTable extends Migration
      */
     public function up()
     {
-        Schema::create('user_socials', function (Blueprint $table) {
-            $table->increments('id');
-            $table->integer('user_id')->comment('用户ID');
-            $table->string('provider', 50)->comment('第三方渠道: google, github');
-            $table->string('provider_id', 100)->comment('第三方唯一ID');
-            $table->timestamps();
+        if (!Schema::hasTable('user_socials')) {
+            Schema::create('user_socials', function (Blueprint $table) {
+                $table->increments('id');
+                $table->integer('user_id')->comment('用户ID');
+                $table->string('provider', 50)->comment('第三方渠道: google, github');
+                $table->string('provider_id', 100)->comment('第三方唯一ID');
+                $table->timestamps();
 
-            $table->unique(['provider', 'provider_id'], 'uniq_provider_id');
-            $table->index('user_id', 'idx_user_id');
-        });
+                $table->unique(['provider', 'provider_id'], 'uniq_provider_id');
+                $table->index('user_id', 'idx_user_id');
+            });
+        }
     }
 
     /**
