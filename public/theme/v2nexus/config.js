@@ -57,7 +57,12 @@ window.NEXUS_CONFIG = {
 
   // 发卡账号 / 虚拟商品独立商城开关: 1 为开启，0 为关闭 (仅展示订阅套餐)
   shopCardEnable: 1,
-  shopCardNavName: '独立ios账号/付费',
+  // 每日签到福利总开关: 1 为开启，0 为关闭
+  checkinEnable: 1,
+  checkinRatePercent: 0,
+
+  // 提前开启新周期总开关: 1 为开启 (当流量耗尽且剩余天数大于30天时展示按钮)，0 为关闭
+  enableNewPeriod: 1,
 
   // 自定义页脚或统计/在线客服 HTML 代码
   customHtml: '',
