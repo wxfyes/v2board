@@ -55,9 +55,10 @@ class CheckinController extends Controller
         $today = date('Y-m-d');
         $currentMonth = date('Y-m');
 
-        // 是否拥有有效套餐
-        $hasActivePlan = ($user->plan_id > 0 && $user->expired_at > time() && $user->banned == 0);
+        // 是否拥有有效套餐与是否是一次性/不限时套餐
         $plan = $user->plan_id ? Plan::find($user->plan_id) : null;
+        $isOneTime = ($user->expired_at === null || $user->expired_at == 0 || ($plan && isset($plan->reset_traffic_method) && $plan->reset_traffic_method === 2));
+        $hasActivePlan = ($user->plan_id > 0 && $user->banned == 0 && !$isOneTime && $user->expired_at > time());
 
         // 今日是否已签到
         $todayLog = UserCheckinLog::where('user_id', $user->id)
@@ -107,6 +108,8 @@ class CheckinController extends Controller
         return response([
             'data' => [
                 'has_active_plan' => $hasActivePlan,
+                'is_onetime_plan' => $isOneTime,
+                'can_checkin' => $hasActivePlan,
                 'plan_name' => $plan ? $plan->name : '未开通套餐',
                 'today_checked' => $todayChecked,
                 'today_traffic' => $todayLog ? $todayLog->traffic : 0,
@@ -140,15 +143,22 @@ class CheckinController extends Controller
             abort(500, '您的账号已被封禁，无法参与签到');
         }
         if (!$user->plan_id) {
-            abort(500, '暂无有效套餐，请先购买套餐激活每日签到特权');
-        }
-        if ($user->expired_at < time()) {
-            abort(500, '您的套餐已到期，请先续费套餐后参与签到');
+            abort(500, '暂无有效套餐，请先购买周期订阅套餐激活每日签到特权');
         }
 
         $plan = Plan::find($user->plan_id);
         if (!$plan) {
             abort(500, '所绑定的套餐不存在或已被下架');
+        }
+
+        // 拦截一次性/不限时按量套餐
+        $isOneTime = ($user->expired_at === null || $user->expired_at == 0 || (isset($plan->reset_traffic_method) && $plan->reset_traffic_method === 2));
+        if ($isOneTime) {
+            abort(500, '每日打卡为周期订阅会员专属福利，不限时按量套餐暂不支持参与');
+        }
+
+        if ($user->expired_at < time()) {
+            abort(500, '您的套餐已到期，请先续费套餐后参与签到');
         }
 
         $maxMonthlyBytes = $this->calculateMonthlyCap($plan);
