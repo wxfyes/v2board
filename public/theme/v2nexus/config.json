@@ -192,6 +192,18 @@
       "field_name": "custom_html",
       "field_type": "textarea",
       "default_value": ""
+    },
+    {
+      "label": "套餐身份勋章/会员图标风格",
+      "placeholder": "选择仪表盘当前套餐卡片展示的会员身份视觉风格",
+      "field_name": "plan_badge_style",
+      "field_type": "select",
+      "select_options": {
+        "crystal_medal": "现代科技水晶勋章流 (六边形微光晶体，科技前沿)",
+        "luxury_crown": "尊贵黑金金属皇冠流 (3D立体金属皇冠，奢华大气质感)",
+        "none": "关闭 (仅显示经典基础图标)"
+      },
+      "default_value": "crystal_medal"
     }
   ]
 }
