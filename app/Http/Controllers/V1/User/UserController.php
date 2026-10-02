@@ -356,6 +356,7 @@ class UserController extends Controller
         $user['avatar_url'] = 'https://cravatar.cn/avatar/' . md5($user->email) . '?s=64&d=identicon';
         $user['need_set_password'] = ($user->password_salt === 'social');
         unset($user['password_salt']);
+        $this->appendSubscriptionMeta($user, $request->user['id']);
         return response([
             'data' => $user
         ]);
@@ -415,7 +416,21 @@ class UserController extends Controller
 
         $user['subscribe_url'] = Helper::getSubscribeUrl($user['token']);
 
-        // 获取用户当前套餐的订购周期 (月付/季付/半年付/年付/2年付/3年付/一次性)
+        // 统一注入订阅周期与方案 3 准入门槛策略
+        $this->appendSubscriptionMeta($user, $userId);
+
+        $userService = new UserService();
+        $user['reset_day'] = $userService->getResetDay($user);
+        return response([
+            'data' => $user
+        ]);
+    }
+
+    /**
+     * 统一注入订购周期与方案 3 开启新周期准入门槛 (月付严格禁止，仅限长期预付费会员)
+     */
+    private function appendSubscriptionMeta(&$user, $userId)
+    {
         $period = null;
         $periodName = null;
         $activeOrder = null;
@@ -475,8 +490,6 @@ class UserController extends Controller
         $user['period'] = $period;
         $user['period_name'] = $periodName;
 
-        $userService = new UserService();
-        $user['reset_day'] = $userService->getResetDay($user);
         $allowNewPeriod = (int)config('v2board.allow_new_period', 0);
         if (!$allowNewPeriod) {
             $theme = config('v2board.frontend_theme', 'v2nexus');
@@ -485,7 +498,7 @@ class UserController extends Controller
                 $allowNewPeriod = 1;
             }
         }
-        // 方案 3 准入门槛锁：仅对剩余有效时长 >= 60 天且为季付及以上长期预付费订阅会员放行
+        // 方案 3 准入门槛锁：仅对剩余有效时长 >= 60 天且为季付及以上长期预付费订阅会员放行 (月付严格禁止)
         if ($allowNewPeriod) {
             $isQualified = false;
             $allowedPeriods = ['quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price'];
@@ -497,9 +510,6 @@ class UserController extends Controller
             $allowNewPeriod = $isQualified ? 1 : 0;
         }
         $user['allow_new_period'] = $allowNewPeriod;
-        return response([
-            'data' => $user
-        ]);
     }
 
     public function unbindTelegram(Request $request)
