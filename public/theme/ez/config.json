@@ -101,6 +101,24 @@
       "field_name": "custom_html",
       "field_type": "textarea",
       "default_value": ""
+    },
+    {
+      "label": "每日签到福利总开关",
+      "placeholder": "是否开启前台每日签到打卡送流量功能",
+      "field_name": "checkin_enable",
+      "field_type": "select",
+      "select_options": {
+        "1": "开启 (周期订阅会员可每日打卡领流量)",
+        "0": "关闭 (完全隐藏签到入口并停用接口)"
+      },
+      "default_value": "1"
+    },
+    {
+      "label": "每日签到流量调节比例 (%)",
+      "placeholder": "以当前标准为基准(1024G送24G, 200G送4.69G)。填 10 增加10%(即200G送5.16G)，填 -20 减少20%，留空或 0 为默认标准",
+      "field_name": "checkin_rate_percent",
+      "field_type": "input",
+      "default_value": "0"
     }
   ]
 }

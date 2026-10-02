@@ -24,22 +24,48 @@ class CheckinController extends Controller
     }
 
     /**
+     * 读取后台主题配置 (支持当前激活主题、v2nexus、ez 多级回退)
+     */
+    private function getThemeConfig($key, $default = null)
+    {
+        $theme = config('v2board.frontend_theme', 'v2nexus');
+        // 1. 优先读取当前激活主题配置
+        $val = config("theme.{$theme}.{$key}");
+        if ($val !== null && $val !== '') {
+            return $val;
+        }
+        // 2. 回退读取 v2nexus 配置
+        $val = config("theme.v2nexus.{$key}");
+        if ($val !== null && $val !== '') {
+            return $val;
+        }
+        // 3. 回退读取 ez 配置
+        $val = config("theme.ez.{$key}");
+        if ($val !== null && $val !== '') {
+            return $val;
+        }
+        return $default;
+    }
+
+    /**
      * 计算套餐当月签到总上限 (字节数)
-     * 精确规则：1024 GB (1 TB) 对应 24 GB 差额 (比率 24 / 1024 ≈ 2.34375%)
-     * 例如：
-     *   100 GB  => 2.34 GB  (~2,400 MB)
-     *   200 GB  => 4.69 GB  (~4,800 MB)
-     *   300 GB  => 7.03 GB  (~7,200 MB)
-     *   500 GB  => 11.72 GB (~12,000 MB)
-     *   1024 GB => 24.00 GB (24,576 MB)
+     * 精确基准规则：1024 GB (1 TB) 对应 24 GB (比率 24 / 1024 ≈ 2.34375%)
+     * 支持站长在后台【系统配置 -> 主题配置】中全局动态上浮或下调百分比 (checkin_rate_percent)
+     * 例如：输入 10 表示在原基准上限上增加 10%，输入 -20 表示减少 20%，留空或 0 为默认标准
      */
     private function calculateMonthlyCap(Plan $plan)
     {
         $planGb = (float)$plan->transfer_enable;
-        $maxMonthlyGb = $planGb * (24.0 / 1024.0);
+        $baseMonthlyGb = $planGb * (24.0 / 1024.0);
+
+        // 获取后台主题配置的浮动百分比
+        $ratePercent = (float)$this->getThemeConfig('checkin_rate_percent', 0);
+        $multiplier = max(0.05, 1.0 + ($ratePercent / 100.0));
+
+        $maxMonthlyGb = $baseMonthlyGb * $multiplier;
         $maxBytes = (int)round($maxMonthlyGb * 1073741824);
-        // 保底：即使微型测试套餐也至少可领 100 MB
-        return max(104857600, $maxBytes);
+        // 保底：即使微型测试套餐也至少可领 10 MB
+        return max(10485760, $maxBytes);
     }
 
     /**
@@ -52,6 +78,9 @@ class CheckinController extends Controller
             abort(500, '用户不存在');
         }
 
+        // 检查全局签到功能开关
+        $checkinEnable = (string)$this->getThemeConfig('checkin_enable', '1') !== '0';
+
         $today = date('Y-m-d');
         $currentMonth = date('Y-m');
 
@@ -59,6 +88,8 @@ class CheckinController extends Controller
         $plan = $user->plan_id ? Plan::find($user->plan_id) : null;
         $isOneTime = ($user->expired_at === null || $user->expired_at == 0 || ($plan && isset($plan->reset_traffic_method) && $plan->reset_traffic_method === 2));
         $hasActivePlan = ($user->plan_id > 0 && $user->banned == 0 && !$isOneTime && $user->expired_at > time());
+        $canCheckin = ($checkinEnable && $hasActivePlan);
+        $cantCheckinReason = !$checkinEnable ? '每日打卡签到功能暂未开启' : ($isOneTime ? '一次性不限时套餐暂不支持参与每日签到' : (!$hasActivePlan ? '未开通有效周期订阅套餐' : ''));
 
         // 今日是否已签到
         $todayLog = UserCheckinLog::where('user_id', $user->id)
@@ -107,9 +138,11 @@ class CheckinController extends Controller
 
         return response([
             'data' => [
+                'checkin_enabled' => $checkinEnable,
                 'has_active_plan' => $hasActivePlan,
                 'is_onetime_plan' => $isOneTime,
-                'can_checkin' => $hasActivePlan,
+                'can_checkin' => $canCheckin,
+                'cant_checkin_reason' => $cantCheckinReason,
                 'plan_name' => $plan ? $plan->name : '未开通套餐',
                 'today_checked' => $todayChecked,
                 'today_traffic' => $todayLog ? $todayLog->traffic : 0,
@@ -136,6 +169,12 @@ class CheckinController extends Controller
         $user = User::find($userId);
         if (!$user) {
             abort(500, '用户不存在');
+        }
+
+        // 0. 全局签到开关校验
+        $checkinEnable = (string)$this->getThemeConfig('checkin_enable', '1') !== '0';
+        if (!$checkinEnable) {
+            abort(500, '每日打卡签到功能暂未开启');
         }
 
         // 1. 资格校验 (防刷第一道防线)
