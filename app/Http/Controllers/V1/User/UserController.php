@@ -136,16 +136,18 @@ class UserController extends Controller
                 abort(500, __('You do not allow to renew the subscription'));
             }
 
-            if ($user->expired_at === null || $user->expired_at <= time()) {
-                abort(500, __('You do not have enough time to renew your subscription'));
+            // 准入门槛锁 1：严格排斥一次性按量套餐 (无限期套餐绝对禁止开启新周期，防无限套现)
+            $plan = Plan::find($user->plan_id);
+            if (!$plan || $user->expired_at === null || $user->expired_at <= 0 || (int)$plan->reset_traffic_method === 2) {
+                abort(500, '一次性按量套餐无使用期限，不支持提前开启新周期，用尽请购买流量重置包');
             }
 
-            // 准入门槛锁 1：剩余有效时长必须 >= 60 天（至少还保有下一个完整周期）
+            // 准入门槛锁 2：剩余有效时长必须 >= 60 天（至少还保有下一个完整周期）
             if (($user->expired_at - time()) < (60 * 86400)) {
                 abort(500, '套餐剩余有效时长不足 60 天（已进入末期周期），无法提前透支下月流量，请购买流量重置包');
             }
 
-            // 准入门槛锁 2：严禁月付用户参与，必须是季付及以上长期预付费套餐 (quarter/half_year/year/etc)
+            // 准入门槛锁 3：严禁月付与一次性用户，必须是季付及以上长期预付费套餐 (quarter/half_year/year/etc)
             $activeOrder = Order::where('user_id', $user->id)
                 ->where('plan_id', $user->plan_id)
                 ->where('status', 3)
@@ -153,9 +155,25 @@ class UserController extends Controller
                 ->orderBy('id', 'desc')
                 ->first();
 
-            $allowedPeriods = ['quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price'];
-            if (!$activeOrder || !in_array($activeOrder->period, $allowedPeriods)) {
-                abort(500, '提前开启新周期为季付、半年付、年付等长期订阅会员专属特权，月付套餐请购买流量重置包');
+            // 方案 B 阶梯授权配额 (自然月内最大允许提前开启次数)
+            $periodLimitMap = [
+                'quarter_price'   => 1, // 季付：当月最多透支 1 次
+                'half_year_price' => 2, // 半年付：当月最多透支 2 次
+                'year_price'      => 3, // 年付：当月最多透支 3 次
+                'two_year_price'  => 3, // 2年付：当月最多透支 3 次
+                'three_year_price'=> 3  // 3年付：当月最多透支 3 次
+            ];
+
+            if (!$activeOrder || !isset($periodLimitMap[$activeOrder->period])) {
+                abort(500, '提前开启新周期为季付、半年付、年付等长期订阅会员专属特权，月付或一次性套餐请购买流量重置包');
+            }
+
+            $maxAllowedTimes = $periodLimitMap[$activeOrder->period];
+            $monthKey = 'USER_NEW_PERIOD_COUNT_' . $user->id . '_' . date('Ym');
+            $usedTimes = (int)Cache::get($monthKey, 0);
+
+            if ($usedTimes >= $maxAllowedTimes) {
+                abort(500, "您本月提前开启新周期的次数已达上限（{$maxAllowedTimes}次），无法继续透支，请购买流量重置包");
             }
 
             // 精准计算扣减后的新到期时间（自然月/自然年回退，自动适应 28/29/30/31 天并防月末溢出）
@@ -207,6 +225,10 @@ class UserController extends Controller
             if (!$user->update($updateData)) {
                 throw new \Exception(__('Save failed'));
             }
+
+            // 累加当月已开启次数，缓存保留到下个月初
+            $secondsUntilEndOfMonth = strtotime(date('Y-m-01 00:00:00', strtotime('+1 month'))) - time() + 86400;
+            Cache::put($monthKey, $usedTimes + 1, $secondsUntilEndOfMonth);
 
             DB::commit();
             return response([
@@ -503,13 +525,29 @@ class UserController extends Controller
                 $allowNewPeriod = 1;
             }
         }
-        // 方案 3 准入门槛锁：仅对剩余有效时长 >= 60 天且为季付及以上长期预付费订阅会员放行 (月付严格禁止)
+        // 方案 B 阶梯准入门槛锁：
+        // 1. 严格排斥一次性套餐 (无限期套餐绝对禁止开启新周期，防无限套现)
+        // 2. 严格排斥月付套餐 (month_price)
+        // 3. 剩余有效时长必须 >= 60 天
+        // 4. 当月提前开启次数不能超过阶梯配额 (季付1次、半年付2次、年付3次)
         if ($allowNewPeriod) {
             $isQualified = false;
-            $allowedPeriods = ['quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price'];
-            if ($user['plan_id'] && $user['expired_at'] && ($user['expired_at'] - time()) >= (60 * 86400)) {
-                if ($activeOrder && in_array($activeOrder->period, $allowedPeriods)) {
-                    $isQualified = true;
+            $periodLimitMap = [
+                'quarter_price'   => 1, // 季付：当月最多 1 次
+                'half_year_price' => 2, // 半年付：当月最多 2 次
+                'year_price'      => 3, // 年付：当月最多 3 次
+                'two_year_price'  => 3, // 2年付：当月最多 3 次
+                'three_year_price'=> 3  // 3年付：当月最多 3 次
+            ];
+            $isOnetime = ($user['expired_at'] === null || $user['expired_at'] <= 0 || (isset($user['plan']->reset_traffic_method) && (int)$user['plan']->reset_traffic_method === 2));
+            if (!$isOnetime && $user['plan_id'] && $user['expired_at'] && ($user['expired_at'] - time()) >= (60 * 86400)) {
+                if ($activeOrder && isset($periodLimitMap[$activeOrder->period])) {
+                    $maxTimes = $periodLimitMap[$activeOrder->period];
+                    $monthKey = 'USER_NEW_PERIOD_COUNT_' . $userId . '_' . date('Ym');
+                    $usedTimes = (int)Cache::get($monthKey, 0);
+                    if ($usedTimes < $maxTimes) {
+                        $isQualified = true;
+                    }
                 }
             }
             $allowNewPeriod = $isQualified ? 1 : 0;
