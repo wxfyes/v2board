@@ -413,6 +413,48 @@ class UserController extends Controller
 
         $user['subscribe_url'] = Helper::getSubscribeUrl($user['token']);
 
+        // 获取用户当前套餐的订购周期 (月付/季付/半年付/年付/2年付/3年付/一次性)
+        $period = null;
+        $periodName = null;
+        $activeOrder = null;
+        if ($user['plan_id']) {
+            $activeOrder = Order::where('user_id', $user['id'])
+                ->where('plan_id', $user['plan_id'])
+                ->where('status', 3)
+                ->whereIn('period', [
+                    'month_price',
+                    'quarter_price',
+                    'half_year_price',
+                    'year_price',
+                    'two_year_price',
+                    'three_year_price',
+                    'onetime_price'
+                ])
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($activeOrder) {
+                $period = $activeOrder->period;
+            } elseif ($user['expired_at'] === null || $user['expired_at'] == 0 || (isset($user['plan']->reset_traffic_method) && $user['plan']->reset_traffic_method === 2)) {
+                $period = 'onetime_price';
+            }
+
+            $periodMap = [
+                'month_price' => '月付',
+                'quarter_price' => '季付',
+                'half_year_price' => '半年付',
+                'year_price' => '年付',
+                'two_year_price' => '2年付',
+                'three_year_price' => '3年付',
+                'onetime_price' => '一次性按量'
+            ];
+            if ($period && isset($periodMap[$period])) {
+                $periodName = $periodMap[$period];
+            }
+        }
+        $user['period'] = $period;
+        $user['period_name'] = $periodName;
+
         $userService = new UserService();
         $user['reset_day'] = $userService->getResetDay($user);
         $allowNewPeriod = (int)config('v2board.allow_new_period', 0);
@@ -426,14 +468,9 @@ class UserController extends Controller
         // 方案 3 准入门槛锁：仅对剩余有效时长 >= 60 天且为季付及以上长期预付费订阅会员放行
         if ($allowNewPeriod) {
             $isQualified = false;
+            $allowedPeriods = ['quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price'];
             if ($user['plan_id'] && $user['expired_at'] && ($user['expired_at'] - time()) >= (60 * 86400)) {
-                $activeOrder = Order::where('user_id', $user['id'])
-                    ->where('plan_id', $user['plan_id'])
-                    ->where('status', 3)
-                    ->whereIn('period', ['quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price'])
-                    ->orderBy('id', 'desc')
-                    ->first();
-                if ($activeOrder) {
+                if ($activeOrder && in_array($activeOrder->period, $allowedPeriods)) {
                     $isQualified = true;
                 }
             }
