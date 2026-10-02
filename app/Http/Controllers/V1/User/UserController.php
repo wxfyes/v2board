@@ -434,7 +434,12 @@ class UserController extends Controller
         $period = null;
         $periodName = null;
         $activeOrder = null;
+        $resetPrice = null;
         if ($user->plan_id) {
+            $plan = isset($user['plan']) && $user['plan'] ? $user['plan'] : Plan::find($user->plan_id);
+            if ($plan && isset($plan->reset_price)) {
+                $resetPrice = $plan->reset_price;
+            }
             // 优先查询当前套餐对应的最近一条已完成订单
             $activeOrder = Order::where('user_id', $userId)
                 ->where('plan_id', $user->plan_id)
@@ -510,6 +515,7 @@ class UserController extends Controller
             $allowNewPeriod = $isQualified ? 1 : 0;
         }
         $user['allow_new_period'] = $allowNewPeriod;
+        $user['reset_price'] = $resetPrice;
     }
 
     public function unbindTelegram(Request $request)
