@@ -97,7 +97,16 @@ class UserController extends Controller
 
     public function newPeriod(Request $request) 
     {
-        if (!config('v2board.allow_new_period', 0)) {
+        $allowNewPeriod = (bool)config('v2board.allow_new_period', 0);
+        // 兼容支持主题设置中的 enable_new_period 开关
+        if (!$allowNewPeriod) {
+            $theme = config('v2board.frontend_theme', 'v2nexus');
+            $themeEnable = config("theme.{$theme}.enable_new_period", config('theme.v2nexus.enable_new_period', config('theme.ez.enable_new_period', '1')));
+            if ($themeEnable !== '0' && $themeEnable !== 0) {
+                $allowNewPeriod = true;
+            }
+        }
+        if (!$allowNewPeriod) {
             abort(500, __('Renewal is not allowed'));
         }
         DB::beginTransaction();
@@ -106,7 +115,14 @@ class UserController extends Controller
             if (!$user) {
                 abort(500, __('The user does not exist'));
             }
-            if ($user->transfer_enable > $user->u + $user->d) {
+            $usedTraffic = $user->u + $user->d;
+            $remainingTraffic = $user->transfer_enable - $usedTraffic;
+            // 流量耗尽容差：已用 >= 总量，或者剩余小于 500MB，或者剩余比例小于 1%
+            $isExhausted = ($usedTraffic >= $user->transfer_enable) 
+                || ($remainingTraffic <= 524288000) 
+                || ($user->transfer_enable > 0 && ($remainingTraffic / $user->transfer_enable) <= 0.01);
+
+            if (!$isExhausted) {
                 abort(500, __('You have not used up your traffic, you cannot renew your subscription'));
             }
             $userService = new UserService();
@@ -362,7 +378,15 @@ class UserController extends Controller
 
         $userService = new UserService();
         $user['reset_day'] = $userService->getResetDay($user);
-        $user['allow_new_period'] = config('v2board.allow_new_period', 0);
+        $allowNewPeriod = (int)config('v2board.allow_new_period', 0);
+        if (!$allowNewPeriod) {
+            $theme = config('v2board.frontend_theme', 'v2nexus');
+            $themeEnable = config("theme.{$theme}.enable_new_period", config('theme.v2nexus.enable_new_period', config('theme.ez.enable_new_period', '1')));
+            if ($themeEnable !== '0' && $themeEnable !== 0) {
+                $allowNewPeriod = 1;
+            }
+        }
+        $user['allow_new_period'] = $allowNewPeriod;
         return response([
             'data' => $user
         ]);
