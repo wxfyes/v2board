@@ -222,6 +222,17 @@
       "field_name": "checkin_rate_percent",
       "field_type": "input",
       "default_value": "0"
+    },
+    {
+      "label": "提前开启新周期功能开关",
+      "placeholder": "当用户流量耗尽且剩余时长超过1个月时，是否允许用户提前扣除1个月时长并重置流量",
+      "field_name": "enable_new_period",
+      "field_type": "select",
+      "select_options": {
+        "1": "开启 (允许符合条件的用户提前开启新周期)",
+        "0": "关闭 (完全隐藏该功能按钮)"
+      },
+      "default_value": "1"
     }
   ]
 }
