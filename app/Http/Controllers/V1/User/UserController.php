@@ -111,7 +111,7 @@ class UserController extends Controller
         }
         DB::beginTransaction();
         try {
-            $user = User::find($request->user['id']);
+            $user = User::lockForUpdate()->find($request->user['id']);
             if (!$user) {
                 abort(500, __('The user does not exist'));
             }
@@ -135,40 +135,59 @@ class UserController extends Controller
             if ($reset_period === null) {
                 abort(500, __('You do not allow to renew the subscription'));
             }
-            switch ($reset_period) {
-                case 1:
-                    $reset_day = 30;
-                    $reset_period = 30;
-                    break;
-                case 30:
-                    break;
-                case 12:
-                    $reset_day = 365;
-                    $reset_period = 365;
-                    break;
-                case 365:
-                    break;
-                default:
-                    abort(500, __('Invalid reset period'));
-            }
-            if ($reset_day <= 0) {
-                $reset_day = $reset_period;
-            }
-            if ($user->expired_at !== null && ($user->expired_at - time()) >= ($reset_day * 86400)) {
-                $plan = Plan::find($user->plan_id);
-                $updateData = [
-                    'expired_at' => $user->expired_at - $reset_day * 86400,
-                    'u' => 0,
-                    'd' => 0
-                ];
-                if ($plan) {
-                    $updateData['transfer_enable'] = $plan->transfer_enable * 1073741824;
-                }
-                if (!$user->update($updateData)) {
-                    throw new \Exception(__('Save failed'));
-                }
-            } else {
+
+            if ($user->expired_at === null || $user->expired_at <= time()) {
                 abort(500, __('You do not have enough time to renew your subscription'));
+            }
+
+            // 精准计算扣减后的新到期时间（自然月/自然年回退，自动适应 28/29/30/31 天并防月末溢出）
+            $newExpiredAt = null;
+            if ($reset_period === 1 || $reset_period === 30) {
+                // 自然月精准回退（大月扣31天、小月扣30天、2月扣28/29天，保持原到期日不变）
+                $y = (int)date('Y', $user->expired_at);
+                $m = (int)date('n', $user->expired_at);
+                $d = (int)date('j', $user->expired_at);
+                $his = date('H:i:s', $user->expired_at);
+
+                $m--;
+                if ($m < 1) {
+                    $m = 12;
+                    $y--;
+                }
+                // 获取目标月份的最大实际天数 (防止如 3月31日 减 1 个月溢出到 3月3日)
+                $maxD = (int)date('t', strtotime("{$y}-" . sprintf('%02d', $m) . "-01"));
+                $targetD = min($d, $maxD);
+                $newExpiredAt = strtotime("{$y}-" . sprintf('%02d', $m) . '-' . sprintf('%02d', $targetD) . " {$his}");
+            } elseif ($reset_period === 12 || $reset_period === 365) {
+                // 自然年精准回退（平年扣365天、闰年扣366天）
+                $y = (int)date('Y', $user->expired_at) - 1;
+                $m = (int)date('n', $user->expired_at);
+                $d = (int)date('j', $user->expired_at);
+                $his = date('H:i:s', $user->expired_at);
+
+                $maxD = (int)date('t', strtotime("{$y}-" . sprintf('%02d', $m) . "-01"));
+                $targetD = min($d, $maxD);
+                $newExpiredAt = strtotime("{$y}-" . sprintf('%02d', $m) . '-' . sprintf('%02d', $targetD) . " {$his}");
+            } else {
+                abort(500, __('Invalid reset period'));
+            }
+
+            // 防白嫖校验：扣减后的新到期时间必须仍然大于当前时间至少 1 小时，确保不会被白嫖或倒贴变过期
+            if (!$newExpiredAt || $newExpiredAt <= (time() + 3600)) {
+                abort(500, __('You do not have enough time to renew your subscription'));
+            }
+
+            $plan = Plan::find($user->plan_id);
+            $updateData = [
+                'expired_at' => $newExpiredAt,
+                'u' => 0,
+                'd' => 0
+            ];
+            if ($plan) {
+                $updateData['transfer_enable'] = $plan->transfer_enable * 1073741824;
+            }
+            if (!$user->update($updateData)) {
+                throw new \Exception(__('Save failed'));
             }
 
             DB::commit();
