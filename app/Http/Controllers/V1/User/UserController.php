@@ -527,10 +527,26 @@ class UserController extends Controller
     {
         $planId = isset($user->plan_id) ? $user->plan_id : (isset($user['plan_id']) ? $user['plan_id'] : null);
         $resetPrice = null;
+        $canRenew = 1;
         if ($planId) {
             $plan = isset($user['plan']) && $user['plan'] ? $user['plan'] : (isset($user->plan) && $user->plan ? $user->plan : Plan::find($planId));
-            if ($plan && isset($plan->reset_price)) {
-                $resetPrice = $plan->reset_price;
+            if ($plan) {
+                if (isset($plan->reset_price)) {
+                    $resetPrice = $plan->reset_price;
+                }
+                if (isset($plan->renew)) {
+                    $canRenew = (int)$plan->renew;
+                }
+            }
+        }
+
+        // 若管理员在后台关闭了套餐续费(renew=0)，严禁购买重置包与提前开启新周期
+        if (!$canRenew) {
+            $resetPrice = null;
+            if (isset($user['plan']) && is_object($user['plan'])) {
+                $user['plan']->reset_price = null;
+            } elseif (isset($user['plan']) && is_array($user['plan'])) {
+                $user['plan']['reset_price'] = null;
             }
         }
 
@@ -548,6 +564,7 @@ class UserController extends Controller
 
         $user['period'] = $period;
         $user['period_name'] = $periodName;
+        $user['can_renew'] = $canRenew;
 
         $allowNewPeriod = (int)config('v2board.allow_new_period', 0);
         if (!$allowNewPeriod) {
@@ -556,6 +573,9 @@ class UserController extends Controller
             if ($themeEnable !== '0' && $themeEnable !== 0) {
                 $allowNewPeriod = 1;
             }
+        }
+        if (!$canRenew) {
+            $allowNewPeriod = 0;
         }
 
         // 方案 B 阶梯准入门槛锁：

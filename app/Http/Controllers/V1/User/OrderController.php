@@ -226,15 +226,12 @@ class OrderController extends Controller
             }
 
             if ((!$plan->show && !$plan->renew) || (!$plan->show && $user->plan_id !== $plan->id)) {
-                if ($request->input('period') !== 'reset_price') {
-                    abort(500, __('This subscription has been sold out, please choose another subscription'));
-                }
+                abort(500, __('This subscription has been sold out, please choose another subscription'));
             }
 
-            if (!$plan->renew && $user->plan_id == $plan->id && $request->input('period') !== 'reset_price') {
+            if (!$plan->renew && $user->plan_id == $plan->id) {
                 abort(500, __('This subscription cannot be renewed, please change to another subscription'));
             }
-
 
             if (!$plan->show && $plan->renew && !$userService->isAvailable($user)) {
                 abort(500, __('This subscription has expired, please change to another subscription'));
