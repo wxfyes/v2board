@@ -65,6 +65,9 @@ class UserRoute
             // Card
             $router->get ('/card/product/fetch', 'V1\\User\\CardController@products');
             $router->get ('/card/fetchByOrder', 'V1\\User\\CardController@fetchByOrder');
+            // Checkin 每日签到
+            $router->get ('/checkin/status', 'V1\\User\\CheckinController@status');
+            $router->post('/checkin/do', 'V1\\User\\CheckinController@doCheckin');
         });
     }
 }

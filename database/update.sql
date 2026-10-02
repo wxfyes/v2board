@@ -864,3 +864,46 @@ ADD `client_login_at` int(11) NULL COMMENT '客户端登录时间' AFTER `last_l
 -- 添加客户端类型字段（存储 JSON 格式历史记录）
 ALTER TABLE `v2_user`
 ADD `client_type` text NULL COMMENT '客户端类型历史(JSON)' AFTER `client_login_at`;
+
+-- 发卡与每日签到任务数据表补全
+CREATE TABLE IF NOT EXISTS `v2_card_products` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL COMMENT '商品名称',
+  `description` text DEFAULT NULL COMMENT '使用说明/商品描述',
+  `price` int(11) NOT NULL COMMENT '单价(分)',
+  `show` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否上架: 0下架 1上架',
+  `sort` int(11) NOT NULL DEFAULT '0' COMMENT '排序',
+  `created_at` int(11) NOT NULL,
+  `updated_at` int(11) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `v2_cards` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `product_id` int(11) NOT NULL COMMENT '商品ID',
+  `code` text NOT NULL COMMENT '卡密文本',
+  `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT '状态: 0未售 1已售',
+  `user_id` int(11) DEFAULT NULL COMMENT '购买者用户ID',
+  `order_id` int(11) DEFAULT NULL COMMENT '绑定的订单ID',
+  `created_at` int(11) NOT NULL,
+  `updated_at` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_product_id` (`product_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_order_id` (`order_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `v2_user_checkin_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL COMMENT '用户ID',
+  `plan_id` int(11) NOT NULL COMMENT '签到时套餐ID',
+  `traffic` bigint(20) NOT NULL COMMENT '签到赠送流量(Bytes)',
+  `checkin_date` date NOT NULL COMMENT '签到日期(YYYY-MM-DD)',
+  `month` varchar(7) NOT NULL COMMENT '所属月份(YYYY-MM)',
+  `created_at` int(11) NOT NULL,
+  `updated_at` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_user_date` (`user_id`, `checkin_date`),
+  KEY `idx_user_month` (`user_id`, `month`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
