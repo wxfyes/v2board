@@ -144,7 +144,7 @@ class UserController extends Controller
 
             // 准入门槛锁 2：剩余有效时长必须 >= 60 天（至少还保有下一个完整周期）
             if (($user->expired_at - time()) < (60 * 86400)) {
-                abort(500, '套餐剩余有效时长不足 60 天（已进入末期周期），无法提前透支下月流量，请购买流量重置包');
+                abort(500, '套餐剩余有效时长不足 60 天（已进入末期周期），无法提前透支下月流量，请购买流量重置包或续费套餐');
             }
 
             // 准入门槛锁 3：严禁月付与一次性用户，必须是季付及以上长期预付费套餐 (quarter/half_year/year/etc)
@@ -164,11 +164,11 @@ class UserController extends Controller
             }
 
             if ($userPeriod === 'month_price') {
-                abort(500, '提前开启新周期为季付、半年付、年付等长期订阅会员专属特权，月付套餐请购买流量重置包');
+                abort(500, '提前开启新周期为季付、半年付、年付等长期订阅会员专属特权，月付套餐请购买流量重置包或续费套餐');
             }
 
             if (!isset($periodLimitMap[$userPeriod])) {
-                abort(500, '提前开启新周期为季付、半年付、年付等长期订阅会员专属特权，请购买流量重置包');
+                abort(500, '提前开启新周期为季付、半年付、年付等长期订阅会员专属特权，请购买流量重置包或续费套餐');
             }
 
             $maxAllowedTimes = $periodLimitMap[$userPeriod];
@@ -176,7 +176,7 @@ class UserController extends Controller
             $usedTimes = (int)Cache::get($monthKey, 0);
 
             if ($usedTimes >= $maxAllowedTimes) {
-                abort(500, "您本月提前开启新周期的次数已达上限（{$maxAllowedTimes}次），无法继续透支，请购买流量重置包");
+                abort(500, "您本月提前开启新周期的次数已达上限（{$maxAllowedTimes}次），无法继续透支，请购买流量重置包或续费套餐");
             }
 
             // 精准计算扣减后的新到期时间（自然月/自然年回退，自动适应 28/29/30/31 天并防月末溢出）
