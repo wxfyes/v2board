@@ -140,6 +140,24 @@ class UserController extends Controller
                 abort(500, __('You do not have enough time to renew your subscription'));
             }
 
+            // 准入门槛锁 1：剩余有效时长必须 >= 60 天（至少还保有下一个完整周期）
+            if (($user->expired_at - time()) < (60 * 86400)) {
+                abort(500, '套餐剩余有效时长不足 60 天（已进入末期周期），无法提前透支下月流量，请购买流量重置包');
+            }
+
+            // 准入门槛锁 2：严禁月付用户参与，必须是季付及以上长期预付费套餐 (quarter/half_year/year/etc)
+            $activeOrder = Order::where('user_id', $user->id)
+                ->where('plan_id', $user->plan_id)
+                ->where('status', 3)
+                ->whereIn('period', ['month_price', 'quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price'])
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $allowedPeriods = ['quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price'];
+            if (!$activeOrder || !in_array($activeOrder->period, $allowedPeriods)) {
+                abort(500, '提前开启新周期为季付、半年付、年付等长期订阅会员专属特权，月付套餐请购买流量重置包');
+            }
+
             // 精准计算扣减后的新到期时间（自然月/自然年回退，自动适应 28/29/30/31 天并防月末溢出）
             $newExpiredAt = null;
             if ($reset_period === 1 || $reset_period === 30) {
@@ -404,6 +422,22 @@ class UserController extends Controller
             if ($themeEnable !== '0' && $themeEnable !== 0) {
                 $allowNewPeriod = 1;
             }
+        }
+        // 方案 3 准入门槛锁：仅对剩余有效时长 >= 60 天且为季付及以上长期预付费订阅会员放行
+        if ($allowNewPeriod) {
+            $isQualified = false;
+            if ($user['plan_id'] && $user['expired_at'] && ($user['expired_at'] - time()) >= (60 * 86400)) {
+                $activeOrder = Order::where('user_id', $user['id'])
+                    ->where('plan_id', $user['plan_id'])
+                    ->where('status', 3)
+                    ->whereIn('period', ['quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price'])
+                    ->orderBy('id', 'desc')
+                    ->first();
+                if ($activeOrder) {
+                    $isQualified = true;
+                }
+            }
+            $allowNewPeriod = $isQualified ? 1 : 0;
         }
         $user['allow_new_period'] = $allowNewPeriod;
         return response([
