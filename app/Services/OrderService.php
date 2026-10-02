@@ -403,6 +403,12 @@ class OrderService
     {
         $this->user->u = 0;
         $this->user->d = 0;
+        if ($this->user->plan_id && $this->user->expired_at !== NULL) {
+            $plan = Plan::find($this->user->plan_id);
+            if ($plan) {
+                $this->user->transfer_enable = $plan->transfer_enable * 1073741824;
+            }
+        }
     }
 
     private function buyByPeriod(Order $order, Plan $plan)

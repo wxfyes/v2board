@@ -139,13 +139,16 @@ class UserController extends Controller
                 $reset_day = $reset_period;
             }
             if ($user->expired_at !== null && ($reset_period + 1) * 86400 < $user->expired_at - time()) {
-                if (!$user->update(
-                    [
-                        'expired_at' => $user->expired_at - $reset_day * 86400,
-                        'u' => 0,
-                        'd' => 0
-                    ]
-                )) {
+                $plan = Plan::find($user->plan_id);
+                $updateData = [
+                    'expired_at' => $user->expired_at - $reset_day * 86400,
+                    'u' => 0,
+                    'd' => 0
+                ];
+                if ($plan) {
+                    $updateData['transfer_enable'] = $plan->transfer_enable * 1073741824;
+                }
+                if (!$user->update($updateData)) {
                     throw new \Exception(__('Save failed'));
                 }
             } else {

@@ -109,6 +109,25 @@ class ResetTraffic extends Command
         Redis::del('traffic_reset_lock');
     }
 
+    /**
+     * 执行原子流量重置：清空已用流量并重置总容量为套餐基础额度 (彻底清除上月签到等赠送流量，杜绝滚存)
+     */
+    private function executeReset(array $userIds): void
+    {
+        if (empty($userIds)) return;
+
+        $this->retryTransaction(function () use ($userIds) {
+            DB::table('v2_user')
+                ->join('v2_plan', 'v2_user.plan_id', '=', 'v2_plan.id')
+                ->whereIn('v2_user.id', $userIds)
+                ->update([
+                    'v2_user.u' => 0,
+                    'v2_user.d' => 0,
+                    'v2_user.transfer_enable' => DB::raw('v2_plan.transfer_enable * 1073741824')
+                ]);
+        });
+    }
+
     private function resetByExpireYear($builder): void
     {
         $users = [];
@@ -119,35 +138,22 @@ class ResetTraffic extends Command
                 array_push($users, $item->id);
             }
         }
-        $this->retryTransaction(function () use ($users) {
-            User::whereIn('id', $users)->update([
-                'u' => 0,
-                'd' => 0
-            ]);
-        });
+        $this->executeReset($users);
     }
 
     private function resetByYearFirstDay($builder): void
     {
         if ((string)date('md') === '0101') {
-            $this->retryTransaction(function () use ($builder) {
-                $builder->update([
-                    'u' => 0,
-                    'd' => 0
-                ]);
-            });
+            $users = $builder->pluck('id')->toArray();
+            $this->executeReset($users);
         }
     }
 
     private function resetByMonthFirstDay($builder): void
     {
         if ((string)date('d') === '01') {
-            $this->retryTransaction(function () use ($builder) {
-                $builder->update([
-                    'u' => 0,
-                    'd' => 0
-                ]);
-            });
+            $users = $builder->pluck('id')->toArray();
+            $this->executeReset($users);
         }
     }
 
@@ -164,12 +170,7 @@ class ResetTraffic extends Command
                 array_push($users, $item->id);
             }
         }
-        $this->retryTransaction(function () use ($users) {
-            User::whereIn('id', $users)->update([
-                'u' => 0,
-                'd' => 0
-            ]);
-        });
+        $this->executeReset($users);
     }
 
     private function retryTransaction($callback)
