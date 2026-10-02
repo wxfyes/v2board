@@ -154,7 +154,7 @@ class UserController extends Controller
             if ($reset_day <= 0) {
                 $reset_day = $reset_period;
             }
-            if ($user->expired_at !== null && ($reset_period + 1) * 86400 < $user->expired_at - time()) {
+            if ($user->expired_at !== null && ($user->expired_at - time()) >= ($reset_day * 86400)) {
                 $plan = Plan::find($user->plan_id);
                 $updateData = [
                     'expired_at' => $user->expired_at - $reset_day * 86400,
