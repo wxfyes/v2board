@@ -380,8 +380,10 @@ class UserController extends Controller
 
     public function getSubscribe(Request $request)
     {
-        $user = User::where('id', $request->user['id'])
+        $userId = $request->user['id'];
+        $user = User::where('id', $userId)
             ->select([
+                'id',
                 'plan_id',
                 'token',
                 'expired_at',
@@ -405,7 +407,7 @@ class UserController extends Controller
 
         //统计在线设备
         $countalive = 0;
-        $ips_array = Cache::get('ALIVE_IP_USER_' . $request->user['id']);
+        $ips_array = Cache::get('ALIVE_IP_USER_' . $userId);
         if ($ips_array) {
             $countalive = $ips_array['alive_ip'];
         }
@@ -417,9 +419,10 @@ class UserController extends Controller
         $period = null;
         $periodName = null;
         $activeOrder = null;
-        if ($user['plan_id']) {
-            $activeOrder = Order::where('user_id', $user['id'])
-                ->where('plan_id', $user['plan_id'])
+        if ($user->plan_id) {
+            // 优先查询当前套餐对应的最近一条已完成订单
+            $activeOrder = Order::where('user_id', $userId)
+                ->where('plan_id', $user->plan_id)
                 ->where('status', 3)
                 ->whereIn('period', [
                     'month_price',
@@ -433,9 +436,26 @@ class UserController extends Controller
                 ->orderBy('id', 'desc')
                 ->first();
 
+            // 若未找到特定套餐订单，查找该用户最近一条有效周期订单兜底
+            if (!$activeOrder) {
+                $activeOrder = Order::where('user_id', $userId)
+                    ->where('status', 3)
+                    ->whereIn('period', [
+                        'month_price',
+                        'quarter_price',
+                        'half_year_price',
+                        'year_price',
+                        'two_year_price',
+                        'three_year_price',
+                        'onetime_price'
+                    ])
+                    ->orderBy('id', 'desc')
+                    ->first();
+            }
+
             if ($activeOrder) {
                 $period = $activeOrder->period;
-            } elseif ($user['expired_at'] === null || $user['expired_at'] == 0 || (isset($user['plan']->reset_traffic_method) && $user['plan']->reset_traffic_method === 2)) {
+            } elseif ($user->expired_at === null || $user->expired_at == 0 || (isset($user['plan']->reset_traffic_method) && $user['plan']->reset_traffic_method === 2)) {
                 $period = 'onetime_price';
             }
 
