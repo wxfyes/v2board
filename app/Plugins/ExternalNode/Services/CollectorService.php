@@ -272,6 +272,85 @@ class CollectorService
     }
 
     /**
+     * 高性能并发并行拉取多个订阅源 (curl_multi，彻底告别单线程阻塞)
+     */
+    public static function fetchSourcesMulti(array &$sources, float $timeout = 4.0): array
+    {
+        $mh = curl_multi_init();
+        $handles = [];
+
+        foreach ($sources as $idx => $src) {
+            if (empty($src['enabled']) || empty($src['url'])) continue;
+
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $src['url'],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => (int)ceil($timeout),
+                CURLOPT_CONNECTTIMEOUT => 3,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 4,
+                CURLOPT_USERAGENT => 'ClashMeta/v1.18.0 (Clash for Windows; Chrome/120.0.0.0)'
+            ]);
+
+            curl_multi_add_handle($mh, $ch);
+            $handles[$idx] = $ch;
+        }
+
+        if (empty($handles)) {
+            curl_multi_close($mh);
+            return [];
+        }
+
+        // 并发执行拉取
+        $active = null;
+        do {
+            $mrc = curl_multi_exec($mh, $active);
+        } while ($mrc === CURLM_CALL_MULTI_PERFORM);
+
+        while ($active && $mrc === CURLM_OK) {
+            if (curl_multi_select($mh, 0.2) !== -1) {
+                do {
+                    $mrc = curl_multi_exec($mh, $active);
+                } while ($mrc === CURLM_CALL_MULTI_PERFORM);
+            }
+        }
+
+        // 收集结果并去重解析
+        $allNodes = [];
+        $uniqueMap = [];
+
+        foreach ($handles as $idx => $ch) {
+            $content = curl_multi_getcontent($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_multi_remove_handle($mh, $ch);
+            curl_close($ch);
+
+            $sources[$idx]['last_sync_at'] = time();
+
+            if ($code >= 200 && $code < 300 && !empty($content)) {
+                $nodes = self::parseContent($content);
+                $sources[$idx]['node_count'] = count($nodes);
+
+                foreach ($nodes as $n) {
+                    $sig = ($n['host'] ?? '') . ':' . ($n['port'] ?? '');
+                    if (!isset($uniqueMap[$sig]) && !empty($n['host'])) {
+                        $uniqueMap[$sig] = true;
+                        $allNodes[] = $n;
+                    }
+                }
+            } else {
+                $sources[$idx]['node_count'] = 0;
+            }
+        }
+
+        curl_multi_close($mh);
+        return $allNodes;
+    }
+
+    /**
      * 高容错 HTTP 客户端（10秒超时、跳过证书校验、防爬虫伪装 UA）
      */
     private static function httpGet(string $url): string

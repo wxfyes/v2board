@@ -110,6 +110,16 @@ class AdminApiController extends Controller
             if ($realToken) $sampleToken = $realToken;
         } catch (\Throwable $e) {}
 
+        // 提取系统全部套餐供站长可视化点击勾选
+        $availablePlans = [];
+        try {
+            $availablePlans = \Illuminate\Support\Facades\DB::table('v2_plan')
+                ->select('id', 'name', 'transfer_enable')
+                ->orderBy('id', 'asc')
+                ->get()
+                ->toArray();
+        } catch (\Throwable $e) {}
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -120,6 +130,7 @@ class AdminApiController extends Controller
                 'sources' => $sources,
                 'settings' => $safeSettings,
                 'sample_token' => $sampleToken,
+                'available_plans' => $availablePlans,
                 'updated_at' => $data['updated_at'] ?? 0,
                 'nodes_preview' => array_slice($nodes, 0, 100)
             ]
@@ -182,20 +193,56 @@ class AdminApiController extends Controller
             return response()->json(['status' => 'error', 'code' => 403, 'message' => '未授权访问'], 403);
         }
 
-        @set_time_limit(0);
+        @set_time_limit(90);
         @ini_set('memory_limit', '512M');
 
-        $basePath = base_path();
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            @pclose(@popen("start /B php {$basePath}/artisan external:collect", "r"));
-        } else {
-            @exec("php {$basePath}/artisan external:collect > /dev/null 2>&1 &");
-        }
+        try {
+            $data = StorageService::load();
+            $sources = $data['sources'] ?? [];
+            $settings = $data['settings'] ?? [];
 
-        return response()->json([
-            'status' => 'success',
-            'message' => '全网 8 大优质节点池采集与深度测活已在后台启动！请等待约 10~15 秒后刷新页面查看。'
-        ]);
+            // 1. 高性能并发秒级拉取所有订阅源 (3.5秒超时)
+            $rawNodes = CollectorService::fetchSourcesMulti($sources, 3.5);
+            $data['sources'] = $sources;
+
+            // 2. 清洗与商业标准化命名
+            $formattedNodes = [];
+            $index = 1;
+            foreach ($rawNodes as $node) {
+                $cleaned = CleanerService::cleanAndFormatName($node['raw_name'] ?? '', $index++, $settings);
+                $node['formatted_name'] = $cleaned['formatted_name'];
+                $node['region'] = $cleaned['region'];
+                $node['emoji'] = $cleaned['emoji'];
+                $node['is_online'] = false; // 初始待测
+                $node['latency'] = 0;
+                $node['offline_count'] = 0;
+                $formattedNodes[] = $node;
+            }
+
+            // 3. 针对前 60 个节点进行快速真实 TLS 并发测活 (2秒)
+            $candidates = array_slice($formattedNodes, 0, 60);
+            $checkedCandidates = CheckerService::checkAll($candidates, 30, 1.8);
+
+            // 合并并写入存储
+            $finalNodes = array_merge($checkedCandidates, array_slice($formattedNodes, 60));
+            $data['nodes'] = $finalNodes;
+            $data['updated_at'] = time();
+            StorageService::save($data);
+
+            $online = count(array_filter($checkedCandidates, fn($n) => !empty($n['is_online'])));
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "并发采集与真实TLS深度测活完成！共采入 " . count($finalNodes) . " 个节点，首批实测在线 {$online} 个",
+                'count' => count($finalNodes),
+                'online' => $online
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => '采集执行异常: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -228,20 +275,37 @@ class AdminApiController extends Controller
             return response()->json(['status' => 'error', 'code' => 403, 'message' => '未授权访问'], 403);
         }
 
-        @set_time_limit(0);
+        @set_time_limit(90);
         @ini_set('memory_limit', '512M');
 
-        $basePath = base_path();
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            @pclose(@popen("start /B php {$basePath}/artisan external:check", "r"));
-        } else {
-            @exec("php {$basePath}/artisan external:check > /dev/null 2>&1 &");
-        }
+        try {
+            $data = StorageService::load();
+            $nodes = $data['nodes'] ?? [];
 
-        return response()->json([
-            'status' => 'success',
-            'message' => '真实 TLS 握手深度测活已在后台并发启动，请稍候刷新查看最新延迟数据。'
-        ]);
+            if (empty($nodes)) {
+                return response()->json(['status' => 'error', 'message' => '节点库为空，请先采集'], 400);
+            }
+
+            // 对前 80 个节点进行快速真实测活 (2秒)
+            $batch = array_slice($nodes, 0, 80);
+            $checked = CheckerService::checkAll($batch, 35, 1.8);
+            $data['nodes'] = array_merge($checked, array_slice($nodes, 80));
+            StorageService::save($data);
+
+            $online = count(array_filter($checked, fn($n) => !empty($n['is_online'])));
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "真实TLS深度测活完成，在线节点 {$online} / " . count($checked),
+                'online' => $online,
+                'total' => count($checked)
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => '测活执行异常: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
