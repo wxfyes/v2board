@@ -614,6 +614,9 @@
             const json = await res.json();
             if (json.status === 'success') {
               overview.value = json.data;
+              if (json.data.sample_token) {
+                testToken.value = json.data.sample_token;
+              }
               if (json.data.settings) {
                 settings.value = { ...settings.value, ...json.data.settings };
               }

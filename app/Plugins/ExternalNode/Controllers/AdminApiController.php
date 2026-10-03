@@ -102,6 +102,14 @@ class AdminApiController extends Controller
         // 脱敏返回：管理密钥只展示部分，防止泄露
         $safeSettings = $data['settings'] ?? [];
 
+        // 提取系统真实用户 Token 方便一键调试
+        $sampleToken = 'test_token_123';
+        try {
+            $realToken = \Illuminate\Support\Facades\DB::table('v2_user')->where('is_admin', 1)->value('token')
+                ?: \Illuminate\Support\Facades\DB::table('v2_user')->value('token');
+            if ($realToken) $sampleToken = $realToken;
+        } catch (\Throwable $e) {}
+
         return response()->json([
             'status' => 'success',
             'data' => [
@@ -111,6 +119,7 @@ class AdminApiController extends Controller
                 'region_stats' => $regionStats,
                 'sources' => $sources,
                 'settings' => $safeSettings,
+                'sample_token' => $sampleToken,
                 'updated_at' => $data['updated_at'] ?? 0,
                 'nodes_preview' => array_slice($nodes, 0, 100)
             ]
