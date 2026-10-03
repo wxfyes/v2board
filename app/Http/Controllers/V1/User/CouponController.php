@@ -16,6 +16,9 @@ class CouponController extends Controller
         $couponService = new CouponService($request->input('code'));
         $couponService->setPlanId($request->input('plan_id'));
         $couponService->setUserId($request->user['id']);
+        if ($request->input('period')) {
+            $couponService->setPeriod($request->input('period'));
+        }
         $couponService->check();
         return response([
             'data' => $couponService->getCoupon()

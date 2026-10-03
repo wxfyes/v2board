@@ -96,13 +96,13 @@ class CouponService
         if (time() > $this->coupon->ended_at) {
             abort(500, __('This coupon has expired'));
         }
-        if ($this->coupon->limit_plan_ids && $this->planId) {
-            if (!in_array($this->planId, $this->coupon->limit_plan_ids)) {
+        if (!empty($this->coupon->limit_plan_ids)) {
+            if (empty($this->planId) || !in_array($this->planId, $this->coupon->limit_plan_ids)) {
                 abort(500, __('The coupon code cannot be used for this subscription'));
             }
         }
-        if ($this->coupon->limit_period && $this->period) {
-            if (!in_array($this->period, $this->coupon->limit_period)) {
+        if (!empty($this->coupon->limit_period)) {
+            if (empty($this->period) || !in_array($this->period, $this->coupon->limit_period)) {
                 abort(500, __('The coupon code cannot be used for this period'));
             }
         }
