@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use App\Plugins\ExternalNode\Commands\CollectCommand;
 use App\Plugins\ExternalNode\Commands\CheckCommand;
 use App\Plugins\ExternalNode\Commands\CronCommand;
+use App\Plugins\ExternalNode\Commands\SyncCommand;
 
 class ExternalNodeServiceProvider extends ServiceProvider
 {
@@ -19,6 +20,7 @@ class ExternalNodeServiceProvider extends ServiceProvider
                 CollectCommand::class,
                 CheckCommand::class,
                 CronCommand::class,
+                SyncCommand::class,
             ]);
         }
     }
