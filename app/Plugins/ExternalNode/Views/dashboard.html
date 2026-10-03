@@ -369,6 +369,33 @@
             <p class="text-xs text-slate-400 mt-1">设为 1024 即每次拉取扣除 1GB，设为 0 表示不扣流量。</p>
           </div>
 
+          <div class="md:col-span-2 p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 space-y-4">
+            <div class="flex items-center gap-2">
+              <span class="text-base">☁️</span>
+              <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Cloudflare 小云朵独立域名与自定义防封路径</h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">🌐 独立引流域名 (支持 CF 点亮小云朵)</label>
+                <input v-model="settings.free_sub_domain" type="text" placeholder="例如: https://free-sub.yourdomain.com" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500">
+                <p class="text-[11px] text-slate-400 mt-1">宝塔绑定此域名并在 Cloudflare 开启小云朵 CDN 代理，完全隐藏源站 IP。留空则默认使用主站当前域名。</p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">🛣️ 自定义免费订阅路径 (非写死，防特征)</label>
+                <input v-model="settings.free_sub_path" type="text" placeholder="例如: api/v1/free/subscribe 或 free/sub" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500">
+                <p class="text-[11px] text-slate-400 mt-1">非写死路径！可自由改成任意路径，彻底避开常见订阅特征封锁。</p>
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="block text-xs font-semibold text-slate-700 mb-1">🎯 关联的免费套餐 Plan ID (命中后前台自动下发此独立通道)</label>
+                <input v-model="settings.free_plan_ids" type="text" placeholder="例如: 1 或 1,2 (多个套餐ID用英文逗号隔开)" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500">
+                <p class="text-[11px] text-slate-400 mt-1">用户只要 0 元购买或持有这些套餐，在用户中心点击“一键导入订阅”时，系统将全自动将订阅地址替换为上述独立小云朵域名与自定义路径！</p>
+              </div>
+            </div>
+          </div>
+
           <div>
             <label class="block text-xs font-semibold text-slate-700 mb-1.5">单次下发最大节点数 (防拖库)</label>
             <input v-model.number="settings.max_nodes_per_sub" type="number" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500">
@@ -405,7 +432,7 @@
       <div class="glass-card rounded-2xl p-6 shadow-sm max-w-3xl space-y-6 border border-slate-200/80">
         <div>
           <h2 class="text-lg font-bold text-slate-900">物理隔离型免费订阅生成与测试</h2>
-          <p class="text-xs text-slate-500 mt-1">此订阅接口仅下发采集清洗节点，与付费专线 100% 物理隔离，支持绑定独立免备案/防封二级域名。</p>
+          <p class="text-xs text-slate-500 mt-1">此订阅接口仅下发采集清洗节点，与付费专线 100% 物理隔离，完全采用上方配置的独立小云朵域名与自定义路径。</p>
         </div>
 
         <div class="space-y-4 pt-4 border-t border-slate-100">
@@ -694,14 +721,26 @@
           return list;
         });
 
+        const getBaseSubUrl = () => {
+          let domain = (settings.value.free_sub_domain || '').trim();
+          if (!domain) {
+            domain = window.location.origin;
+          } else {
+            domain = domain.replace(/\/+$/, '');
+            if (!/^https?:\/\//i.test(domain)) {
+              domain = 'https://' + domain;
+            }
+          }
+          let path = (settings.value.free_sub_path || 'api/v1/free/subscribe').trim().replace(/^\/+/, '');
+          return `${domain}/${path}`;
+        };
+
         const clashSubUrl = computed(() => {
-          const origin = window.location.origin;
-          return `${origin}/api/v1/free/subscribe?token=${testToken.value}&flag=clash`;
+          return `${getBaseSubUrl()}?token=${testToken.value}&flag=clash`;
         });
 
         const base64SubUrl = computed(() => {
-          const origin = window.location.origin;
-          return `${origin}/api/v1/free/subscribe?token=${testToken.value}`;
+          return `${getBaseSubUrl()}?token=${testToken.value}`;
         });
 
         const copyText = (txt) => {

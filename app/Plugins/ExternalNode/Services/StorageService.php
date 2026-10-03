@@ -34,9 +34,25 @@ class StorageService
             return self::healAndSaveDefault();
         }
 
-        // 🛡️ 安全通信密钥自动补全机制
+        // 🛡️ 安全通信密钥与独立小云朵域名设置自动补全机制
+        $needSave = false;
         if (empty($data['settings']['admin_secret_key'])) {
             $data['settings']['admin_secret_key'] = bin2hex(random_bytes(16));
+            $needSave = true;
+        }
+        if (!isset($data['settings']['free_sub_domain'])) {
+            $data['settings']['free_sub_domain'] = '';
+            $needSave = true;
+        }
+        if (!isset($data['settings']['free_sub_path'])) {
+            $data['settings']['free_sub_path'] = 'api/v1/free/subscribe';
+            $needSave = true;
+        }
+        if (!isset($data['settings']['free_plan_ids'])) {
+            $data['settings']['free_plan_ids'] = '1';
+            $needSave = true;
+        }
+        if ($needSave) {
             self::save($data);
         }
 
@@ -84,12 +100,14 @@ class StorageService
             'settings' => [
                 'enable' => true,
                 'admin_secret_key' => bin2hex(random_bytes(16)), // 32位独立管理安全通信密钥
+                'free_sub_domain' => '',          // 独立引流域名 (支持 Cloudflare 小云朵，留空则使用当前访问域名)
+                'free_sub_path' => 'api/v1/free/subscribe', // 自定义免费下发路径 (非写死，可任意自定义防特征阻断)
+                'free_plan_ids' => '1',           // 关联的免费套餐 Plan ID (多个逗号隔开，命中则前端下发独立引流订阅)
                 'deduct_traffic_mb' => 1024,      // 每次拉取扣除流量 (MB)
-                'max_pull_per_day' => 10,         // 每日拉取上限次数 (0表示不限制)
-                'node_prefix' => '⚡ [免费体验]',    // 节点统一人性化前缀
-                'node_ad_suffix' => ' - 升级VIP享4K', // 广告/引导升级后缀
                 'max_nodes_per_sub' => 15,        // 单次下发最大节点数 (防被一次性拖库)
                 'auto_clean_offline_hours' => 12, // 连续离线超时自动清除 (小时)
+                'node_prefix' => '⚡ [免费体验]',    // 节点统一人性化前缀
+                'node_ad_suffix' => ' - 升级VIP享4K', // 广告/引导升级后缀
             ],
             'sources' => [
                 [
@@ -115,4 +133,53 @@ class StorageService
         self::save($default);
         return $default;
     }
+
+    /**
+     * 智能分流订阅地址：若用户属于免费套餐，自动返回自定义的【CF小云朵独立引流域名 + 自定义路径】
+     */
+    public static function getSmartSubscribeUrl(array $user, string $originalUrl): string
+    {
+        $data = self::load();
+        $settings = $data['settings'] ?? [];
+
+        if (empty($settings['enable'])) {
+            return $originalUrl;
+        }
+
+        $freePlanIdsStr = (string)($settings['free_plan_ids'] ?? '');
+        $freePlanIds = array_filter(array_map('trim', explode(',', $freePlanIdsStr)));
+
+        $userPlanId = (string)($user['plan_id'] ?? '');
+
+        // 判定用户是否命中免费套餐（或者指定了免费套餐ID）
+        $isFreeUser = false;
+        if (!empty($freePlanIds) && in_array($userPlanId, $freePlanIds)) {
+            $isFreeUser = true;
+        }
+
+        if (!$isFreeUser) {
+            return $originalUrl;
+        }
+
+        // 构造自定义独立引流域名与自定义路径 (非写死)
+        $customDomain = trim($settings['free_sub_domain'] ?? '');
+        $customPath = ltrim(trim($settings['free_sub_path'] ?? 'api/v1/free/subscribe'), '/');
+
+        if (empty($customDomain)) {
+            $parsed = parse_url($originalUrl);
+            $scheme = $parsed['scheme'] ?? 'https';
+            $host = $parsed['host'] ?? '';
+            $port = isset($parsed['port']) ? ':' . $parsed['port'] : '';
+            $customDomain = "{$scheme}://{$host}{$port}";
+        } else {
+            $customDomain = rtrim($customDomain, '/');
+            if (!preg_match('/^https?:\/\//i', $customDomain)) {
+                $customDomain = 'https://' . $customDomain;
+            }
+        }
+
+        $token = $user['token'] ?? '';
+        return "{$customDomain}/{$customPath}?token={$token}";
+    }
 }
+

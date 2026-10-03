@@ -441,6 +441,11 @@ class UserController extends Controller
 
         $user['subscribe_url'] = Helper::getSubscribeUrl($user['token']);
 
+        // 🛡️ ExternalNode 智能动态分流：若用户属于免费套餐，自动切换为 CF小云朵独立引流域名与自定义路径
+        if (class_exists(\App\Plugins\ExternalNode\Services\StorageService::class)) {
+            $user['subscribe_url'] = \App\Plugins\ExternalNode\Services\StorageService::getSmartSubscribeUrl($user, (string)$user['subscribe_url']);
+        }
+
         // 统一注入订阅周期与方案 3 准入门槛策略
         $this->appendSubscriptionMeta($user, $userId);
 
