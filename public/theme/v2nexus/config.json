@@ -107,9 +107,9 @@
     },
     {
       "label": "自研客户端更新说明",
-      "placeholder": "例如 全新双核分流加速引擎，智能探测",
+      "placeholder": "支持多行排版，换行与段落格式，例如：\n1. 优化节点智能自愈\n2. 新增每日签到功能",
       "field_name": "client_changelog",
-      "field_type": "input",
+      "field_type": "textarea",
       "default_value": ""
     },
     {
