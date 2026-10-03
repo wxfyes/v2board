@@ -53,16 +53,6 @@ class StorageService
             $needSave = true;
         }
 
-        // 增量自动补充官方精选源（不覆盖用户已添加的自定义源）
-        $existingUrls = array_column($data['sources'] ?? [], 'url');
-        foreach (self::getDefaultSources() as $ds) {
-            if (!in_array($ds['url'], $existingUrls)) {
-                $ds['id'] = count($data['sources']) + 1;
-                $data['sources'][] = $ds;
-                $needSave = true;
-            }
-        }
-
         if ($needSave) {
             self::save($data);
         }

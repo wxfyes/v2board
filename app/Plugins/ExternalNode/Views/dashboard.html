@@ -719,6 +719,9 @@
               body: JSON.stringify({ sources: overview.value.sources })
             });
             const json = await res.json();
+            if (json.data) {
+              overview.value.sources = json.data;
+            }
             showToast(json.message || '订阅源保存成功');
           } catch (e) {
             showToast('保存失败: ' + e.message, 'error');

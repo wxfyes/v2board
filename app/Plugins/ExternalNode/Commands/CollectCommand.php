@@ -24,7 +24,8 @@ class CollectCommand extends Command
         $uniqueMap = [];
 
         foreach ($sources as &$src) {
-            if (empty($src['enabled'])) continue;
+            $isEnabled = filter_var($src['enabled'] ?? true, FILTER_VALIDATE_BOOLEAN);
+            if (!$isEnabled || empty($src['url'])) continue;
 
             $this->line("正在抓取: {$src['name']} ({$src['url']})");
             $nodes = CollectorService::fetchSource($src['url']);

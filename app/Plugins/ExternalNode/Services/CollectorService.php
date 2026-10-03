@@ -339,7 +339,8 @@ class CollectorService
         $handles = [];
 
         foreach ($sources as $idx => $src) {
-            if (empty($src['enabled']) || empty($src['url'])) continue;
+            $isEnabled = filter_var($src['enabled'] ?? true, FILTER_VALIDATE_BOOLEAN);
+            if (!$isEnabled || empty($src['url'])) continue;
 
             $ch = curl_init();
             curl_setopt_array($ch, [

@@ -173,8 +173,21 @@ class AdminApiController extends Controller
             return response()->json(['status' => 'error', 'message' => '参数非法'], 422);
         }
 
+        $cleanedSources = [];
+        foreach ($sources as $idx => $src) {
+            if (empty($src['url'])) continue;
+            $cleanedSources[] = [
+                'id' => $src['id'] ?? ($idx + 1),
+                'name' => trim($src['name'] ?? '自定义源'),
+                'url' => trim($src['url']),
+                'enabled' => filter_var($src['enabled'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                'last_sync_at' => $src['last_sync_at'] ?? 0,
+                'node_count' => $src['node_count'] ?? 0,
+            ];
+        }
+
         $data = StorageService::load();
-        $data['sources'] = $sources;
+        $data['sources'] = $cleanedSources;
         StorageService::save($data);
 
         return response()->json([
