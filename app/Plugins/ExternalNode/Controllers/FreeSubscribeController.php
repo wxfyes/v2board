@@ -107,7 +107,15 @@ class FreeSubscribeController extends Controller
         $flag = strtolower($request->input('flag', ''));
 
         $isV2ray = (strpos($ua, 'v2ray') !== false);
-        $isClash = !$isV2ray && (strpos($ua, 'clash') !== false || strpos($ua, 'meta') !== false || $flag === 'clash');
+        $isClash = !$isV2ray && (
+            strpos($ua, 'clash') !== false ||
+            strpos($ua, 'meta') !== false ||
+            strpos($ua, 'tianque') !== false ||
+            strpos($ua, 'momclash') !== false ||
+            strpos($flag, 'clash') !== false ||
+            strpos($flag, 'meta') !== false ||
+            $request->input('security') == '1'
+        );
 
         $headers = [
             'Content-Type' => 'text/plain; charset=utf-8',
@@ -122,12 +130,28 @@ class FreeSubscribeController extends Controller
         ];
 
         if ($isClash) {
-            return response($this->buildClashConfig($nodes), 200, array_merge($headers, [
+            $yaml = $this->buildClashConfig($nodes);
+
+            // 🔐 针对自研客户端 MOMclash (带有 security=1)，启用专属双向安全加密流
+            if ($request->input('security') == '1') {
+                $key = 'MOMclashSafeKey2026SecureGCM8888';
+                $iv = openssl_random_pseudo_bytes(12);
+                $tag = "";
+                $encrypted = openssl_encrypt($yaml, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+                return response($iv . $tag . $encrypted, 200, array_merge($headers, [
+                    'Content-Type' => 'application/octet-stream',
+                    'Content-Disposition' => 'attachment; filename="Free_Nodes.yaml"'
+                ]));
+            }
+
+            return response($yaml, 200, array_merge($headers, [
+                'Content-Type' => 'application/yaml; charset=utf-8',
                 'Content-Disposition' => 'attachment; filename="Free_Nodes.yaml"'
             ]));
         }
 
         return response($this->buildBase64($nodes), 200, array_merge($headers, [
+            'Content-Type' => 'text/plain; charset=utf-8',
             'Content-Disposition' => 'attachment; filename="Free_Nodes.txt"'
         ]));
     }
