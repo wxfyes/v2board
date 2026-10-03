@@ -69,25 +69,40 @@ class StorageService
         $dir = dirname($path);
 
         if (!is_dir($dir)) {
-            @mkdir($dir, 0755, true);
+            @mkdir($dir, 0777, true);
+            @chmod($dir, 0777);
         }
 
         $data['updated_at'] = time();
         $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        
+
+        // 若文件已存在，尝试放宽写权限
+        if (file_exists($path)) {
+            @chmod($path, 0666);
+        }
+
         $tempPath = $path . '.' . uniqid('tmp_', true);
 
-        // 写入临时文件并落盘
-        if (@file_put_contents($tempPath, $json, LOCK_EX) === false) {
-            return false;
+        // 1. 尝试原子重命名写入 (排他锁)
+        if (@file_put_contents($tempPath, $json, LOCK_EX) !== false) {
+            @chmod($tempPath, 0666);
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                @unlink($path);
+            }
+            if (@rename($tempPath, $path)) {
+                @chmod($path, 0666);
+                return true;
+            }
+            @unlink($tempPath);
         }
 
-        // Windows与Linux兼容的原子重命名
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            @unlink($path);
+        // 2. 降级：直接以排他锁写入目标文件
+        if (@file_put_contents($path, $json, LOCK_EX) !== false) {
+            @chmod($path, 0666);
+            return true;
         }
 
-        return @rename($tempPath, $path);
+        return false;
     }
 
     /**

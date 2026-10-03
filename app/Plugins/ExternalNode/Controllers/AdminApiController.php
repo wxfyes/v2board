@@ -188,7 +188,12 @@ class AdminApiController extends Controller
 
         $data = StorageService::load();
         $data['sources'] = $cleanedSources;
-        StorageService::save($data);
+        if (!StorageService::save($data)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => '保存失败：存储文件无写入权限，请在终端执行 chown -R www:www storage/ 修复权限'
+            ], 500);
+        }
 
         return response()->json([
             'status' => 'success',
