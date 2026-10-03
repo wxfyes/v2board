@@ -138,6 +138,45 @@ class AdminApiController extends Controller
     }
 
     /**
+     * 兼容任何 Webman/Workerman/PHP-FPM 环境的智能参数解析器
+     */
+    private function getJsonInput(Request $request, ?string $key = null, $default = null)
+    {
+        $val = $request->input($key);
+        if ($val !== null && $val !== '') {
+            return $val;
+        }
+
+        // 尝试从 Request json 实例取
+        try {
+            if ($request->isJson() || !empty($request->json())) {
+                $json = $request->json()->all();
+                if (!empty($json)) {
+                    if ($key === null) return $json;
+                    if (isset($json[$key])) return $json[$key];
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        // 尝试从 raw content 解析
+        try {
+            $raw = $request->getContent();
+            if (empty($raw)) {
+                $raw = @file_get_contents('php://input');
+            }
+            if (!empty($raw)) {
+                $data = json_decode($raw, true);
+                if (is_array($data)) {
+                    if ($key === null) return $data;
+                    if (isset($data[$key])) return $data[$key];
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        return $default;
+    }
+
+    /**
      * 更新设置
      */
     public function updateSettings(Request $request)
@@ -146,11 +185,22 @@ class AdminApiController extends Controller
             return response()->json(['status' => 'error', 'code' => 403, 'message' => '未授权访问'], 403);
         }
 
-        $data = StorageService::load();
-        $settings = $request->input('settings', []);
+        $settings = $this->getJsonInput($request, 'settings', []);
+        if (empty($settings)) {
+            $allJson = $this->getJsonInput($request);
+            if (is_array($allJson) && (isset($allJson['deduct_traffic_mb']) || isset($allJson['node_prefix']))) {
+                $settings = $allJson;
+            }
+        }
 
-        $data['settings'] = array_merge($data['settings'] ?? [], $settings);
-        StorageService::save($data);
+        $data = StorageService::load();
+        $data['settings'] = array_merge($data['settings'] ?? [], (array)$settings);
+        if (!StorageService::save($data)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => '保存失败：存储文件无写入权限，请在终端执行 chown -R www:www storage/ 修复权限'
+            ], 500);
+        }
 
         return response()->json([
             'status' => 'success',
@@ -168,7 +218,14 @@ class AdminApiController extends Controller
             return response()->json(['status' => 'error', 'code' => 403, 'message' => '未授权访问'], 403);
         }
 
-        $sources = $request->input('sources', []);
+        $sources = $this->getJsonInput($request, 'sources', []);
+        if (!is_array($sources) || empty($sources)) {
+            $allJson = $this->getJsonInput($request);
+            if (is_array($allJson) && isset($allJson[0]['url'])) {
+                $sources = $allJson;
+            }
+        }
+
         if (!is_array($sources)) {
             return response()->json(['status' => 'error', 'message' => '参数非法'], 422);
         }
