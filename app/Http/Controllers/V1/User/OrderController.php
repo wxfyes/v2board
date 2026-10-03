@@ -312,6 +312,13 @@ class OrderController extends Controller
         if ($order->total_amount <= 0) {
             $orderService = new OrderService($order);
             if (!$orderService->paid($order->trade_no)) abort(500, '');
+            // 同步执行 open() 立即开通，无需等待后台队列常驻进程，秒级生效
+            try {
+                $orderService->open();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Free order synchronous open error: ' . $e->getMessage());
+                abort(500, '套餐开通失败: ' . $e->getMessage());
+            }
             return response([
                 'type' => -1,
                 'data' => true

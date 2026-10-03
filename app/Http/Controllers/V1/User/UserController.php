@@ -424,6 +424,25 @@ class UserController extends Controller
         if (!$user) {
             abort(500, __('The user does not exist'));
         }
+        if (!$user->plan_id) {
+            // 🛡️ 智能自愈与兜底补救：如果用户没有生效套餐，但存在状态为 1 (已支付/待激活) 的有效订单，自动执行补激活
+            $pendingOrder = \App\Models\Order::where('user_id', $userId)
+                ->where('status', 1)
+                ->orderBy('id', 'DESC')
+                ->first();
+            if ($pendingOrder) {
+                try {
+                    $orderService = new \App\Services\OrderService($pendingOrder);
+                    $orderService->open();
+                    // 重新加载用户最新数据
+                    $user = User::where('id', $userId)->select([
+                        'plan_id', 'token', 'expired_at', 'u', 'd', 'transfer_enable', 'email', 'uuid'
+                    ])->first();
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Auto heal pending order error: ' . $e->getMessage());
+                }
+            }
+        }
         if ($user->plan_id) {
             $user['plan'] = Plan::find($user->plan_id);
             if (!$user['plan']) {
