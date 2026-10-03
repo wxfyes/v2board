@@ -204,49 +204,54 @@ class StorageService
     /**
      * 智能分流订阅地址：若用户属于免费套餐，自动返回自定义的【CF小云朵独立引流域名 + 自定义路径】
      */
-    public static function getSmartSubscribeUrl(array $user, string $originalUrl): string
+    public static function getSmartSubscribeUrl($user, string $originalUrl): string
     {
-        $data = self::load();
-        $settings = $data['settings'] ?? [];
+        try {
+            $data = self::load();
+            $settings = $data['settings'] ?? [];
 
-        if (empty($settings['enable'])) {
-            return $originalUrl;
-        }
-
-        $freePlanIdsStr = (string)($settings['free_plan_ids'] ?? '');
-        $freePlanIds = array_filter(array_map('trim', explode(',', $freePlanIdsStr)));
-
-        $userPlanId = (string)($user['plan_id'] ?? '');
-
-        // 判定用户是否命中免费套餐（或者指定了免费套餐ID）
-        $isFreeUser = false;
-        if (!empty($freePlanIds) && in_array($userPlanId, $freePlanIds)) {
-            $isFreeUser = true;
-        }
-
-        if (!$isFreeUser) {
-            return $originalUrl;
-        }
-
-        // 构造自定义独立引流域名与自定义路径 (非写死)
-        $customDomain = trim($settings['free_sub_domain'] ?? '');
-        $customPath = ltrim(trim($settings['free_sub_path'] ?? 'api/v1/free/subscribe'), '/');
-
-        if (empty($customDomain)) {
-            $parsed = parse_url($originalUrl);
-            $scheme = $parsed['scheme'] ?? 'https';
-            $host = $parsed['host'] ?? '';
-            $port = isset($parsed['port']) ? ':' . $parsed['port'] : '';
-            $customDomain = "{$scheme}://{$host}{$port}";
-        } else {
-            $customDomain = rtrim($customDomain, '/');
-            if (!preg_match('/^https?:\/\//i', $customDomain)) {
-                $customDomain = 'https://' . $customDomain;
+            if (empty($settings['enable'])) {
+                return $originalUrl;
             }
-        }
 
-        $token = $user['token'] ?? '';
-        return "{$customDomain}/{$customPath}?token={$token}";
+            $freePlanIdsStr = (string)($settings['free_plan_ids'] ?? '');
+            $freePlanIds = array_filter(array_map('trim', explode(',', $freePlanIdsStr)));
+
+            $userPlanId = (string)(isset($user['plan_id']) ? $user['plan_id'] : ($user->plan_id ?? ''));
+
+            // 判定用户是否命中免费套餐（或者指定了免费套餐ID）
+            $isFreeUser = false;
+            if (!empty($freePlanIds) && in_array($userPlanId, $freePlanIds)) {
+                $isFreeUser = true;
+            }
+
+            if (!$isFreeUser) {
+                return $originalUrl;
+            }
+
+            // 构造自定义独立引流域名与自定义路径 (非写死)
+            $customDomain = trim($settings['free_sub_domain'] ?? '');
+            $customPath = ltrim(trim($settings['free_sub_path'] ?? 'api/v1/free/subscribe'), '/');
+
+            if (empty($customDomain)) {
+                $parsed = parse_url($originalUrl);
+                $scheme = $parsed['scheme'] ?? 'https';
+                $host = $parsed['host'] ?? '';
+                $port = isset($parsed['port']) ? ':' . $parsed['port'] : '';
+                $customDomain = "{$scheme}://{$host}{$port}";
+            } else {
+                $customDomain = rtrim($customDomain, '/');
+                if (!preg_match('/^https?:\/\//i', $customDomain)) {
+                    $customDomain = 'https://' . $customDomain;
+                }
+            }
+
+            $token = isset($user['token']) ? $user['token'] : ($user->token ?? '');
+            return "{$customDomain}/{$customPath}?token={$token}";
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('ExternalNode getSmartSubscribeUrl error: ' . $e->getMessage());
+            return $originalUrl;
+        }
     }
 }
 

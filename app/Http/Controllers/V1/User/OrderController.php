@@ -278,7 +278,12 @@ class OrderController extends Controller
                 }
             }
 
-            $orderService->setInvite($user);
+            // 🛡️ 零元免费套餐极速免付通道：若订单金额 <= 0，在创单阶段直接同步开通，无需多步跳转和队列等待！
+            if ($order->total_amount <= 0) {
+                $order->status = 1;
+                $order->paid_at = time();
+                $order->callback_no = $order->trade_no;
+            }
 
             if (!$order->save()) {
                 DB::rollback();
@@ -286,6 +291,15 @@ class OrderController extends Controller
             }
 
             DB::commit();
+
+            // 若为 0 元订单，创单完成后立即同步激活，直接落库赋予套餐！
+            if ($order->total_amount <= 0) {
+                try {
+                    $orderService->open();
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Free order instant open error in save(): ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+                }
+            }
 
             return response([
                 'data' => $order->trade_no
@@ -303,30 +317,19 @@ class OrderController extends Controller
         $method = $request->input('method');
         $order = Order::where('trade_no', $tradeNo)
             ->where('user_id', $request->user['id'])
-            ->where('status', 0)
             ->first();
         if (!$order) {
-            abort(500, __('Order does not exist or has been paid'));
+            abort(500, __('Order does not exist'));
         }
-        // free process
-        if ($order->total_amount <= 0) {
-            $orderService = new OrderService($order);
-            $order->status = 1;
-            $order->paid_at = time();
-            $order->callback_no = $order->trade_no;
-            $order->save();
-
-            // 尝试派发队列，若未配置队列环境则静默捕获，不阻塞同步激活
-            try {
-                \App\Jobs\OrderHandleJob::dispatch($order->trade_no);
-            } catch (\Throwable $e) {}
-
-            // 同步执行 open() 立即开通，彻底摆脱队列环境依赖，秒级生效
-            try {
-                $orderService->open();
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('Free order synchronous open error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
-                abort(500, '套餐开通失败: ' . $e->getMessage());
+        // free process: 若订单金额 <= 0 或已处于已完成状态，确保 open() 执行后直接返回成功
+        if ($order->total_amount <= 0 || $order->status === 3) {
+            if ($order->status !== 3) {
+                try {
+                    $orderService = new OrderService($order);
+                    $orderService->open();
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Free order synchronous open error in checkout(): ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
+                }
             }
             return response([
                 'type' => -1,

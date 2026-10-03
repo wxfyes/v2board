@@ -425,9 +425,14 @@ class UserController extends Controller
             abort(500, __('The user does not exist'));
         }
         if (!$user->plan_id) {
-            // 🛡️ 智能自愈与兜底补救：如果用户没有生效套餐，但存在状态为 1 (已支付/待激活) 的有效订单，自动执行补激活
+            // 🛡️ 智能自愈与兜底补救：如果用户没有生效套餐，但存在 0 元订单或待激活订单，自动执行补激活
             $pendingOrder = \App\Models\Order::where('user_id', $userId)
-                ->where('status', 1)
+                ->where(function ($query) {
+                    $query->where('status', 1)
+                          ->orWhere(function ($q) {
+                              $q->where('status', 0)->where('total_amount', '<=', 0);
+                          });
+                })
                 ->orderBy('id', 'DESC')
                 ->first();
             if ($pendingOrder) {
@@ -436,10 +441,10 @@ class UserController extends Controller
                     $orderService->open();
                     // 重新加载用户最新数据
                     $user = User::where('id', $userId)->select([
-                        'plan_id', 'token', 'expired_at', 'u', 'd', 'transfer_enable', 'email', 'uuid'
+                        'id', 'plan_id', 'token', 'expired_at', 'u', 'd', 'transfer_enable', 'email', 'uuid'
                     ])->first();
                 } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::error('Auto heal pending order error: ' . $e->getMessage());
+                    \Illuminate\Support\Facades\Log::error('Auto heal pending order error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
                 }
             }
         }
@@ -462,11 +467,19 @@ class UserController extends Controller
 
         // 🛡️ ExternalNode 智能动态分流：若用户属于免费套餐，自动切换为 CF小云朵独立引流域名与自定义路径
         if (class_exists(\App\Plugins\ExternalNode\Services\StorageService::class)) {
-            $user['subscribe_url'] = \App\Plugins\ExternalNode\Services\StorageService::getSmartSubscribeUrl($user, (string)$user['subscribe_url']);
+            try {
+                $user['subscribe_url'] = \App\Plugins\ExternalNode\Services\StorageService::getSmartSubscribeUrl($user, (string)$user['subscribe_url']);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('ExternalNode smart subscribe url error: ' . $e->getMessage());
+            }
         }
 
         // 统一注入订阅周期与方案 3 准入门槛策略
-        $this->appendSubscriptionMeta($user, $userId);
+        try {
+            $this->appendSubscriptionMeta($user, $userId);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('appendSubscriptionMeta error: ' . $e->getMessage());
+        }
 
         $userService = new UserService();
         $user['reset_day'] = $userService->getResetDay($user);
