@@ -21,13 +21,30 @@ class AdminApiController extends Controller
         $data = StorageService::load();
         $secretKey = $data['settings']['admin_secret_key'] ?? '';
 
-        // 1. 独立安全密钥校验 (防时序攻击 hash_equals)
-        $clientKey = $request->header('X-Plugin-Key') ?: $request->input('key');
+        // 1. 独立安全密钥校验 (支持 Header、POST JSON、Query 参数，防时序攻击)
+        $clientKey = $request->header('X-Plugin-Key') 
+            ?: ($request->header('x-plugin-key') 
+            ?: ($request->input('key') ?: $request->query('key')));
+
         if (!empty($secretKey) && !empty($clientKey) && hash_equals((string)$secretKey, (string)$clientKey)) {
             return true;
         }
 
-        // 2. 原生 V2Board 管理员鉴权复用
+        // 2. 原生 V2Board 管理员日常登录密码直接匹配 (超便捷免找密钥)
+        if (!empty($clientKey)) {
+            try {
+                $admins = \Illuminate\Support\Facades\DB::table('v2_user')
+                    ->where('is_admin', 1)
+                    ->get(['password']);
+                foreach ($admins as $admin) {
+                    if (!empty($admin->password) && \Illuminate\Support\Facades\Hash::check((string)$clientKey, $admin->password)) {
+                        return true;
+                    }
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        // 3. 原生 V2Board 管理员鉴权会话复用
         if (class_exists(\App\Services\AuthService::class)) {
             $authData = $request->cookie('authorization') 
                 ?: ($request->header('authorization') ?: $request->input('auth_data'));
