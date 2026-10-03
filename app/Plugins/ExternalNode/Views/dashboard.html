@@ -295,9 +295,14 @@
           <h2 class="text-base font-semibold text-slate-900">订阅源池配置</h2>
           <p class="text-xs text-slate-500 mt-0.5">配置全网公开节点源或第三方订阅链接，定时任务将自动抓取清洗。</p>
         </div>
-        <button @click="addSource" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all">
-          + 添加新订阅源
-        </button>
+        <div class="flex items-center gap-2">
+          <button @click="resetSources" :disabled="loadingResetSources" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-brand-700 text-xs font-semibold rounded-xl transition-all">
+            {{ loadingResetSources ? '载入中...' : '⚡ 一键恢复6大高可用节点池' }}
+          </button>
+          <button @click="addSource" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all">
+            + 添加新订阅源
+          </button>
+        </div>
       </div>
 
       <div class="glass-card rounded-2xl shadow-sm overflow-hidden border border-slate-200/80">
@@ -544,6 +549,7 @@
         const loadingCollect = ref(false);
         const loadingCheck = ref(false);
         const loadingSaveSources = ref(false);
+        const loadingResetSources = ref(false);
         const loadingSaveSettings = ref(false);
 
         const toast = ref({ show: false, message: '', type: 'info' });
@@ -651,6 +657,27 @@
             showToast('测活失败: ' + e.message, 'error');
           } finally {
             loadingCheck.value = false;
+          }
+        };
+
+        const resetSources = async () => {
+          if (!confirm('确定载入并覆盖当前订阅源为全网 6 大高可用精选节点池吗？')) return;
+          loadingResetSources.value = true;
+          try {
+            const res = await apiFetch('/api/v1/admin/plugin/external-node/reset-sources', {
+              method: 'POST'
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+              showToast(json.message);
+              overview.value.sources = json.data;
+            } else {
+              showToast(json.message || '操作失败', 'error');
+            }
+          } catch (e) {
+            showToast('操作失败: ' + e.message, 'error');
+          } finally {
+            loadingResetSources.value = false;
           }
         };
 
@@ -796,6 +823,7 @@
           loadingCollect,
           loadingCheck,
           loadingSaveSources,
+          loadingResetSources,
           loadingSaveSettings,
           toast,
           enabledSourceCount,
@@ -804,6 +832,7 @@
           base64SubUrl,
           triggerCollect,
           triggerCheck,
+          resetSources,
           saveSources,
           saveSettings,
           addSource,

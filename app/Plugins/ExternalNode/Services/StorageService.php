@@ -112,16 +112,48 @@ class StorageService
             'sources' => [
                 [
                     'id' => 1,
-                    'name' => 'GitHub-Node-Pool-A',
-                    'url' => 'https://raw.githubusercontent.com/freefq/free/master/v2',
+                    'name' => 'GitHub-Daily-Ermaozi (114KB高质池)',
+                    'url' => 'https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt',
                     'enabled' => true,
                     'last_sync_at' => 0,
                     'node_count' => 0
                 ],
                 [
                     'id' => 2,
-                    'name' => 'GitHub-Node-Pool-B',
-                    'url' => 'https://raw.githubusercontent.com/mfuu/v2ray/master/clash.yaml',
+                    'name' => 'GitHub-Daily-Anaer (169KB优质Clash)',
+                    'url' => 'https://raw.githubusercontent.com/anaer/Sub/main/clash.yaml',
+                    'enabled' => true,
+                    'last_sync_at' => 0,
+                    'node_count' => 0
+                ],
+                [
+                    'id' => 3,
+                    'name' => 'GitHub-Daily-Free18 (43KB轮换精选)',
+                    'url' => 'https://raw.githubusercontent.com/free18/v2ray/master/v.txt',
+                    'enabled' => true,
+                    'last_sync_at' => 0,
+                    'node_count' => 0
+                ],
+                [
+                    'id' => 4,
+                    'name' => 'GitHub-Daily-Pawdroid (高可用精选)',
+                    'url' => 'https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub',
+                    'enabled' => true,
+                    'last_sync_at' => 0,
+                    'node_count' => 0
+                ],
+                [
+                    'id' => 5,
+                    'name' => 'GitHub-Daily-Ripao (日抛高带宽)',
+                    'url' => 'https://raw.githubusercontent.com/ripaojiedian/freenode/main/sub',
+                    'enabled' => true,
+                    'last_sync_at' => 0,
+                    'node_count' => 0
+                ],
+                [
+                    'id' => 6,
+                    'name' => 'GitHub-Daily-V2rayLinks (自建直连池)',
+                    'url' => 'https://raw.githubusercontent.com/v2ray-links/v2ray-free/master/v2ray',
                     'enabled' => true,
                     'last_sync_at' => 0,
                     'node_count' => 0

@@ -183,25 +183,46 @@ class FreeSubscribeController extends Controller
 
         if (empty($base['server']) || empty($base['port'])) return null;
 
+        $network = strtolower($node['network'] ?? 'tcp');
+        $wsOpts = [];
+        if ($network === 'ws') {
+            $wsOpts = [
+                'path' => $node['path'] ?? '/',
+                'headers' => [
+                    'Host' => $node['sni'] ?: $node['host']
+                ]
+            ];
+        }
+
         switch ($type) {
             case 'vmess':
-                return array_merge($base, [
+                $proxy = array_merge($base, [
                     'type' => 'vmess',
                     'uuid' => $node['uuid'] ?? '',
                     'alterId' => (int)($node['alterId'] ?? 0),
                     'cipher' => $node['cipher'] ?? 'auto',
                     'tls' => !empty($node['tls']),
-                    'network' => $node['network'] ?? 'tcp',
+                    'network' => $network,
                     'servername' => $node['sni'] ?? '',
+                    'skip-cert-verify' => true,
                 ]);
+                if ($network === 'ws') {
+                    $proxy['ws-opts'] = $wsOpts;
+                }
+                return $proxy;
             case 'vless':
-                return array_merge($base, [
+                $proxy = array_merge($base, [
                     'type' => 'vless',
                     'uuid' => $node['uuid'] ?? '',
-                    'network' => $node['network'] ?? 'tcp',
+                    'network' => $network,
                     'tls' => !empty($node['tls']),
                     'servername' => $node['sni'] ?? '',
+                    'skip-cert-verify' => true,
                 ]);
+                if ($network === 'ws') {
+                    $proxy['ws-opts'] = $wsOpts;
+                }
+                return $proxy;
             case 'trojan':
                 return array_merge($base, [
                     'type' => 'trojan',
@@ -210,12 +231,14 @@ class FreeSubscribeController extends Controller
                     'skip-cert-verify' => true,
                 ]);
             case 'shadowsocks':
+            case 'ss':
                 return array_merge($base, [
                     'type' => 'ss',
                     'cipher' => $node['cipher'] ?? 'aes-128-gcm',
                     'password' => $node['password'] ?? '',
                 ]);
             case 'hysteria2':
+            case 'hy2':
                 return array_merge($base, [
                     'type' => 'hysteria2',
                     'password' => $node['password'] ?? '',
@@ -240,8 +263,9 @@ class FreeSubscribeController extends Controller
             $port = $n['port'] ?? 0;
 
             if ($type === 'trojan') {
-                $uris[] = "trojan://{$n['password']}@{$host}:{$port}?security=tls&sni={$n['sni']}#{$name}";
-            } elseif ($type === 'shadowsocks') {
+                $sni = $n['sni'] ?: $host;
+                $uris[] = "trojan://{$n['password']}@{$host}:{$port}?security=tls&sni={$sni}&allowInsecure=1#{$name}";
+            } elseif ($type === 'shadowsocks' || $type === 'ss') {
                 $plain = "{$n['cipher']}:{$n['password']}";
                 $uris[] = "ss://" . base64_encode($plain) . "@{$host}:{$port}#{$name}";
             } elseif ($type === 'vmess') {
@@ -255,9 +279,19 @@ class FreeSubscribeController extends Controller
                     'net' => $n['network'] ?? 'tcp',
                     'type' => 'none',
                     'host' => $n['sni'] ?? '',
+                    'path' => $n['path'] ?? '/',
                     'tls' => !empty($n['tls']) ? 'tls' : ''
                 ];
                 $uris[] = 'vmess://' . base64_encode(json_encode($v));
+            } elseif ($type === 'vless') {
+                $tls = !empty($n['tls']) ? 'tls' : 'none';
+                $sni = $n['sni'] ?: $host;
+                $path = urlencode($n['path'] ?? '/');
+                $net = $n['network'] ?? 'tcp';
+                $uris[] = "vless://{$n['uuid']}@{$host}:{$port}?security={$tls}&sni={$sni}&type={$net}&path={$path}#{$name}";
+            } elseif ($type === 'hysteria2' || $type === 'hy2') {
+                $sni = $n['sni'] ?: $host;
+                $uris[] = "hysteria2://{$n['password']}@{$host}:{$port}?sni={$sni}&insecure=1#{$name}";
             }
         }
 

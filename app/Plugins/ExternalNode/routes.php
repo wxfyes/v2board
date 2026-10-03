@@ -30,6 +30,7 @@ Route::prefix('api/v1')->group(function () {
         Route::post('/sources', [AdminApiController::class, 'saveSources']);
         Route::post('/collect', [AdminApiController::class, 'manualCollect']);
         Route::post('/check', [AdminApiController::class, 'manualCheck']);
+        Route::post('/reset-sources', [AdminApiController::class, 'resetSources']);
     });
 });
 

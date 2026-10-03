@@ -214,19 +214,45 @@ class AdminApiController extends Controller
             $node['formatted_name'] = $cleaned['formatted_name'];
             $node['region'] = $cleaned['region'];
             $node['emoji'] = $cleaned['emoji'];
-            $node['is_online'] = true; // 默认采回标为待测
+            $node['is_online'] = false; // 初始待测
             $node['latency'] = 0;
             $node['offline_count'] = 0;
             $formattedNodes[] = $node;
         }
 
-        $data['nodes'] = $formattedNodes;
+        // 立即启动并发真实高精度测活，杜绝死节点和假在线
+        $checkedNodes = CheckerService::checkAll($formattedNodes, 35, 2.0);
+        $data['nodes'] = $checkedNodes;
+        StorageService::save($data);
+
+        $online = count(array_filter($checkedNodes, fn($n) => !empty($n['is_online'])));
+
+        return response()->json([
+            'status' => 'success',
+            'message' => '全网优质节点采集并完成高精度测活！共采集 ' . count($checkedNodes) . ' 个，真实可用在线 ' . $online . ' 个',
+            'count' => count($checkedNodes),
+            'online' => $online
+        ]);
+    }
+
+    /**
+     * 一键重置/恢复最新高可用优质采集池
+     */
+    public function resetSources(Request $request)
+    {
+        if (!$this->verifyAuth($request)) {
+            return response()->json(['status' => 'error', 'code' => 403, 'message' => '未授权访问'], 403);
+        }
+
+        $data = StorageService::load();
+        $defaultData = StorageService::healAndSaveDefault();
+        $data['sources'] = $defaultData['sources'];
         StorageService::save($data);
 
         return response()->json([
             'status' => 'success',
-            'message' => '采集清洗完成，共采集到 ' . count($formattedNodes) . ' 个节点',
-            'count' => count($formattedNodes)
+            'message' => '已成功载入全网最新优质节点池（涵盖 6 大高可用高星源）！',
+            'data' => $data['sources']
         ]);
     }
 

@@ -237,27 +237,36 @@ class CollectorService
         ];
     }
 
-    /**
-     * 格式化 Clash Proxy 节点为统一内部格式
-     */
     private static function formatClashProxy(array $p): ?array
     {
         if (empty($p['server']) || empty($p['port']) || empty($p['type'])) {
             return null;
         }
 
+        $type = strtolower($p['type']);
+        $wsOpts = $p['ws-opts'] ?? [];
+        $grpcOpts = $p['grpc-opts'] ?? [];
+        $path = $wsOpts['path'] ?? ($p['plugin-opts']['path'] ?? '');
+        $headers = $wsOpts['headers'] ?? [];
+        $sni = $p['servername'] ?? ($p['sni'] ?? ($headers['Host'] ?? ''));
+
         return [
-            'id' => md5($p['server'] . ':' . $p['port']),
+            'id' => md5($p['server'] . ':' . $p['port'] . ':' . ($p['uuid'] ?? ($p['password'] ?? ''))),
             'raw_name' => $p['name'] ?? 'Clash Proxy',
-            'type' => strtolower($p['type']),
+            'type' => $type,
             'host' => $p['server'],
             'port' => (int)$p['port'],
             'uuid' => $p['uuid'] ?? ($p['password'] ?? ''),
             'password' => $p['password'] ?? ($p['uuid'] ?? ''),
             'cipher' => $p['cipher'] ?? 'auto',
+            'alterId' => (int)($p['alterId'] ?? 0),
             'network' => $p['network'] ?? 'tcp',
             'tls' => !empty($p['tls']) ? 1 : 0,
-            'sni' => $p['servername'] ?? ($p['sni'] ?? ''),
+            'sni' => $sni,
+            'path' => $path,
+            'headers' => $headers,
+            'grpc_service_name' => $grpcOpts['grpc-service-name'] ?? '',
+            'skip_cert_verify' => !empty($p['skip-cert-verify']),
             'raw_data' => $p
         ];
     }

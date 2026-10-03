@@ -49,7 +49,7 @@ class CollectCommand extends Command
             $node['formatted_name'] = $cleaned['formatted_name'];
             $node['region'] = $cleaned['region'];
             $node['emoji'] = $cleaned['emoji'];
-            $node['is_online'] = true;
+            $node['is_online'] = false;
             $node['latency'] = 0;
             $node['offline_count'] = 0;
             $formattedNodes[] = $node;
@@ -58,7 +58,10 @@ class CollectCommand extends Command
         $data['nodes'] = $formattedNodes;
         StorageService::save($data);
 
-        $this->info("✅ 采集清洗入库完成，去重后共 " . count($formattedNodes) . " 个节点");
+        $this->info("✅ 采集清洗入库完成，去重后共 " . count($formattedNodes) . " 个节点，正在自动启动真体验测活...");
+        \Illuminate\Support\Facades\Artisan::call('external:check');
+        $this->info("🎯 初始高精度测活完成");
+
         return 0;
     }
 }
