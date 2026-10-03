@@ -311,12 +311,21 @@ class OrderController extends Controller
         // free process
         if ($order->total_amount <= 0) {
             $orderService = new OrderService($order);
-            if (!$orderService->paid($order->trade_no)) abort(500, '');
-            // 同步执行 open() 立即开通，无需等待后台队列常驻进程，秒级生效
+            $order->status = 1;
+            $order->paid_at = time();
+            $order->callback_no = $order->trade_no;
+            $order->save();
+
+            // 尝试派发队列，若未配置队列环境则静默捕获，不阻塞同步激活
+            try {
+                \App\Jobs\OrderHandleJob::dispatch($order->trade_no);
+            } catch (\Throwable $e) {}
+
+            // 同步执行 open() 立即开通，彻底摆脱队列环境依赖，秒级生效
             try {
                 $orderService->open();
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('Free order synchronous open error: ' . $e->getMessage());
+                \Illuminate\Support\Facades\Log::error('Free order synchronous open error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
                 abort(500, '套餐开通失败: ' . $e->getMessage());
             }
             return response([

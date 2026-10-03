@@ -396,7 +396,11 @@ class OrderService
 
     private function setSpeedLimit($speedLimit)
     {
-        $this->user->speed_limit = $speedLimit;
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('v2_user', 'speed_limit')) {
+                $this->user->speed_limit = $speedLimit;
+            }
+        } catch (\Throwable $e) {}
     }
 
     private function buyByResetTraffic()
@@ -425,12 +429,14 @@ class OrderService
         if ($order->type === 1) $this->buyByResetTraffic();
 
         // 到期当天续费刷新流量
-        $expireDay = date('d', $this->user->expired_at);
-        $expireMonth = date('m', $this->user->expired_at);
-        $today = date('d');
-        $currentMonth = date('m');
-        if ($order->type === 2 && $expireMonth == $currentMonth && $expireDay === $today ) {
-            $this->buyByResetTraffic();
+        if ($this->user->expired_at) {
+            $expireDay = date('d', $this->user->expired_at);
+            $expireMonth = date('m', $this->user->expired_at);
+            $today = date('d');
+            $currentMonth = date('m');
+            if ($order->type === 2 && $expireMonth == $currentMonth && $expireDay === $today ) {
+                $this->buyByResetTraffic();
+            }
         }
 
         $this->user->plan_id = $plan->id;
@@ -457,7 +463,7 @@ class OrderService
 
     private function getTime($str, $timestamp)
     {
-        if ($timestamp < time()) {
+        if (empty($timestamp) || $timestamp < time()) {
             $timestamp = time();
         }
         switch ($str) {
