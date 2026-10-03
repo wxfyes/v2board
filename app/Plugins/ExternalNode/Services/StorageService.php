@@ -234,13 +234,13 @@ class StorageService
                 return $originalUrl;
             }
 
-            // 若未配置独立引流域名 (Cloudflare 小云朵)，直接沿用系统原生订阅地址，保持客户端 100% 零侵入透明兼容
+            // 若配置了独立引流域名 (Cloudflare 小云朵) 则优先使用，留空则自动回落为主站当前访问域名
             $customDomain = trim($settings['free_sub_domain'] ?? '');
             if (empty($customDomain)) {
-                return $originalUrl;
+                $customDomain = config('v2board.app_url') ?: url('/');
             }
 
-            // 若配置了独立引流域名，则启用独立域名与自定义引流路径
+            // 启用独立引流域名与自定义引流路径
             $customPath = ltrim(trim($settings['free_sub_path'] ?? 'api/v1/free/subscribe'), '/');
             $customDomain = rtrim($customDomain, '/');
             if (!preg_match('/^https?:\/\//i', $customDomain)) {
