@@ -183,35 +183,79 @@ class CollectorService
     }
 
     /**
-     * 解析 ss://
+     * 解析 ss:// (深度兼容 Legacy 全 Base64 与 SIP002 标准格式，绝不抛 Undefined array key)
      */
     private static function parseShadowsocks(string $uri): ?array
     {
         $sub = substr($uri, 5);
         $fragment = '';
         if (strpos($sub, '#') !== false) {
-            [$sub, $fragment] = explode('#', $sub, 2);
+            $parts = explode('#', $sub, 2);
+            $sub = $parts[0];
+            $fragment = $parts[1] ?? '';
         }
 
-        $decoded = @base64_decode($sub);
-        if ($decoded && strpos($decoded, '@') !== false) {
-            [$cipherPwd, $serverPort] = explode('@', $decoded, 2);
-            [$cipher, $password] = explode(':', $cipherPwd, 2);
-            [$server, $port] = explode(':', $serverPort, 2);
+        $server = '';
+        $port = 0;
+        $cipher = 'aes-128-gcm';
+        $password = '';
 
-            return [
-                'id' => md5($server . ':' . $port),
-                'raw_name' => urldecode($fragment ?: 'SS Node'),
-                'type' => 'shadowsocks',
-                'host' => $server,
-                'port' => (int)$port,
-                'cipher' => $cipher,
-                'password' => $password,
-                'raw_data' => ['server' => $server, 'port' => $port]
-            ];
+        // 格式 1: SIP002 标准格式 ss://BASE64(cipher:pwd)@server:port
+        if (strpos($sub, '@') !== false) {
+            $atParts = explode('@', $sub, 2);
+            $userinfo = $atParts[0];
+            $serverPort = $atParts[1] ?? '';
+
+            if (strpos($serverPort, ':') !== false) {
+                $spParts = explode(':', $serverPort, 2);
+                $server = trim($spParts[0]);
+                $port = (int)($spParts[1] ?? 0);
+            }
+
+            $decodedUser = @base64_decode($userinfo);
+            if ($decodedUser && strpos($decodedUser, ':') !== false) {
+                $cpParts = explode(':', $decodedUser, 2);
+                $cipher = trim($cpParts[0]);
+                $password = trim($cpParts[1] ?? '');
+            } else {
+                $password = $userinfo;
+            }
+        } else {
+            // 格式 2: Legacy 全 Base64 格式 ss://BASE64(cipher:pwd@server:port)
+            $decoded = @base64_decode($sub);
+            if ($decoded && strpos($decoded, '@') !== false && strpos($decoded, ':') !== false) {
+                $atParts = explode('@', $decoded, 2);
+                $cipherPwd = $atParts[0];
+                $serverPort = $atParts[1] ?? '';
+
+                if (strpos($cipherPwd, ':') !== false) {
+                    $cpParts = explode(':', $cipherPwd, 2);
+                    $cipher = trim($cpParts[0]);
+                    $password = trim($cpParts[1] ?? '');
+                }
+
+                if (strpos($serverPort, ':') !== false) {
+                    $spParts = explode(':', $serverPort, 2);
+                    $server = trim($spParts[0]);
+                    $port = (int)($spParts[1] ?? 0);
+                }
+            }
         }
 
-        return null;
+        if (empty($server) || $port <= 0) {
+            return null;
+        }
+
+        return [
+            'id' => md5($server . ':' . $port),
+            'raw_name' => urldecode($fragment ?: 'SS Node'),
+            'type' => 'shadowsocks',
+            'host' => $server,
+            'port' => $port,
+            'cipher' => $cipher,
+            'password' => $password,
+            'raw_data' => ['server' => $server, 'port' => $port]
+        ];
     }
 
     /**

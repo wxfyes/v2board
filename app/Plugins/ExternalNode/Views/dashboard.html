@@ -838,6 +838,26 @@
           fetchOverview();
         });
 
+        const isPlanSelected = (id) => {
+          const currentStr = String(settings.value.free_plan_ids || '').trim();
+          if (!currentStr) return false;
+          const ids = currentStr.split(',').map(s => s.trim()).filter(Boolean);
+          return ids.includes(String(id));
+        };
+
+        const togglePlanId = (id) => {
+          const currentStr = String(settings.value.free_plan_ids || '').trim();
+          let ids = currentStr ? currentStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+          const strId = String(id);
+          const idx = ids.indexOf(strId);
+          if (idx > -1) {
+            ids.splice(idx, 1);
+          } else {
+            ids.push(strId);
+          }
+          settings.value.free_plan_ids = ids.join(',');
+        };
+
         return {
           currentTab,
           isLocked,
@@ -871,7 +891,9 @@
           formatTime,
           getProtocolBadgeClass,
           unlockDashboard,
-          lockDashboard
+          lockDashboard,
+          isPlanSelected,
+          togglePlanId
         };
       }
     }).mount('#app');
