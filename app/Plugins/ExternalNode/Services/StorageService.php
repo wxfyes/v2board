@@ -52,6 +52,17 @@ class StorageService
             $data['settings']['free_plan_ids'] = '1';
             $needSave = true;
         }
+
+        // 增量自动补充官方精选源（不覆盖用户已添加的自定义源）
+        $existingUrls = array_column($data['sources'] ?? [], 'url');
+        foreach (self::getDefaultSources() as $ds) {
+            if (!in_array($ds['url'], $existingUrls)) {
+                $ds['id'] = count($data['sources']) + 1;
+                $data['sources'][] = $ds;
+                $needSave = true;
+            }
+        }
+
         if ($needSave) {
             self::save($data);
         }
@@ -109,61 +120,85 @@ class StorageService
                 'node_prefix' => '⚡ [免费体验]',    // 节点统一人性化前缀
                 'node_ad_suffix' => ' - 升级VIP享4K', // 广告/引导升级后缀
             ],
-            'sources' => [
-                [
-                    'id' => 1,
-                    'name' => 'GitHub-Daily-Ermaozi (114KB高质池)',
-                    'url' => 'https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt',
-                    'enabled' => true,
-                    'last_sync_at' => 0,
-                    'node_count' => 0
-                ],
-                [
-                    'id' => 2,
-                    'name' => 'GitHub-Daily-Anaer (169KB优质Clash)',
-                    'url' => 'https://raw.githubusercontent.com/anaer/Sub/main/clash.yaml',
-                    'enabled' => true,
-                    'last_sync_at' => 0,
-                    'node_count' => 0
-                ],
-                [
-                    'id' => 3,
-                    'name' => 'GitHub-Daily-Free18 (43KB轮换精选)',
-                    'url' => 'https://raw.githubusercontent.com/free18/v2ray/master/v.txt',
-                    'enabled' => true,
-                    'last_sync_at' => 0,
-                    'node_count' => 0
-                ],
-                [
-                    'id' => 4,
-                    'name' => 'GitHub-Daily-Pawdroid (高可用精选)',
-                    'url' => 'https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub',
-                    'enabled' => true,
-                    'last_sync_at' => 0,
-                    'node_count' => 0
-                ],
-                [
-                    'id' => 5,
-                    'name' => 'GitHub-Daily-Ripao (日抛高带宽)',
-                    'url' => 'https://raw.githubusercontent.com/ripaojiedian/freenode/main/sub',
-                    'enabled' => true,
-                    'last_sync_at' => 0,
-                    'node_count' => 0
-                ],
-                [
-                    'id' => 6,
-                    'name' => 'GitHub-Daily-V2rayLinks (自建直连池)',
-                    'url' => 'https://raw.githubusercontent.com/v2ray-links/v2ray-free/master/v2ray',
-                    'enabled' => true,
-                    'last_sync_at' => 0,
-                    'node_count' => 0
-                ]
-            ],
+            'sources' => self::getDefaultSources(),
             'nodes' => []
         ];
 
         self::save($default);
         return $default;
+    }
+
+    /**
+     * 官方全网优质订阅源清单（涵盖 8 大高可用每日轮换精选池）
+     */
+    public static function getDefaultSources(): array
+    {
+        return [
+            [
+                'id' => 1,
+                'name' => 'GitHub-Daily-Ermaozi (114KB高质池)',
+                'url' => 'https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt',
+                'enabled' => true,
+                'last_sync_at' => 0,
+                'node_count' => 0
+            ],
+            [
+                'id' => 2,
+                'name' => 'GitHub-Daily-Anaer (169KB优质Clash)',
+                'url' => 'https://raw.githubusercontent.com/anaer/Sub/main/clash.yaml',
+                'enabled' => true,
+                'last_sync_at' => 0,
+                'node_count' => 0
+            ],
+            [
+                'id' => 3,
+                'name' => 'GitHub-Daily-Free18 (43KB轮换精选)',
+                'url' => 'https://raw.githubusercontent.com/free18/v2ray/master/v.txt',
+                'enabled' => true,
+                'last_sync_at' => 0,
+                'node_count' => 0
+            ],
+            [
+                'id' => 4,
+                'name' => 'GitHub-Daily-Pawdroid (高可用精选)',
+                'url' => 'https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub',
+                'enabled' => true,
+                'last_sync_at' => 0,
+                'node_count' => 0
+            ],
+            [
+                'id' => 5,
+                'name' => 'GitHub-Daily-Ripao (日抛高带宽)',
+                'url' => 'https://raw.githubusercontent.com/ripaojiedian/freenode/main/sub',
+                'enabled' => true,
+                'last_sync_at' => 0,
+                'node_count' => 0
+            ],
+            [
+                'id' => 6,
+                'name' => 'GitHub-Daily-V2rayLinks (自建直连池)',
+                'url' => 'https://raw.githubusercontent.com/v2ray-links/v2ray-free/master/v2ray',
+                'enabled' => true,
+                'last_sync_at' => 0,
+                'node_count' => 0
+            ],
+            [
+                'id' => 7,
+                'name' => 'GitHub-Daily-Zhuhaiuk (通用V2Ray)',
+                'url' => 'https://raw.githubusercontent.com/zhuhaiuk/free-nodes/main/nodes.txt',
+                'enabled' => true,
+                'last_sync_at' => 0,
+                'node_count' => 0
+            ],
+            [
+                'id' => 8,
+                'name' => 'GitHub-Daily-Zhuhaiuk (Clash配置)',
+                'url' => 'https://raw.githubusercontent.com/zhuhaiuk/free-nodes/main/clash_config.yaml',
+                'enabled' => true,
+                'last_sync_at' => 0,
+                'node_count' => 0
+            ]
+        ];
     }
 
     /**
