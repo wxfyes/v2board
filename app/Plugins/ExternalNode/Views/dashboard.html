@@ -636,9 +636,13 @@
           loadingCollect.value = true;
           try {
             const res = await apiFetch('/api/v1/admin/plugin/external-node/collect', { method: 'POST' });
+            if (!res.ok) {
+              throw new Error(`服务器响应 HTTP ${res.status}`);
+            }
             const json = await res.json();
-            showToast(json.message || '采集完成');
-            await fetchOverview();
+            showToast(json.message || '采集已在后台启动');
+            setTimeout(() => { fetchOverview(); }, 6000);
+            setTimeout(() => { fetchOverview(); }, 15000);
           } catch (e) {
             showToast('采集失败: ' + e.message, 'error');
           } finally {
@@ -650,9 +654,12 @@
           loadingCheck.value = true;
           try {
             const res = await apiFetch('/api/v1/admin/plugin/external-node/check', { method: 'POST' });
+            if (!res.ok) {
+              throw new Error(`服务器响应 HTTP ${res.status}`);
+            }
             const json = await res.json();
-            showToast(json.message || '测活完成');
-            await fetchOverview();
+            showToast(json.message || '测活已在后台启动');
+            setTimeout(() => { fetchOverview(); }, 5000);
           } catch (e) {
             showToast('测活失败: ' + e.message, 'error');
           } finally {

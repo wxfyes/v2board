@@ -182,56 +182,19 @@ class AdminApiController extends Controller
             return response()->json(['status' => 'error', 'code' => 403, 'message' => '未授权访问'], 403);
         }
 
-        $data = StorageService::load();
-        $sources = $data['sources'] ?? [];
-        $settings = $data['settings'] ?? [];
+        @set_time_limit(0);
+        @ini_set('memory_limit', '512M');
 
-        $allRawNodes = [];
-        $uniqueMap = [];
-
-        foreach ($sources as &$src) {
-            if (empty($src['enabled'])) continue;
-
-            $nodes = CollectorService::fetchSource($src['url']);
-            $src['last_sync_at'] = time();
-            $src['node_count'] = count($nodes);
-
-            foreach ($nodes as $n) {
-                $sig = $n['host'] . ':' . $n['port'];
-                if (!isset($uniqueMap[$sig])) {
-                    $uniqueMap[$sig] = true;
-                    $allRawNodes[] = $n;
-                }
-            }
+        $basePath = base_path();
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            @pclose(@popen("start /B php {$basePath}/artisan external:collect", "r"));
+        } else {
+            @exec("php {$basePath}/artisan external:collect > /dev/null 2>&1 &");
         }
-        unset($src);
-
-        // 清洗与标准化命名
-        $formattedNodes = [];
-        $index = 1;
-        foreach ($allRawNodes as $node) {
-            $cleaned = CleanerService::cleanAndFormatName($node['raw_name'], $index++, $settings);
-            $node['formatted_name'] = $cleaned['formatted_name'];
-            $node['region'] = $cleaned['region'];
-            $node['emoji'] = $cleaned['emoji'];
-            $node['is_online'] = false; // 初始待测
-            $node['latency'] = 0;
-            $node['offline_count'] = 0;
-            $formattedNodes[] = $node;
-        }
-
-        // 立即启动并发真实高精度测活，杜绝死节点和假在线
-        $checkedNodes = CheckerService::checkAll($formattedNodes, 35, 2.0);
-        $data['nodes'] = $checkedNodes;
-        StorageService::save($data);
-
-        $online = count(array_filter($checkedNodes, fn($n) => !empty($n['is_online'])));
 
         return response()->json([
             'status' => 'success',
-            'message' => '全网优质节点采集并完成高精度测活！共采集 ' . count($checkedNodes) . ' 个，真实可用在线 ' . $online . ' 个',
-            'count' => count($checkedNodes),
-            'online' => $online
+            'message' => '全网 8 大优质节点池采集与深度测活已在后台启动！请等待约 10~15 秒后刷新页面查看。'
         ]);
     }
 
@@ -251,7 +214,7 @@ class AdminApiController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => '已成功载入全网最新优质节点池（涵盖 6 大高可用高星源）！',
+            'message' => '已成功载入全网最新优质节点池（涵盖 8 大高可用精选源）！',
             'data' => $data['sources']
         ]);
     }
@@ -265,24 +228,19 @@ class AdminApiController extends Controller
             return response()->json(['status' => 'error', 'code' => 403, 'message' => '未授权访问'], 403);
         }
 
-        $data = StorageService::load();
-        $nodes = $data['nodes'] ?? [];
+        @set_time_limit(0);
+        @ini_set('memory_limit', '512M');
 
-        if (empty($nodes)) {
-            return response()->json(['status' => 'error', 'message' => '节点库为空，请先采集'], 400);
+        $basePath = base_path();
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            @pclose(@popen("start /B php {$basePath}/artisan external:check", "r"));
+        } else {
+            @exec("php {$basePath}/artisan external:check > /dev/null 2>&1 &");
         }
-
-        $checked = CheckerService::checkAll($nodes, 40, 1.8);
-        $data['nodes'] = $checked;
-        StorageService::save($data);
-
-        $online = count(array_filter($checked, fn($n) => !empty($n['is_online'])));
 
         return response()->json([
             'status' => 'success',
-            'message' => "测活完成，在线节点 {$online} / " . count($checked),
-            'online' => $online,
-            'total' => count($checked)
+            'message' => '真实 TLS 握手深度测活已在后台并发启动，请稍候刷新查看最新延迟数据。'
         ]);
     }
 
