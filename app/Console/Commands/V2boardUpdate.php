@@ -57,6 +57,8 @@ class V2boardUpdate extends Command
             } catch (\Exception $e) {
             }
         }
+        $this->info('正在自动执行数据库迁移与结构补齐...');
+        \Artisan::call('migrate', ['--force' => true]);
         \Artisan::call('horizon:terminate');
         $this->info('更新完毕，队列服务已重启，你无需进行任何操作。');
     }

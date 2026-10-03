@@ -87,6 +87,9 @@ class V2boardInstall extends Command
                 }
             }
             $this->info('数据库导入完成');
+            $this->info('正在自动同步数据库迁移与结构补齐...');
+            \Artisan::call('migrate', ['--force' => true]);
+            $this->info('数据库迁移完成');
             $email = '';
             while (!$email) {
                 $email = $this->ask('请输入管理员邮箱?');

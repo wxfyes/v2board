@@ -654,3 +654,17 @@ CREATE TABLE `v2_user_checkin_log` (
   UNIQUE KEY `uniq_user_date` (`user_id`, `checkin_date`),
   KEY `idx_user_month` (`user_id`, `month`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DROP TABLE IF EXISTS `user_socials`;
+CREATE TABLE `user_socials` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL COMMENT '用户ID',
+  `provider` varchar(50) NOT NULL COMMENT '第三方渠道: google, github',
+  `provider_id` varchar(100) NOT NULL COMMENT '第三方唯一ID',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_provider_id` (`provider`, `provider_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
