@@ -747,7 +747,11 @@
               if (json.data) {
                 settings.value = { ...settings.value, ...json.data };
               }
+              if (json.nodes_preview) {
+                overview.value.nodes_preview = json.nodes_preview;
+              }
               showToast(json.message || '设置保存成功');
+              await fetchOverview();
             } else {
               showToast(json.message || '设置保存失败', 'error');
             }

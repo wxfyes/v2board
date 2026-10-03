@@ -53,11 +53,19 @@ class CleanerService
         $cleanedRaw = preg_replace(self::$adPatterns, '', $rawName);
         $cleanedRaw = trim(preg_replace('/\s+/', ' ', $cleanedRaw));
 
-        $prefix = $settings['node_prefix'] ?? '⚡ [免费体验]';
-        $suffix = $settings['node_ad_suffix'] ?? ' - 升级VIP享专线';
+        $prefix = isset($settings['node_prefix']) ? trim($settings['node_prefix']) : '⚡ [免费体验]';
+        $suffix = isset($settings['node_ad_suffix']) ? trim($settings['node_ad_suffix']) : ' - 升级VIP享4K';
         $indexStr = str_pad((string)$index, 2, '0', STR_PAD_LEFT);
 
-        $formattedName = "{$regionEmoji} {$prefix} {$regionName} {$indexStr}{$suffix}";
+        $parts = [];
+        if (!empty($regionEmoji)) $parts[] = $regionEmoji;
+        if (!empty($prefix)) $parts[] = $prefix;
+        $parts[] = "{$regionName} {$indexStr}";
+
+        $formattedName = implode(' ', $parts);
+        if (!empty($suffix)) {
+            $formattedName .= ' ' . ltrim($suffix);
+        }
 
         return [
             'formatted_name' => $formattedName,

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use App\Plugins\ExternalNode\Services\StorageService;
+use App\Plugins\ExternalNode\Services\CleanerService;
 use Symfony\Component\Yaml\Yaml;
 
 class FreeSubscribeController extends Controller
@@ -94,8 +95,19 @@ class FreeSubscribeController extends Controller
             return $this->renderEmptyPoolResponse($request);
         }
 
+        // 动态根据当前后台最新设置实时格式化节点商业名称 (前缀、后缀即改即生效)
+        $idx = 1;
+        $formattedNodes = [];
+        foreach ($onlineNodes as $n) {
+            $cleaned = CleanerService::cleanAndFormatName($n['raw_name'] ?? ($n['formatted_name'] ?? 'Node'), $idx++, $settings);
+            $n['formatted_name'] = $cleaned['formatted_name'];
+            $n['region'] = $cleaned['region'];
+            $n['emoji'] = $cleaned['emoji'];
+            $formattedNodes[] = $n;
+        }
+
         // 组装并输出订阅
-        return $this->renderNodes($request, $onlineNodes, $userObj);
+        return $this->renderNodes($request, $formattedNodes, $userObj);
     }
 
     /**

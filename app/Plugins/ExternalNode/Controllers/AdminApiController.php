@@ -195,6 +195,19 @@ class AdminApiController extends Controller
 
         $data = StorageService::load();
         $data['settings'] = array_merge($data['settings'] ?? [], (array)$settings);
+
+        // 🔄 关键热刷新：如果配置了节点前缀或后缀，立即批量重新格式化节点池中所有现有节点名称
+        if (!empty($data['nodes']) && is_array($data['nodes'])) {
+            $idx = 1;
+            foreach ($data['nodes'] as &$n) {
+                $cleaned = CleanerService::cleanAndFormatName($n['raw_name'] ?? ($n['formatted_name'] ?? 'Node'), $idx++, $data['settings']);
+                $n['formatted_name'] = $cleaned['formatted_name'];
+                $n['region'] = $cleaned['region'];
+                $n['emoji'] = $cleaned['emoji'];
+            }
+            unset($n);
+        }
+
         if (!StorageService::save($data)) {
             return response()->json([
                 'status' => 'error',
@@ -204,8 +217,9 @@ class AdminApiController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => '设置更新成功',
-            'data' => $data['settings']
+            'message' => '设置更新成功，全部节点名称已即时批量重命名！',
+            'data' => $data['settings'],
+            'nodes_preview' => array_slice($data['nodes'] ?? [], 0, 100)
         ]);
     }
 
