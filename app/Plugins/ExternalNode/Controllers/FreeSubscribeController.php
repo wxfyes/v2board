@@ -211,18 +211,30 @@ class FreeSubscribeController extends Controller
                 }
                 return $proxy;
             case 'vless':
-                $proxy = array_merge($base, [
+                $isReality = ($node['security'] ?? '') === 'reality' || !empty($node['pbk']);
+                $vlessProxy = array_merge($base, [
                     'type' => 'vless',
                     'uuid' => $node['uuid'] ?? '',
                     'network' => $network,
-                    'tls' => !empty($node['tls']),
+                    'tls' => !empty($node['tls']) || $isReality,
+                    'udp' => true,
                     'servername' => $node['sni'] ?? '',
                     'skip-cert-verify' => true,
                 ]);
-                if ($network === 'ws') {
-                    $proxy['ws-opts'] = $wsOpts;
+                if (!empty($node['flow'])) {
+                    $vlessProxy['flow'] = $node['flow'];
                 }
-                return $proxy;
+                if ($isReality) {
+                    $vlessProxy['client-fingerprint'] = !empty($node['fp']) ? $node['fp'] : 'chrome';
+                    $vlessProxy['reality-opts'] = [
+                        'public-key' => $node['pbk'] ?? '',
+                        'short-id' => $node['sid'] ?? '',
+                    ];
+                }
+                if ($network === 'ws') {
+                    $vlessProxy['ws-opts'] = $wsOpts;
+                }
+                return $vlessProxy;
             case 'trojan':
                 return array_merge($base, [
                     'type' => 'trojan',
@@ -284,11 +296,31 @@ class FreeSubscribeController extends Controller
                 ];
                 $uris[] = 'vmess://' . base64_encode(json_encode($v));
             } elseif ($type === 'vless') {
-                $tls = !empty($n['tls']) ? 'tls' : 'none';
+                $isReality = ($n['security'] ?? '') === 'reality' || !empty($n['pbk']);
+                $security = $isReality ? 'reality' : (!empty($n['tls']) ? 'tls' : 'none');
                 $sni = $n['sni'] ?: $host;
-                $path = urlencode($n['path'] ?? '/');
                 $net = $n['network'] ?? 'tcp';
-                $uris[] = "vless://{$n['uuid']}@{$host}:{$port}?security={$tls}&sni={$sni}&type={$net}&path={$path}#{$name}";
+
+                $queryParams = [
+                    'security' => $security,
+                    'sni' => $sni,
+                    'type' => $net,
+                ];
+                if (!empty($n['flow'])) {
+                    $queryParams['flow'] = $n['flow'];
+                }
+                if ($isReality) {
+                    if (!empty($n['pbk'])) $queryParams['pbk'] = $n['pbk'];
+                    if (!empty($n['sid'])) $queryParams['sid'] = $n['sid'];
+                    $queryParams['fp'] = !empty($n['fp']) ? $n['fp'] : 'chrome';
+                    if (!empty($n['spx'])) $queryParams['spx'] = $n['spx'];
+                }
+                if (!empty($n['path']) && $net !== 'tcp') {
+                    $queryParams['path'] = $n['path'];
+                }
+
+                $queryString = http_build_query($queryParams);
+                $uris[] = "vless://{$n['uuid']}@{$host}:{$port}?{$queryString}#{$name}";
             } elseif ($type === 'hysteria2' || $type === 'hy2') {
                 $sni = $n['sni'] ?: $host;
                 $uris[] = "hysteria2://{$n['password']}@{$host}:{$port}?sni={$sni}&insecure=1#{$name}";

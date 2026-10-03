@@ -153,6 +153,8 @@ class CollectorService
             'path' => $query['path'] ?? '',
             'pbk' => $query['pbk'] ?? '',
             'sid' => $query['sid'] ?? '',
+            'fp' => $query['fp'] ?? 'chrome',
+            'spx' => $query['spx'] ?? '',
             'raw_data' => $parts
         ];
     }
@@ -294,6 +296,14 @@ class CollectorService
         $headers = $wsOpts['headers'] ?? [];
         $sni = $p['servername'] ?? ($p['sni'] ?? ($headers['Host'] ?? ''));
 
+        // Reality 特性智能提取
+        $realityOpts = $p['reality-opts'] ?? [];
+        $pbk = $realityOpts['public-key'] ?? ($p['public-key'] ?? ($p['pbk'] ?? ''));
+        $sid = $realityOpts['short-id'] ?? ($p['short-id'] ?? ($p['sid'] ?? ''));
+        $fp = $p['client-fingerprint'] ?? ($p['fp'] ?? 'chrome');
+        $flow = $p['flow'] ?? '';
+        $isReality = !empty($pbk) || !empty($realityOpts) || ($p['security'] ?? '') === 'reality';
+
         return [
             'id' => md5($p['server'] . ':' . $p['port'] . ':' . ($p['uuid'] ?? ($p['password'] ?? ''))),
             'raw_name' => $p['name'] ?? 'Clash Proxy',
@@ -305,12 +315,17 @@ class CollectorService
             'cipher' => $p['cipher'] ?? 'auto',
             'alterId' => (int)($p['alterId'] ?? 0),
             'network' => $p['network'] ?? 'tcp',
-            'tls' => !empty($p['tls']) ? 1 : 0,
+            'tls' => (!empty($p['tls']) || $isReality) ? 1 : 0,
+            'security' => $isReality ? 'reality' : (!empty($p['tls']) ? 'tls' : 'none'),
             'sni' => $sni,
             'path' => $path,
             'headers' => $headers,
             'grpc_service_name' => $grpcOpts['grpc-service-name'] ?? '',
             'skip_cert_verify' => !empty($p['skip-cert-verify']),
+            'flow' => $flow,
+            'pbk' => $pbk,
+            'sid' => $sid,
+            'fp' => $fp,
             'raw_data' => $p
         ];
     }
