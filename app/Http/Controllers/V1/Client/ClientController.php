@@ -533,6 +533,27 @@ class ClientController extends Controller
 
             if (!$isBannedBait) {
                 $isAvailable = $userService->isAvailable($user);
+
+                // 🛡️ ExternalNode 免费套餐原生订阅无缝分发：若用户命中免费套餐，直接在原生接口下发外部采集节点池！
+                // 零客户端侵入：无需更改客户端任何订阅路径或发布新版本，全平台新老客户端 100% 完美即装即用！
+                if ($isAvailable && class_exists(\App\Plugins\ExternalNode\Services\StorageService::class)) {
+                    try {
+                        $extData = \App\Plugins\ExternalNode\Services\StorageService::load();
+                        $extSettings = $extData['settings'] ?? [];
+                        if (!empty($extSettings['enable'])) {
+                            $freePlanIdsStr = (string)($extSettings['free_plan_ids'] ?? '');
+                            $freePlanIds = array_filter(array_map('trim', explode(',', $freePlanIdsStr)));
+                            $userPlanId = (string)($user['plan_id'] ?? '');
+                            if (!empty($freePlanIds) && in_array($userPlanId, $freePlanIds)) {
+                                $freeSubController = new \App\Plugins\ExternalNode\Controllers\FreeSubscribeController();
+                                return $freeSubController->renderFreeNodesForUser($request, (object)$user);
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error('ExternalNode native subscribe dispatch error: ' . $e->getMessage());
+                    }
+                }
+
                 if ($isAvailable) {
                     $serverService = new ServerService();
                     $servers = $serverService->getAvailableServers($user);

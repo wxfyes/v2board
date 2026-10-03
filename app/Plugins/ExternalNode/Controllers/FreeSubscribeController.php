@@ -43,6 +43,15 @@ class FreeSubscribeController extends Controller
             return response('User has been banned', 403);
         }
 
+        return $this->renderFreeNodesForUser($request, $user);
+    }
+
+    /**
+     * 为指定用户渲染并下发免费外部节点 (原生接口与独立引流入口复用)
+     */
+    public function renderFreeNodesForUser(Request $request, $user)
+    {
+        $userObj = is_array($user) ? (object)$user : $user;
         $data = StorageService::load();
         $settings = $data['settings'] ?? [];
 
@@ -52,18 +61,18 @@ class FreeSubscribeController extends Controller
         }
 
         // 流量与额度判定
-        $remainTraffic = $user->transfer_enable - ($user->u + $user->d);
+        $remainTraffic = ($userObj->transfer_enable ?? 0) - (($userObj->u ?? 0) + ($userObj->d ?? 0));
         if ($remainTraffic <= 0) {
             return $this->renderExhaustedResponse($request);
         }
 
         // 执行虚拟拉取扣费（按次扣费，真实用户生效）
         $deductMb = (int)($settings['deduct_traffic_mb'] ?? 1024);
-        if ($deductMb > 0 && !empty($user->id)) {
+        if ($deductMb > 0 && !empty($userObj->id)) {
             $deductBytes = $deductMb * 1024 * 1024;
             $actualDeduct = min($remainTraffic, $deductBytes);
-            DB::table('v2_user')->where('id', $user->id)->decrement('transfer_enable', $actualDeduct);
-            $user->transfer_enable -= $actualDeduct;
+            DB::table('v2_user')->where('id', $userObj->id)->decrement('transfer_enable', $actualDeduct);
+            $userObj->transfer_enable -= $actualDeduct;
         }
 
         // 提取在线节点
@@ -86,7 +95,7 @@ class FreeSubscribeController extends Controller
         }
 
         // 组装并输出订阅
-        return $this->renderNodes($request, $onlineNodes, $user);
+        return $this->renderNodes($request, $onlineNodes, $userObj);
     }
 
     /**

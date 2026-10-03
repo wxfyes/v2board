@@ -229,21 +229,17 @@ class StorageService
                 return $originalUrl;
             }
 
-            // 构造自定义独立引流域名与自定义路径 (非写死)
+            // 若未配置独立引流域名 (Cloudflare 小云朵)，直接沿用系统原生订阅地址，保持客户端 100% 零侵入透明兼容
             $customDomain = trim($settings['free_sub_domain'] ?? '');
-            $customPath = ltrim(trim($settings['free_sub_path'] ?? 'api/v1/free/subscribe'), '/');
-
             if (empty($customDomain)) {
-                $parsed = parse_url($originalUrl);
-                $scheme = $parsed['scheme'] ?? 'https';
-                $host = $parsed['host'] ?? '';
-                $port = isset($parsed['port']) ? ':' . $parsed['port'] : '';
-                $customDomain = "{$scheme}://{$host}{$port}";
-            } else {
-                $customDomain = rtrim($customDomain, '/');
-                if (!preg_match('/^https?:\/\//i', $customDomain)) {
-                    $customDomain = 'https://' . $customDomain;
-                }
+                return $originalUrl;
+            }
+
+            // 若配置了独立引流域名，则启用独立域名与自定义引流路径
+            $customPath = ltrim(trim($settings['free_sub_path'] ?? 'api/v1/free/subscribe'), '/');
+            $customDomain = rtrim($customDomain, '/');
+            if (!preg_match('/^https?:\/\//i', $customDomain)) {
+                $customDomain = 'https://' . $customDomain;
             }
 
             $token = isset($user['token']) ? $user['token'] : ($user->token ?? '');
