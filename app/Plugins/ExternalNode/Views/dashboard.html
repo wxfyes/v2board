@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>外部节点管理 - ExternalNode 独立控制台</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    [v-cloak] { display: none; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+  <div id="app" v-cloak class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- 顶部导航与状态条 -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-200 gap-4">
+      <div>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              外部节点管理
+              <span class="text-xs px-2.5 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-600 border border-emerald-200">
+                🟢 双重鉴权防护中
+              </span>
+            </h1>
+            <p class="text-sm text-slate-500 mt-0.5">统一管理采集节点、多源订阅与独立免费引流分发隔离池。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- 安全锁退出按钮 -->
+        <button @click="lockDashboard" title="锁定控制台或更换安全密钥" class="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-xs font-medium rounded-xl shadow-sm transition-all active:scale-95">
+          <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          锁定
+        </button>
+
+        <button @click="triggerCheck" :disabled="loadingCheck" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-medium rounded-xl shadow-sm transition-all duration-200 active:scale-95 disabled:opacity-50">
+          <svg v-if="!loadingCheck" class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <svg v-else class="animate-spin w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          {{ loadingCheck ? '并发测活中...' : '一键测活' }}
+        </button>
+
+        <button @click="triggerCollect" :disabled="loadingCollect" class="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-sm shadow-brand-500/25 transition-all duration-200 active:scale-95 disabled:opacity-50">
+          <svg v-if="!loadingCollect" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+          </svg>
+          <svg v-else class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          {{ loadingCollect ? '全网采集清洗中...' : '一键全网采集' }}
+        </button>
+      </div>
+    </header>
+
+    <!-- 顶部 4 块现代玻璃统计卡片 -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
+      <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-brand-600">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <button @click="currentTab = 'nodes'" class="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            查看节点 &rarr;
+          </button>
+        </div>
+        <div class="mt-4">
+          <p class="text-sm font-medium text-slate-500">订阅中显示 (在线)</p>
+          <p class="text-3xl font-extrabold text-slate-900 mt-1">{{ overview.online_nodes || 0 }}</p>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <button @click="statusFilter = 'offline'; currentTab = 'nodes'" class="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            查看异常 &rarr;
+          </button>
+        </div>
+        <div class="mt-4">
+          <p class="text-sm font-medium text-slate-500">同步异常 (离线)</p>
+          <p class="text-3xl font-extrabold text-slate-900 mt-1">{{ overview.offline_nodes || 0 }}</p>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+          <button @click="currentTab = 'sources'" class="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            查看来源 &rarr;
+          </button>
+        </div>
+        <div class="mt-4">
+          <p class="text-sm font-medium text-slate-500">已启用订阅源</p>
+          <p class="text-3xl font-extrabold text-slate-900 mt-1">{{ enabledSourceCount }}</p>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group">
+        <div class="flex items-center justify-between">
+          <div class="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <button @click="currentTab = 'settings'" class="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            修改规则 &rarr;
+          </button>
+        </div>
+        <div class="mt-4">
+          <p class="text-sm font-medium text-slate-500">每次拉取扣除</p>
+          <p class="text-3xl font-extrabold text-slate-900 mt-1">{{ overview.settings?.deduct_traffic_mb || 0 }} <span class="text-base font-normal text-slate-500">MB</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 导航栏 -->
+    <div class="flex items-center gap-3 mt-8 border-b border-slate-200">
+      <button @click="currentTab = 'nodes'" :class="[currentTab === 'nodes' ? 'border-brand-600 text-brand-600 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-700 font-medium']" class="pb-3 border-b-2 text-sm px-1 flex items-center gap-2 transition-colors">
+        节点列表
+        <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-normal">
+          {{ overview.total_nodes || 0 }}
+        </span>
+      </button>
+
+      <button @click="currentTab = 'sources'" :class="[currentTab === 'sources' ? 'border-brand-600 text-brand-600 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-700 font-medium']" class="pb-3 border-b-2 text-sm px-1 flex items-center gap-2 transition-colors">
+        订阅源管理
+        <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-normal">
+          {{ (overview.sources || []).length }}
+        </span>
+      </button>
+
+      <button @click="currentTab = 'settings'" :class="[currentTab === 'settings' ? 'border-brand-600 text-brand-600 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-700 font-medium']" class="pb-3 border-b-2 text-sm px-1 flex items-center gap-2 transition-colors">
+        全局配置与扣费
+      </button>
+
+      <button @click="currentTab = 'sub_tool'" :class="[currentTab === 'sub_tool' ? 'border-brand-600 text-brand-600 font-semibold' : 'border-transparent text-slate-500 hover:text-slate-700 font-medium']" class="pb-3 border-b-2 text-sm px-1 flex items-center gap-2 transition-colors">
+        引流订阅通道与测试
+      </button>
+    </div>
+
+    <!-- ================= TAB 1: 节点列表视图 ================= -->
+    <div v-if="currentTab === 'nodes'" class="mt-6 space-y-4">
+      <div class="glass-card rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3 w-full md:w-auto">
+          <button @click="triggerCollect" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all">
+            导入 / 重新采集
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+          <div class="relative w-full sm:w-64">
+            <input v-model="searchQuery" type="text" placeholder="搜索节点名称 / 地址..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+
+          <select v-model="protocolFilter" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-brand-500">
+            <option value="all">全部协议</option>
+            <option value="vmess">VMess</option>
+            <option value="vless">VLess</option>
+            <option value="trojan">Trojan</option>
+            <option value="shadowsocks">Shadowsocks</option>
+            <option value="hysteria2">Hysteria2</option>
+          </select>
+
+          <select v-model="statusFilter" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-brand-500">
+            <option value="all">全部状态</option>
+            <option value="online">🟢 在线可用</option>
+            <option value="offline">🔴 离线异常</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl shadow-sm overflow-hidden border border-slate-200/80">
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                <th class="py-3.5 px-4">序号</th>
+                <th class="py-3.5 px-4">标准化名称</th>
+                <th class="py-3.5 px-4">协议类型</th>
+                <th class="py-3.5 px-4">服务器地址 & 端口</th>
+                <th class="py-3.5 px-4">状态 / 延迟</th>
+                <th class="py-3.5 px-4 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-sm">
+              <tr v-for="(node, index) in filteredNodes" :key="node.id || index" class="hover:bg-slate-50/60 transition-colors">
+                <td class="py-3.5 px-4 text-slate-400 font-mono text-xs">{{ index + 1 }}</td>
+                <td class="py-3.5 px-4">
+                  <div class="font-medium text-slate-900 flex items-center gap-2">
+                    <span>{{ node.formatted_name || node.raw_name }}</span>
+                  </div>
+                  <div class="text-xs text-slate-400 mt-0.5 truncate max-w-xs" :title="node.raw_name">
+                    原名: {{ node.raw_name }}
+                  </div>
+                </td>
+                <td class="py-3.5 px-4">
+                  <span :class="getProtocolBadgeClass(node.type)" class="text-xs font-semibold px-2 py-0.5 rounded-md uppercase">
+                    {{ node.type }}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 font-mono text-xs text-slate-600">
+                  <span>{{ node.host }}:{{ node.port }}</span>
+                </td>
+                <td class="py-3.5 px-4">
+                  <span v-if="node.is_online" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    在线 {{ node.latency ? node.latency + 'ms' : '' }}
+                  </span>
+                  <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-600 border border-rose-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                    离线 / 超时
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <button @click="copyNodeUri(node)" class="text-xs text-brand-600 hover:text-brand-700 font-medium px-2 py-1 rounded hover:bg-brand-50 transition-colors">
+                    复制节点
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="filteredNodes.length === 0">
+                <td colspan="6" class="py-12 text-center text-slate-400">
+                  暂无匹配的节点数据，请点击上方“一键全网采集”
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 2: 订阅源管理视图 ================= -->
+    <div v-if="currentTab === 'sources'" class="mt-6 space-y-4">
+      <div class="glass-card rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">订阅源池配置</h2>
+          <p class="text-xs text-slate-500 mt-0.5">配置全网公开节点源或第三方订阅链接，定时任务将自动抓取清洗。</p>
+        </div>
+        <button @click="addSource" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all">
+          + 添加新订阅源
+        </button>
+      </div>
+
+      <div class="glass-card rounded-2xl shadow-sm overflow-hidden border border-slate-200/80">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-50/80 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+              <th class="py-3.5 px-4">状态</th>
+              <th class="py-3.5 px-4">源名称</th>
+              <th class="py-3.5 px-4">订阅链接 (URL)</th>
+              <th class="py-3.5 px-4">节点数</th>
+              <th class="py-3.5 px-4">最后抓取时间</th>
+              <th class="py-3.5 px-4 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-for="(src, idx) in overview.sources" :key="idx" class="hover:bg-slate-50/60">
+              <td class="py-3.5 px-4">
+                <input type="checkbox" v-model="src.enabled" class="rounded text-brand-600 focus:ring-brand-500">
+              </td>
+              <td class="py-3.5 px-4 font-medium text-slate-900">
+                <input v-model="src.name" type="text" class="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs font-medium w-40">
+              </td>
+              <td class="py-3.5 px-4 font-mono text-xs text-slate-600">
+                <input v-model="src.url" type="text" class="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs w-full max-w-lg">
+              </td>
+              <td class="py-3.5 px-4 text-xs font-semibold text-brand-600">
+                {{ src.node_count || 0 }}
+              </td>
+              <td class="py-3.5 px-4 text-xs text-slate-400">
+                {{ src.last_sync_at ? formatTime(src.last_sync_at) : '从未' }}
+              </td>
+              <td class="py-3.5 px-4 text-right">
+                <button @click="removeSource(idx)" class="text-xs text-rose-600 hover:text-rose-700 font-medium px-2 py-1 rounded hover:bg-rose-50">
+                  删除
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button @click="saveSources" :disabled="loadingSaveSources" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all">
+          {{ loadingSaveSources ? '保存中...' : '保存订阅源变更' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= TAB 3: 全局配置与扣费 ================= -->
+    <div v-if="currentTab === 'settings'" class="mt-6 space-y-6">
+      <div class="glass-card rounded-2xl p-6 shadow-sm space-y-6 max-w-3xl border border-slate-200/80">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">引流策略与虚拟扣费设置</h2>
+          <p class="text-xs text-slate-500 mt-1">控制免费引流通道的流控规则，防止白嫖怪滥用，同时保持零中转机服务器成本。</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">插件总开关</label>
+            <div class="flex items-center gap-2 mt-2">
+              <input type="checkbox" v-model="settings.enable" id="enable_plugin" class="rounded text-brand-600 focus:ring-brand-500 w-4 h-4">
+              <label for="enable_plugin" class="text-sm text-slate-700 font-medium">启用外部节点免费引流通道</label>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">每次拉取订阅扣除流量 (MB)</label>
+            <input v-model.number="settings.deduct_traffic_mb" type="number" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500">
+            <p class="text-xs text-slate-400 mt-1">设为 1024 即每次拉取扣除 1GB，设为 0 表示不扣流量。</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">单次下发最大节点数 (防拖库)</label>
+            <input v-model.number="settings.max_nodes_per_sub" type="number" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500">
+            <p class="text-xs text-slate-400 mt-1">从在线池中随机精选 N 个下发，降低单个节点负载。</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">超时离线自动清除 (小时)</label>
+            <input v-model.number="settings.auto_clean_offline_hours" type="number" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500">
+            <p class="text-xs text-slate-400 mt-1">连续 N 小时未上线的死节点自动从池子剔除。</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">节点统一人性化前缀</label>
+            <input v-model="settings.node_prefix" type="text" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">广告引导升级后缀</label>
+            <input v-model="settings.node_ad_suffix" type="text" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500">
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100 flex justify-end">
+          <button @click="saveSettings" :disabled="loadingSaveSettings" class="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all">
+            {{ loadingSaveSettings ? '保存中...' : '保存全局设置' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 4: 引流订阅通道与测试 ================= -->
+    <div v-if="currentTab === 'sub_tool'" class="mt-6 space-y-6">
+      <div class="glass-card rounded-2xl p-6 shadow-sm max-w-3xl space-y-6 border border-slate-200/80">
+        <div>
+          <h2 class="text-lg font-bold text-slate-900">物理隔离型免费订阅生成与测试</h2>
+          <p class="text-xs text-slate-500 mt-1">此订阅接口仅下发采集清洗节点，与付费专线 100% 物理隔离，支持绑定独立免备案/防封二级域名。</p>
+        </div>
+
+        <div class="space-y-4 pt-4 border-t border-slate-100">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">测试用户 Token</label>
+            <input v-model="testToken" type="text" placeholder="输入用户的 token 用于测试" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-brand-500">
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div>
+              <p class="text-xs font-semibold text-slate-600">🚀 Clash / Clash Verge / MOMclash 专属订阅链接:</p>
+              <div class="flex items-center gap-2 mt-1">
+                <input :value="clashSubUrl" readonly class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-700">
+                <button @click="copyText(clashSubUrl)" class="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg whitespace-nowrap hover:bg-brand-700">
+                  复制链接
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p class="text-xs font-semibold text-slate-600">📱 通用 Base64 订阅链接 (Shadowrocket / V2rayN):</p>
+              <div class="flex items-center gap-2 mt-1">
+                <input :value="base64SubUrl" readonly class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-700">
+                <button @click="copyText(base64SubUrl)" class="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg whitespace-nowrap hover:bg-brand-700">
+                  复制链接
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🛡️ 安全鉴权锁屏弹窗 (未授权或密钥错误时出现) -->
+    <div v-if="isLocked" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center relative overflow-hidden">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-brand-600 mb-4 shadow-inner">
+          <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+
+        <h3 class="text-xl font-bold text-slate-900">插件安全验证锁</h3>
+        <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+          当前环境未检测到有效的管理员会话，请输入插件独立通信管理密钥以解锁控制台。
+        </p>
+
+        <div class="mt-6 space-y-4">
+          <div class="relative">
+            <input v-model="inputSecretKey" @keyup.enter="unlockDashboard" type="password" placeholder="请输入管理密钥 (admin_secret_key)" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-center font-mono">
+          </div>
+
+          <button @click="unlockDashboard" :disabled="loadingUnlock" class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-brand-500/25 transition-all active:scale-98 disabled:opacity-50">
+            {{ loadingUnlock ? '验证密钥中...' : '解锁并进入控制台' }}
+          </button>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-slate-100 text-left">
+          <p class="text-[11px] text-slate-400 leading-normal">
+            💡 <strong>密钥从哪找？</strong> 查看服务器文件：<br>
+            <code class="text-indigo-600 font-mono text-[10px] break-all">storage/app/external_nodes.json</code> 里的 <code class="text-indigo-600">settings.admin_secret_key</code>。若在同一浏览器登录了 V2Board 管理后台，亦可自动放行。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 浮动 Toast 提示 -->
+    <div v-if="toast.show" class="fixed bottom-6 right-6 z-50 transition-all duration-300 transform translate-y-0">
+      <div :class="[toast.type === 'error' ? 'bg-rose-600' : 'bg-slate-900']" class="px-4 py-3 rounded-xl text-white text-sm shadow-xl flex items-center gap-2.5">
+        <span>{{ toast.message }}</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const currentTab = ref('nodes');
+        const isLocked = ref(false);
+        const inputSecretKey = ref('');
+        const loadingUnlock = ref(false);
+
+        const overview = ref({
+          total_nodes: 0,
+          online_nodes: 0,
+          offline_nodes: 0,
+          sources: [],
+          settings: {},
+          nodes_preview: []
+        });
+        const settings = ref({
+          enable: true,
+          deduct_traffic_mb: 1024,
+          max_nodes_per_sub: 15,
+          auto_clean_offline_hours: 12,
+          node_prefix: '⚡ [免费体验]',
+          node_ad_suffix: ' - 升级VIP享4K'
+        });
+
+        const searchQuery = ref('');
+        const protocolFilter = ref('all');
+        const statusFilter = ref('all');
+        const testToken = ref('test_token_123');
+
+        const loadingCollect = ref(false);
+        const loadingCheck = ref(false);
+        const loadingSaveSources = ref(false);
+        const loadingSaveSettings = ref(false);
+
+        const toast = ref({ show: false, message: '', type: 'info' });
+
+        const showToast = (message, type = 'info') => {
+          toast.value = { show: true, message, type };
+          setTimeout(() => { toast.value.show = false; }, 3000);
+        };
+
+        // 统一安全 API 请求封装 (自动携带 X-Plugin-Key 并拦截 403)
+        const apiFetch = async (url, options = {}) => {
+          const secretKey = localStorage.getItem('ext_node_secret_key') || '';
+          options.headers = options.headers || {};
+          if (secretKey) {
+            options.headers['X-Plugin-Key'] = secretKey;
+          }
+
+          const res = await fetch(url, options);
+          if (res.status === 403) {
+            isLocked.value = true;
+            throw new Error('未授权访问：请验证管理密钥');
+          }
+          return res;
+        };
+
+        const unlockDashboard = async () => {
+          if (!inputSecretKey.value.trim()) {
+            showToast('请输入管理密钥', 'error');
+            return;
+          }
+          loadingUnlock.value = true;
+          try {
+            const res = await fetch('/api/v1/admin/plugin/external-node/verify', {
+              method: 'POST',
+              headers: { 'X-Plugin-Key': inputSecretKey.value.trim() }
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+              localStorage.setItem('ext_node_secret_key', inputSecretKey.value.trim());
+              isLocked.value = false;
+              showToast('解锁成功');
+              await fetchOverview();
+            } else {
+              showToast(json.message || '密钥验证失败', 'error');
+            }
+          } catch (e) {
+            showToast('验证请求异常: ' + e.message, 'error');
+          } finally {
+            loadingUnlock.value = false;
+          }
+        };
+
+        const lockDashboard = () => {
+          localStorage.removeItem('ext_node_secret_key');
+          isLocked.value = true;
+          inputSecretKey.value = '';
+          showToast('控制台已锁定');
+        };
+
+        const fetchOverview = async () => {
+          try {
+            const res = await apiFetch('/api/v1/admin/plugin/external-node/overview');
+            const json = await res.json();
+            if (json.status === 'success') {
+              overview.value = json.data;
+              if (json.data.settings) {
+                settings.value = { ...settings.value, ...json.data.settings };
+              }
+            }
+          } catch (e) {
+            // 403 触发锁屏
+          }
+        };
+
+        const triggerCollect = async () => {
+          loadingCollect.value = true;
+          try {
+            const res = await apiFetch('/api/v1/admin/plugin/external-node/collect', { method: 'POST' });
+            const json = await res.json();
+            showToast(json.message || '采集完成');
+            await fetchOverview();
+          } catch (e) {
+            showToast('采集失败: ' + e.message, 'error');
+          } finally {
+            loadingCollect.value = false;
+          }
+        };
+
+        const triggerCheck = async () => {
+          loadingCheck.value = true;
+          try {
+            const res = await apiFetch('/api/v1/admin/plugin/external-node/check', { method: 'POST' });
+            const json = await res.json();
+            showToast(json.message || '测活完成');
+            await fetchOverview();
+          } catch (e) {
+            showToast('测活失败: ' + e.message, 'error');
+          } finally {
+            loadingCheck.value = false;
+          }
+        };
+
+        const saveSources = async () => {
+          loadingSaveSources.value = true;
+          try {
+            const res = await apiFetch('/api/v1/admin/plugin/external-node/sources', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sources: overview.value.sources })
+            });
+            const json = await res.json();
+            showToast(json.message || '订阅源保存成功');
+          } catch (e) {
+            showToast('保存失败: ' + e.message, 'error');
+          } finally {
+            loadingSaveSources.value = false;
+          }
+        };
+
+        const saveSettings = async () => {
+          loadingSaveSettings.value = true;
+          try {
+            const res = await apiFetch('/api/v1/admin/plugin/external-node/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ settings: settings.value })
+            });
+            const json = await res.json();
+            showToast(json.message || '设置保存成功');
+          } catch (e) {
+            showToast('保存失败: ' + e.message, 'error');
+          } finally {
+            loadingSaveSettings.value = false;
+          }
+        };
+
+        const addSource = () => {
+          overview.value.sources.push({
+            id: Date.now(),
+            name: '新订阅源',
+            url: '',
+            enabled: true,
+            node_count: 0,
+            last_sync_at: 0
+          });
+        };
+
+        const removeSource = (idx) => {
+          overview.value.sources.splice(idx, 1);
+        };
+
+        const enabledSourceCount = computed(() => {
+          return (overview.value.sources || []).filter(s => s.enabled).length;
+        });
+
+        const filteredNodes = computed(() => {
+          let list = overview.value.nodes_preview || [];
+          if (protocolFilter.value !== 'all') {
+            list = list.filter(n => (n.type || '').toLowerCase() === protocolFilter.value);
+          }
+          if (statusFilter.value === 'online') {
+            list = list.filter(n => !!n.is_online);
+          } else if (statusFilter.value === 'offline') {
+            list = list.filter(n => !n.is_online);
+          }
+          if (searchQuery.value.trim()) {
+            const q = searchQuery.value.toLowerCase();
+            list = list.filter(n => (n.formatted_name || '').toLowerCase().includes(q) || (n.host || '').includes(q));
+          }
+          return list;
+        });
+
+        const clashSubUrl = computed(() => {
+          const origin = window.location.origin;
+          return `${origin}/api/v1/free/subscribe?token=${testToken.value}&flag=clash`;
+        });
+
+        const base64SubUrl = computed(() => {
+          const origin = window.location.origin;
+          return `${origin}/api/v1/free/subscribe?token=${testToken.value}`;
+        });
+
+        const copyText = (txt) => {
+          navigator.clipboard.writeText(txt).then(() => {
+            showToast('已复制到剪贴板');
+          });
+        };
+
+        const copyNodeUri = (node) => {
+          copyText(`${node.type}://${node.host}:${node.port}`);
+        };
+
+        const formatTime = (ts) => {
+          const d = new Date(ts * 1000);
+          return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        };
+
+        const getProtocolBadgeClass = (type) => {
+          switch ((type || '').toLowerCase()) {
+            case 'vmess': return 'bg-blue-50 text-blue-600 border border-blue-200';
+            case 'vless': return 'bg-amber-50 text-amber-600 border border-amber-200';
+            case 'trojan': return 'bg-purple-50 text-purple-600 border border-purple-200';
+            case 'shadowsocks': return 'bg-emerald-50 text-emerald-600 border border-emerald-200';
+            case 'hysteria2': return 'bg-rose-50 text-rose-600 border border-rose-200';
+            default: return 'bg-slate-50 text-slate-600 border border-slate-200';
+          }
+        };
+
+        onMounted(() => {
+          // 检查 URL 中是否带 key
+          const urlParams = new URLSearchParams(window.location.search);
+          const qKey = urlParams.get('key');
+          if (qKey) {
+            localStorage.setItem('ext_node_secret_key', qKey);
+          }
+          fetchOverview();
+        });
+
+        return {
+          currentTab,
+          isLocked,
+          inputSecretKey,
+          loadingUnlock,
+          overview,
+          settings,
+          searchQuery,
+          protocolFilter,
+          statusFilter,
+          testToken,
+          loadingCollect,
+          loadingCheck,
+          loadingSaveSources,
+          loadingSaveSettings,
+          toast,
+          enabledSourceCount,
+          filteredNodes,
+          clashSubUrl,
+          base64SubUrl,
+          triggerCollect,
+          triggerCheck,
+          saveSources,
+          saveSettings,
+          addSource,
+          removeSource,
+          copyText,
+          copyNodeUri,
+          formatTime,
+          getProtocolBadgeClass,
+          unlockDashboard,
+          lockDashboard
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

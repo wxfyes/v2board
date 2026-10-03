@@ -13,7 +13,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        // 🛡️ ExternalNode 商业独立插件：安全自动挂载 (目录存在即启用，删除即完全无感卸载)
+        if (class_exists(\App\Plugins\ExternalNode\ExternalNodeServiceProvider::class)) {
+            $this->app->register(\App\Plugins\ExternalNode\ExternalNodeServiceProvider::class);
+        }
     }
 
     /**
