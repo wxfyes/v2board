@@ -61,7 +61,12 @@ class FreeSubscribeController extends Controller
             return response('Free service is currently disabled', 503);
         }
 
-        // 流量与额度判定
+        // 1. 到期时间校验 (月付/季付/年付过期严格拦截，绝不下发有效节点)
+        if (!empty($userObj->id) && $userObj->expired_at !== null && $userObj->expired_at < time()) {
+            return $this->renderExpiredResponse($request);
+        }
+
+        // 2. 流量与额度判定
         $remainTraffic = ($userObj->transfer_enable ?? 0) - (($userObj->u ?? 0) + ($userObj->d ?? 0));
         if ($remainTraffic <= 0) {
             return $this->renderExhaustedResponse($request);
@@ -500,6 +505,22 @@ class FreeSubscribeController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * 订阅到期保底提示
+     */
+    private function renderExpiredResponse(Request $request)
+    {
+        $tipNode = [[
+            'formatted_name' => '⚠️ 您的订阅已到期 - 请前往官网续费套餐后使用',
+            'type' => 'shadowsocks',
+            'host' => '127.0.0.1',
+            'port' => 10086,
+            'cipher' => 'aes-128-gcm',
+            'password' => 'subscription_expired'
+        ]];
+        return $this->renderNodes($request, $tipNode, (object)['u' => 0, 'd' => 0, 'transfer_enable' => 0, 'expired_at' => time()]);
     }
 
     /**
