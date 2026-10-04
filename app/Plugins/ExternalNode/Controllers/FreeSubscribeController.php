@@ -82,6 +82,33 @@ class FreeSubscribeController extends Controller
             return !empty($n['is_online']);
         });
 
+        // 客户端协议兼容性智能适配：
+        // V2RayN 等客户端的 Base64 订阅导入器仅支持专用协议 (vmess, vless, trojan, ss, hy2, anytls, tuic)，
+        // 会将订阅中的 http:// 或 https:// 视为普通网页链接直接忽略，导致节点跳号且浪费宝贵下发配额。
+        // 因此针对非 Clash 客户端，智能过滤掉 http/https 节点，保障 V2RayN 客户端满额连续导入。
+        $ua = strtolower($request->header('User-Agent', ''));
+        $flag = strtolower($request->input('flag', ''));
+        $isV2ray = (strpos($ua, 'v2ray') !== false);
+        $isClash = !$isV2ray && (
+            strpos($ua, 'clash') !== false ||
+            strpos($ua, 'meta') !== false ||
+            strpos($ua, 'tianque') !== false ||
+            strpos($ua, 'momclash') !== false ||
+            strpos($flag, 'clash') !== false ||
+            strpos($flag, 'meta') !== false ||
+            $request->input('security') == '1'
+        );
+
+        if (!$isClash) {
+            $v2rayCompatible = array_filter($onlineNodes, function ($n) {
+                $t = strtolower($n['type'] ?? '');
+                return !in_array($t, ['http', 'https']);
+            });
+            if (!empty($v2rayCompatible)) {
+                $onlineNodes = $v2rayCompatible;
+            }
+        }
+
         // 数量限制
         $maxNodes = (int)($settings['max_nodes_per_sub'] ?? 15);
         if ($maxNodes > 0 && count($onlineNodes) > $maxNodes) {
