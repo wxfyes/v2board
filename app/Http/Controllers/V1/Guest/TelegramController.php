@@ -50,7 +50,20 @@ class TelegramController extends Controller
                 $instance = new $class();
                 if ($msg->message_type === 'message') {
                     if (!isset($instance->command)) continue;
-                    if ($msg->command !== $instance->command) continue;
+                    $matched = false;
+                    if (is_array($instance->command)) {
+                        $matched = in_array($msg->command, $instance->command);
+                    } else {
+                        $matched = ($msg->command === $instance->command);
+                    }
+                    $lowerCmd = mb_strtolower($msg->command);
+                    if (!$matched && $command === 'Checkin' && in_array($lowerCmd, ['/checkin', '/qd', '签到', '打卡'])) {
+                        $matched = true;
+                    }
+                    if (!$matched && $command === 'Traffic' && in_array($lowerCmd, ['/traffic', '/ll', '流量', '查流量'])) {
+                        $matched = true;
+                    }
+                    if (!$matched) continue;
                     $instance->handle($msg);
                     return;
                 }
