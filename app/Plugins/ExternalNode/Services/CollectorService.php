@@ -92,6 +92,16 @@ class CollectorService
             case 'hy2':
             case 'hysteria2':
                 return self::parseHysteria2($uri);
+            case 'http':
+            case 'https':
+                return self::parseHttp($uri);
+            case 'socks5':
+            case 'socks':
+                return self::parseSocks5($uri);
+            case 'anytls':
+                return self::parseAnytls($uri);
+            case 'tuic':
+                return self::parseTuic($uri);
             default:
                 return null;
         }
@@ -283,6 +293,125 @@ class CollectorService
         ];
     }
 
+    /**
+     * 解析 http:// 与 https://
+     */
+    private static function parseHttp(string $uri): ?array
+    {
+        $parts = parse_url($uri);
+        if (!$parts || empty($parts['host'])) return null;
+
+        $scheme = strtolower($parts['scheme'] ?? 'http');
+        $isHttps = ($scheme === 'https');
+        $port = (int)($parts['port'] ?? ($isHttps ? 443 : 80));
+
+        parse_str($parts['query'] ?? '', $query);
+        $user = $parts['user'] ?? '';
+        $pass = $parts['pass'] ?? '';
+
+        return [
+            'id' => md5($parts['host'] . ':' . $port . ':' . $user),
+            'raw_name' => urldecode($parts['fragment'] ?? ($isHttps ? 'HTTPS Node' : 'HTTP Node')),
+            'type' => $isHttps ? 'https' : 'http',
+            'host' => $parts['host'],
+            'port' => $port,
+            'username' => $user,
+            'password' => $pass,
+            'tls' => ($isHttps || !empty($query['tls']) || $port == 443) ? 1 : 0,
+            'sni' => $query['sni'] ?? ($isHttps ? $parts['host'] : ''),
+            'raw_data' => $parts
+        ];
+    }
+
+    /**
+     * 解析 socks5:// 与 socks://
+     */
+    private static function parseSocks5(string $uri): ?array
+    {
+        $parts = parse_url($uri);
+        if (!$parts || empty($parts['host'])) return null;
+
+        $port = (int)($parts['port'] ?? 1080);
+        $user = $parts['user'] ?? '';
+        $pass = $parts['pass'] ?? '';
+
+        // 兼容部分客户端对 userinfo 进行 Base64 编码的情况 socks5://BASE64(user:pass)@host:port
+        if (!empty($user) && empty($pass)) {
+            $decoded = @base64_decode($user);
+            if ($decoded && strpos($decoded, ':') !== false) {
+                [$u, $p] = explode(':', $decoded, 2);
+                $user = $u;
+                $pass = $p;
+            }
+        }
+
+        return [
+            'id' => md5($parts['host'] . ':' . $port . ':' . $user),
+            'raw_name' => urldecode($parts['fragment'] ?? 'Socks5 Node'),
+            'type' => 'socks5',
+            'host' => $parts['host'],
+            'port' => $port,
+            'username' => $user,
+            'password' => $pass,
+            'tls' => 0,
+            'raw_data' => $parts
+        ];
+    }
+
+    /**
+     * 解析 anytls://
+     */
+    private static function parseAnytls(string $uri): ?array
+    {
+        $parts = parse_url($uri);
+        if (!$parts || empty($parts['host']) || empty($parts['port'])) return null;
+
+        parse_str($parts['query'] ?? '', $query);
+
+        $password = $parts['user'] ?? '';
+        if (empty($password) && !empty($parts['path'])) {
+            $password = trim($parts['path'], '/');
+        }
+
+        return [
+            'id' => md5($parts['host'] . ':' . $parts['port']),
+            'raw_name' => urldecode($parts['fragment'] ?? 'AnyTLS Node'),
+            'type' => 'anytls',
+            'host' => $parts['host'],
+            'port' => (int)$parts['port'],
+            'password' => $password,
+            'sni' => $query['sni'] ?? $parts['host'],
+            'tls' => 1,
+            'insecure' => (int)($query['insecure'] ?? 0),
+            'fp' => $query['fp'] ?? 'chrome',
+            'raw_data' => $parts
+        ];
+    }
+
+    /**
+     * 解析 tuic://
+     */
+    private static function parseTuic(string $uri): ?array
+    {
+        $parts = parse_url($uri);
+        if (!$parts || empty($parts['host']) || empty($parts['port'])) return null;
+
+        parse_str($parts['query'] ?? '', $query);
+
+        return [
+            'id' => md5($parts['host'] . ':' . $parts['port']),
+            'raw_name' => urldecode($parts['fragment'] ?? 'TUIC Node'),
+            'type' => 'tuic',
+            'host' => $parts['host'],
+            'port' => (int)$parts['port'],
+            'uuid' => $parts['user'] ?? '',
+            'password' => $parts['pass'] ?? ($parts['user'] ?? ''),
+            'sni' => $query['sni'] ?? '',
+            'alpn' => $query['alpn'] ?? 'h3',
+            'raw_data' => $parts
+        ];
+    }
+
     private static function formatClashProxy(array $p): ?array
     {
         if (empty($p['server']) || empty($p['port']) || empty($p['type'])) {
@@ -304,19 +433,22 @@ class CollectorService
         $flow = $p['flow'] ?? '';
         $isReality = !empty($pbk) || !empty($realityOpts) || ($p['security'] ?? '') === 'reality';
 
+        $isTls = (!empty($p['tls']) || $isReality || $type === 'https' || ($type === 'http' && (int)$p['port'] === 443) || $type === 'anytls') ? 1 : 0;
+
         return [
-            'id' => md5($p['server'] . ':' . $p['port'] . ':' . ($p['uuid'] ?? ($p['password'] ?? ''))),
+            'id' => md5($p['server'] . ':' . $p['port'] . ':' . ($p['uuid'] ?? ($p['password'] ?? ($p['username'] ?? '')))),
             'raw_name' => $p['name'] ?? 'Clash Proxy',
             'type' => $type,
             'host' => $p['server'],
             'port' => (int)$p['port'],
+            'username' => $p['username'] ?? ($p['user'] ?? ''),
             'uuid' => $p['uuid'] ?? ($p['password'] ?? ''),
             'password' => $p['password'] ?? ($p['uuid'] ?? ''),
             'cipher' => $p['cipher'] ?? 'auto',
             'alterId' => (int)($p['alterId'] ?? 0),
             'network' => $p['network'] ?? 'tcp',
-            'tls' => (!empty($p['tls']) || $isReality) ? 1 : 0,
-            'security' => $isReality ? 'reality' : (!empty($p['tls']) ? 'tls' : 'none'),
+            'tls' => $isTls,
+            'security' => $isReality ? 'reality' : ($isTls ? 'tls' : 'none'),
             'sni' => $sni,
             'path' => $path,
             'headers' => $headers,

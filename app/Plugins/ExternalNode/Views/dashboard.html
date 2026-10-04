@@ -826,8 +826,86 @@
           });
         };
 
+        const buildNodeShareUri = (node) => {
+          if (!node || !node.host || !node.port) return '';
+          const type = (node.type || '').toLowerCase();
+          const name = encodeURIComponent(node.formatted_name || node.raw_name || 'Free Node');
+          const host = node.host;
+          const port = node.port;
+
+          if (type === 'trojan') {
+            const sni = node.sni || host;
+            return `trojan://${encodeURIComponent(node.password || '')}@${host}:${port}?security=tls&sni=${encodeURIComponent(sni)}&allowInsecure=1#${name}`;
+          } else if (type === 'shadowsocks' || type === 'ss') {
+            const plain = `${node.cipher || 'aes-128-gcm'}:${node.password || ''}`;
+            return `ss://${btoa(plain)}@${host}:${port}#${name}`;
+          } else if (type === 'vmess') {
+            const v = {
+              v: '2',
+              ps: node.formatted_name || node.raw_name || 'Free Node',
+              add: host,
+              port: String(port),
+              id: node.uuid || '',
+              aid: String(node.alterId || '0'),
+              net: node.network || 'tcp',
+              type: 'none',
+              host: node.sni || '',
+              path: node.path || '/',
+              tls: node.tls ? 'tls' : ''
+            };
+            return 'vmess://' + btoa(unescape(encodeURIComponent(JSON.stringify(v))));
+          } else if (type === 'vless') {
+            const isReality = (node.security === 'reality') || !!node.pbk;
+            const sec = isReality ? 'reality' : (node.tls ? 'tls' : 'none');
+            const sni = node.sni || host;
+            const net = node.network || 'tcp';
+            let params = `security=${sec}&sni=${encodeURIComponent(sni)}&type=${net}`;
+            if (node.flow) params += `&flow=${encodeURIComponent(node.flow)}`;
+            if (isReality) {
+              if (node.pbk) params += `&pbk=${encodeURIComponent(node.pbk)}`;
+              if (node.sid) params += `&sid=${encodeURIComponent(node.sid)}`;
+              params += `&fp=${encodeURIComponent(node.fp || 'chrome')}`;
+              if (node.spx) params += `&spx=${encodeURIComponent(node.spx)}`;
+            }
+            if (node.path && net !== 'tcp') params += `&path=${encodeURIComponent(node.path)}`;
+            return `vless://${encodeURIComponent(node.uuid || '')}@${host}:${port}?${params}#${name}`;
+          } else if (type === 'hysteria2' || type === 'hy2') {
+            const sni = node.sni || host;
+            return `hysteria2://${encodeURIComponent(node.password || '')}@${host}:${port}?sni=${encodeURIComponent(sni)}&insecure=1#${name}`;
+          } else if (type === 'anytls') {
+            const pwd = encodeURIComponent(node.password || node.uuid || '');
+            const sni = encodeURIComponent(node.sni || host);
+            return `anytls://${pwd}@${host}:${port}/?sni=${sni}&insecure=1#${name}`;
+          } else if (type === 'http' || type === 'https') {
+            const scheme = (type === 'https' || node.tls || port == 443) ? 'https' : 'http';
+            let auth = '';
+            if (node.username && node.password) {
+              auth = `${encodeURIComponent(node.username)}:${encodeURIComponent(node.password)}@`;
+            } else if (node.password) {
+              auth = `${encodeURIComponent(node.password)}@`;
+            }
+            return `${scheme}://${auth}${host}:${port}#${name}`;
+          } else if (type === 'socks5' || type === 'socks') {
+            let auth = '';
+            if (node.username && node.password) {
+              auth = `${encodeURIComponent(node.username)}:${encodeURIComponent(node.password)}@`;
+            } else if (node.password) {
+              auth = `${encodeURIComponent(node.password)}@`;
+            }
+            return `socks5://${auth}${host}:${port}#${name}`;
+          } else if (type === 'tuic') {
+            const uuid = encodeURIComponent(node.uuid || node.password || '');
+            const pwd = encodeURIComponent(node.password || node.uuid || '');
+            const sni = encodeURIComponent(node.sni || host);
+            return `tuic://${uuid}:${pwd}@${host}:${port}?sni=${sni}&alpn=h3&congestion_controller=bbr#${name}`;
+          }
+
+          return `${type}://${host}:${port}#${name}`;
+        };
+
         const copyNodeUri = (node) => {
-          copyText(`${node.type}://${node.host}:${node.port}`);
+          const uri = buildNodeShareUri(node);
+          copyText(uri);
         };
 
         const formatTime = (ts) => {
@@ -840,8 +918,16 @@
             case 'vmess': return 'bg-blue-50 text-blue-600 border border-blue-200';
             case 'vless': return 'bg-amber-50 text-amber-600 border border-amber-200';
             case 'trojan': return 'bg-purple-50 text-purple-600 border border-purple-200';
-            case 'shadowsocks': return 'bg-emerald-50 text-emerald-600 border border-emerald-200';
-            case 'hysteria2': return 'bg-rose-50 text-rose-600 border border-rose-200';
+            case 'shadowsocks':
+            case 'ss': return 'bg-emerald-50 text-emerald-600 border border-emerald-200';
+            case 'hysteria2':
+            case 'hy2': return 'bg-rose-50 text-rose-600 border border-rose-200';
+            case 'anytls': return 'bg-orange-50 text-orange-600 border border-orange-200';
+            case 'http':
+            case 'https': return 'bg-cyan-50 text-cyan-600 border border-cyan-200';
+            case 'socks5':
+            case 'socks': return 'bg-teal-50 text-teal-600 border border-teal-200';
+            case 'tuic': return 'bg-indigo-50 text-indigo-600 border border-indigo-200';
             default: return 'bg-slate-50 text-slate-600 border border-slate-200';
           }
         };

@@ -302,6 +302,65 @@ class FreeSubscribeController extends Controller
                     'sni' => $node['sni'] ?? '',
                     'skip-cert-verify' => true,
                 ]);
+            case 'http':
+            case 'https':
+                $isHttps = ($type === 'https') || !empty($node['tls']) || ($node['port'] ?? 0) == 443;
+                $httpProxy = array_merge($base, [
+                    'type' => 'http',
+                    'tls' => $isHttps,
+                    'skip-cert-verify' => true,
+                ]);
+                if (!empty($node['username'])) {
+                    $httpProxy['username'] = (string)$node['username'];
+                }
+                if (!empty($node['password'])) {
+                    $httpProxy['password'] = (string)$node['password'];
+                }
+                if (!empty($node['sni'])) {
+                    $httpProxy['sni'] = (string)$node['sni'];
+                }
+                return $httpProxy;
+            case 'socks5':
+            case 'socks':
+                $socksProxy = array_merge($base, [
+                    'type' => 'socks5',
+                    'skip-cert-verify' => true,
+                    'udp' => true,
+                ]);
+                if (!empty($node['username'])) {
+                    $socksProxy['username'] = (string)$node['username'];
+                }
+                if (!empty($node['password'])) {
+                    $socksProxy['password'] = (string)$node['password'];
+                }
+                if (!empty($node['tls'])) {
+                    $socksProxy['tls'] = true;
+                }
+                return $socksProxy;
+            case 'anytls':
+                return array_merge($base, [
+                    'type' => 'anytls',
+                    'password' => $node['password'] ?? ($node['uuid'] ?? ''),
+                    'client-fingerprint' => $node['fp'] ?? ($node['client-fingerprint'] ?? 'chrome'),
+                    'udp' => true,
+                    'alpn' => [
+                        'h2',
+                        'http/1.1',
+                    ],
+                    'sni' => $node['sni'] ?: $node['host'],
+                    'skip-cert-verify' => true,
+                ]);
+            case 'tuic':
+                return array_merge($base, [
+                    'type' => 'tuic',
+                    'uuid' => $node['uuid'] ?? ($node['password'] ?? ''),
+                    'password' => $node['password'] ?? ($node['uuid'] ?? ''),
+                    'alpn' => ['h3'],
+                    'sni' => $node['sni'] ?: $node['host'],
+                    'skip-cert-verify' => true,
+                    'congestion-controller' => 'bbr',
+                    'udp-relay-mode' => 'native',
+                ]);
             default:
                 return null;
         }
@@ -314,65 +373,106 @@ class FreeSubscribeController extends Controller
     {
         $uris = [];
         foreach ($nodes as $n) {
-            $name = urlencode($n['formatted_name'] ?? 'Free Node');
-            $type = strtolower($n['type'] ?? '');
-            $host = $n['host'] ?? '';
-            $port = $n['port'] ?? 0;
-
-            if ($type === 'trojan') {
-                $sni = $n['sni'] ?: $host;
-                $uris[] = "trojan://{$n['password']}@{$host}:{$port}?security=tls&sni={$sni}&allowInsecure=1#{$name}";
-            } elseif ($type === 'shadowsocks' || $type === 'ss') {
-                $plain = "{$n['cipher']}:{$n['password']}";
-                $uris[] = "ss://" . base64_encode($plain) . "@{$host}:{$port}#{$name}";
-            } elseif ($type === 'vmess') {
-                $v = [
-                    'v' => '2',
-                    'ps' => $n['formatted_name'] ?? 'Free Node',
-                    'add' => $host,
-                    'port' => (string)$port,
-                    'id' => $n['uuid'] ?? '',
-                    'aid' => (string)($n['alterId'] ?? '0'),
-                    'net' => $n['network'] ?? 'tcp',
-                    'type' => 'none',
-                    'host' => $n['sni'] ?? '',
-                    'path' => $n['path'] ?? '/',
-                    'tls' => !empty($n['tls']) ? 'tls' : ''
-                ];
-                $uris[] = 'vmess://' . base64_encode(json_encode($v));
-            } elseif ($type === 'vless') {
-                $isReality = ($n['security'] ?? '') === 'reality' || !empty($n['pbk']);
-                $security = $isReality ? 'reality' : (!empty($n['tls']) ? 'tls' : 'none');
-                $sni = $n['sni'] ?: $host;
-                $net = $n['network'] ?? 'tcp';
-
-                $queryParams = [
-                    'security' => $security,
-                    'sni' => $sni,
-                    'type' => $net,
-                ];
-                if (!empty($n['flow'])) {
-                    $queryParams['flow'] = $n['flow'];
-                }
-                if ($isReality) {
-                    if (!empty($n['pbk'])) $queryParams['pbk'] = $n['pbk'];
-                    if (!empty($n['sid'])) $queryParams['sid'] = $n['sid'];
-                    $queryParams['fp'] = !empty($n['fp']) ? $n['fp'] : 'chrome';
-                    if (!empty($n['spx'])) $queryParams['spx'] = $n['spx'];
-                }
-                if (!empty($n['path']) && $net !== 'tcp') {
-                    $queryParams['path'] = $n['path'];
-                }
-
-                $queryString = http_build_query($queryParams);
-                $uris[] = "vless://{$n['uuid']}@{$host}:{$port}?{$queryString}#{$name}";
-            } elseif ($type === 'hysteria2' || $type === 'hy2') {
-                $sni = $n['sni'] ?: $host;
-                $uris[] = "hysteria2://{$n['password']}@{$host}:{$port}?sni={$sni}&insecure=1#{$name}";
+            $uri = $this->nodeToSingleUri($n);
+            if (!empty($uri)) {
+                $uris[] = $uri;
             }
         }
 
         return base64_encode(implode("\n", $uris));
+    }
+
+    /**
+     * 节点转单条标准客户端分享 URI (支持全协议：vmess, vless, trojan, ss, hy2, anytls, http, socks5, tuic)
+     */
+    public function nodeToSingleUri(array $n): ?string
+    {
+        $name = urlencode($n['formatted_name'] ?? ($n['raw_name'] ?? 'Free Node'));
+        $type = strtolower($n['type'] ?? '');
+        $host = $n['host'] ?? '';
+        $port = (int)($n['port'] ?? 0);
+
+        if (empty($host) || $port <= 0) return null;
+
+        if ($type === 'trojan') {
+            $sni = $n['sni'] ?: $host;
+            return "trojan://{$n['password']}@{$host}:{$port}?security=tls&sni={$sni}&allowInsecure=1#{$name}";
+        } elseif ($type === 'shadowsocks' || $type === 'ss') {
+            $plain = "{$n['cipher']}:{$n['password']}";
+            return "ss://" . base64_encode($plain) . "@{$host}:{$port}#{$name}";
+        } elseif ($type === 'vmess') {
+            $v = [
+                'v' => '2',
+                'ps' => $n['formatted_name'] ?? ($n['raw_name'] ?? 'Free Node'),
+                'add' => $host,
+                'port' => (string)$port,
+                'id' => $n['uuid'] ?? '',
+                'aid' => (string)($n['alterId'] ?? '0'),
+                'net' => $n['network'] ?? 'tcp',
+                'type' => 'none',
+                'host' => $n['sni'] ?? '',
+                'path' => $n['path'] ?? '/',
+                'tls' => !empty($n['tls']) ? 'tls' : ''
+            ];
+            return 'vmess://' . base64_encode(json_encode($v));
+        } elseif ($type === 'vless') {
+            $isReality = ($n['security'] ?? '') === 'reality' || !empty($n['pbk']);
+            $security = $isReality ? 'reality' : (!empty($n['tls']) ? 'tls' : 'none');
+            $sni = $n['sni'] ?: $host;
+            $net = $n['network'] ?? 'tcp';
+
+            $queryParams = [
+                'security' => $security,
+                'sni' => $sni,
+                'type' => $net,
+            ];
+            if (!empty($n['flow'])) {
+                $queryParams['flow'] = $n['flow'];
+            }
+            if ($isReality) {
+                if (!empty($n['pbk'])) $queryParams['pbk'] = $n['pbk'];
+                if (!empty($n['sid'])) $queryParams['sid'] = $n['sid'];
+                $queryParams['fp'] = !empty($n['fp']) ? $n['fp'] : 'chrome';
+                if (!empty($n['spx'])) $queryParams['spx'] = $n['spx'];
+            }
+            if (!empty($n['path']) && $net !== 'tcp') {
+                $queryParams['path'] = $n['path'];
+            }
+
+            $queryString = http_build_query($queryParams);
+            return "vless://{$n['uuid']}@{$host}:{$port}?{$queryString}#{$name}";
+        } elseif ($type === 'hysteria2' || $type === 'hy2') {
+            $sni = $n['sni'] ?: $host;
+            return "hysteria2://{$n['password']}@{$host}:{$port}?sni={$sni}&insecure=1#{$name}";
+        } elseif ($type === 'anytls') {
+            $pwd = rawurlencode($n['password'] ?? ($n['uuid'] ?? ''));
+            $sni = $n['sni'] ?: $host;
+            return "anytls://{$pwd}@{$host}:{$port}/?sni={$sni}&insecure=1#{$name}";
+        } elseif ($type === 'http' || $type === 'https') {
+            $scheme = ($type === 'https' || !empty($n['tls']) || $port == 443) ? 'https' : 'http';
+            $auth = '';
+            if (!empty($n['username']) && !empty($n['password'])) {
+                $auth = rawurlencode($n['username']) . ':' . rawurlencode($n['password']) . '@';
+            } elseif (!empty($n['password'])) {
+                $auth = rawurlencode($n['password']) . '@';
+            }
+            return "{$scheme}://{$auth}{$host}:{$port}#{$name}";
+        } elseif ($type === 'socks5' || $type === 'socks') {
+            $auth = '';
+            if (!empty($n['username']) && !empty($n['password'])) {
+                $auth = rawurlencode($n['username']) . ':' . rawurlencode($n['password']) . '@';
+            } elseif (!empty($n['password'])) {
+                $auth = rawurlencode($n['password']) . '@';
+            }
+            return "socks5://{$auth}{$host}:{$port}#{$name}";
+        } elseif ($type === 'tuic') {
+            $uuid = rawurlencode($n['uuid'] ?? ($n['password'] ?? ''));
+            $pwd = rawurlencode($n['password'] ?? ($n['uuid'] ?? ''));
+            $sni = $n['sni'] ?: $host;
+            return "tuic://{$uuid}:{$pwd}@{$host}:{$port}?sni={$sni}&alpn=h3&congestion_controller=bbr#{$name}";
+        }
+
+        return null;
     }
 
     /**
