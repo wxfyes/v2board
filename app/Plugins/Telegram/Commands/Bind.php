@@ -16,12 +16,19 @@ class Bind extends Telegram {
         if (!isset($message->args[0])) {
             abort(500, '参数有误，请携带订阅地址发送');
         }
-        $subscribeUrl = $message->args[0];
-        $subscribeUrl = parse_url($subscribeUrl);
-        parse_str($subscribeUrl['query'], $query);
-        $token = $query['token'];
+        $rawInput = trim($message->args[0] ?? '');
+        $token = '';
+        if (strpos($rawInput, 'http://') === 0 || strpos($rawInput, 'https://') === 0) {
+            $parsed = parse_url($rawInput);
+            if (!empty($parsed['query'])) {
+                parse_str($parsed['query'], $query);
+                $token = $query['token'] ?? '';
+            }
+        } else {
+            $token = $rawInput;
+        }
         if (!$token) {
-            abort(500, '订阅地址无效');
+            abort(500, '参数有误，请发送正确的订阅地址或绑定 Token');
         }
         $submethod = (int)config('v2board.show_subscribe_method', 0);
         switch ($submethod) {
@@ -64,16 +71,25 @@ class Bind extends Telegram {
         }
         $user = User::where('token', $token)->first();
         if (!$user) {
-            abort(500, '用户不存在');
+            abort(500, '用户不存在或 Token 无效');
         }
         if ($user->telegram_id) {
-            abort(500, '该账号已经绑定了Telegram账号');
+            abort(500, '该账号已经绑定了 Telegram 账号');
         }
         $user->telegram_id = $message->chat_id;
         if (!$user->save()) {
             abort(500, '设置失败');
         }
         $telegramService = $this->telegramService;
-        $telegramService->sendMessage($message->chat_id, '绑定成功');
+        $successText = "🎉 *Telegram 账号绑定成功！*\n" .
+                       "———————————————\n" .
+                       "👤 绑定账号：`{$user->email}`\n\n" .
+                       "📌 *您现在可以随时向我发送：*\n" .
+                       "• `/traffic` - 查询实时流量与用量明细\n" .
+                       "• `/checkin` - 每日打卡签到领取免费流量 (发 签到 亦可)\n" .
+                       "• `/getlatesturl` - 防失联获取最新可用官网\n" .
+                       "• `/unbind` - 解除账号绑定\n\n" .
+                       "祝您使用愉快！";
+        $telegramService->sendMessage($message->chat_id, $successText, 'markdown');
     }
 }
