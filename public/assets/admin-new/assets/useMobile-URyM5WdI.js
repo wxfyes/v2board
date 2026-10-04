@@ -1,0 +1,1 @@
+import{A as e,G as t,j as n}from"./element-plus-KxVpNhEm.js";function r(){let r=t(typeof window<`u`&&window.innerWidth<=768),i=()=>{r.value=window.innerWidth<=768};return n(()=>{window.addEventListener(`resize`,i)}),e(()=>{window.removeEventListener(`resize`,i)}),{isMobile:r}}export{r as t};

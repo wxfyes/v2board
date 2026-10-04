@@ -210,6 +210,8 @@ class AdminRoute
             $router->get ('/traitor/fetch', 'V1\\Admin\\TraitorController@fetch');
             $router->post('/traitor/save', 'V1\\Admin\\TraitorController@save');
             $router->get ('/stat/checkTraitorMatches', 'V1\\Admin\\TraitorController@fetch');
+            // Checkin Logs
+            $router->get ('/checkin/fetch', 'V1\\Admin\\CheckinController@fetch');
         });
     }
 }

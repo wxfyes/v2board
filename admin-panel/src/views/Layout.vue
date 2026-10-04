@@ -102,6 +102,10 @@
             <el-icon><Tickets /></el-icon>
             <span>登录记录</span>
           </el-menu-item>
+          <el-menu-item index="/checkin-logs">
+            <el-icon><Calendar /></el-icon>
+            <span>每日签到记录</span>
+          </el-menu-item>
         </el-sub-menu>
         
         <el-sub-menu index="settings-group">
@@ -283,6 +287,10 @@
           <el-menu-item index="/login-logs">
             <el-icon><Tickets /></el-icon>
             <span>登录记录</span>
+          </el-menu-item>
+          <el-menu-item index="/checkin-logs">
+            <el-icon><Calendar /></el-icon>
+            <span>每日签到记录</span>
           </el-menu-item>
         </el-sub-menu>
         

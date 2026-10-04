@@ -24,6 +24,7 @@ const Cards = () => import('../views/Cards.vue');
 const Traitors = () => import('../views/Traitors.vue');
 const SubscribeLogs = () => import('../views/SubscribeLogs.vue');
 const LoginLogs = () => import('../views/LoginLogs.vue');
+const CheckinLogs = () => import('../views/CheckinLogs.vue');
 
 const routes = [
   {
@@ -162,6 +163,12 @@ const routes = [
         name: 'LoginLogs',
         component: LoginLogs,
         meta: { title: '登录日志', requiresAuth: true }
+      },
+      {
+        path: 'checkin-logs',
+        name: 'CheckinLogs',
+        component: CheckinLogs,
+        meta: { title: '每日签到记录', requiresAuth: true }
       }
     ]
   }
