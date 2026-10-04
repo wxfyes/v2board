@@ -23,7 +23,9 @@ class CommController extends Controller
                 'commission_distribution_enable' => (int)config('v2board.commission_distribution_enable', 0),
                 'commission_distribution_l1' => config('v2board.commission_distribution_l1'),
                 'commission_distribution_l2' => config('v2board.commission_distribution_l2'),
-                'commission_distribution_l3' => config('v2board.commission_distribution_l3')
+                'commission_distribution_l3' => config('v2board.commission_distribution_l3'),
+                'surplus_enable' => (int)config('v2board.surplus_enable', 1),
+                'plan_change_enable' => (int)config('v2board.plan_change_enable', 1)
             ]
         ]);
     }
