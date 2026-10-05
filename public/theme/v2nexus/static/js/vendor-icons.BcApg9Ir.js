@@ -1,4 +1,4 @@
-import{h as a}from"./vendor-core.DzpA5QIm.js";
+import{h as a}from"./vendor-core.CrRPNyht.js";
 /**
  * @license @tabler/icons-vue v3.48.0 - MIT
  *

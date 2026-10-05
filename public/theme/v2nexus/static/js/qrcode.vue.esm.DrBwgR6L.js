@@ -1,4 +1,4 @@
-import{R as e,h as t,r,p as n,j as o,Q as a,F as i}from"./vendor-core.DzpA5QIm.js";
+import{S as e,h as t,r,p as n,j as o,R as a,F as i}from"./vendor-core.CrRPNyht.js";
 /*!
  * qrcode.vue v3.11.0
  * A Vue.js component to generate QRCode. Both support Vue 2 and Vue 3
