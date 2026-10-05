@@ -29,6 +29,7 @@ class Start extends Telegram {
                     "📌 *常用快捷指令：*\n" .
                     "• `/traffic` - 查询剩余流量与使用明细\n" .
                     "• `/checkin` - 每日打卡签到领取免费流量 (发 签到 亦可)\n" .
+                    "• `/invite` - 查看专属邀请短链与返利统计 (发 邀请 亦可)\n" .
                     "• `/getlatesturl` - 获取防失联最新官方访问网址\n" .
                     "• `/unbind` - 解除当前账号与 Telegram 的绑定\n\n" .
                     "💡 直接向我发送上述指令即可快速交互！";

@@ -21,9 +21,9 @@
     <link rel="icon" href="{{!empty($theme_config['site_logo']) ? $theme_config['site_logo'] : (!empty($logo) ? $logo : '/theme/'.$theme.'/favicon.svg')}}" />
     <!-- 引入运行时外部配置 (兼容 v2board 后台直出与静态托管) -->
     <script src="/theme/{{$theme}}/config.js"></script>
-    <script type="module" crossorigin src="/theme/v2nexus/static/js/index.B58iO9ZA.js"></script>
+    <script type="module" crossorigin src="/theme/v2nexus/static/js/index.BwXkjYaa.js"></script>
     <link rel="modulepreload" crossorigin href="/theme/v2nexus/static/js/vendor-core.DPvTUCt4.js">
-    <link rel="stylesheet" crossorigin href="/theme/v2nexus/static/css/index.CFKXTJ8m.css">
+    <link rel="stylesheet" crossorigin href="/theme/v2nexus/static/css/index.C9qQDlCA.css">
   </head>
   <body class="bg-nexus-50 text-nexus-900 dark:bg-nexus-950 dark:text-nexus-100 transition-colors duration-200 antialiased selection:bg-blue-500 selection:text-white">
     <div id="app"></div>

@@ -63,6 +63,9 @@ class TelegramController extends Controller
                     if (!$matched && $command === 'Traffic' && in_array($lowerCmd, ['/traffic', '/ll', '流量', '查流量'])) {
                         $matched = true;
                     }
+                    if (!$matched && $command === 'Invite' && in_array($lowerCmd, ['/invite', '/yq', '邀请', '邀请码', '邀请链接', '我的邀请'])) {
+                        $matched = true;
+                    }
                     if (!$matched && $command === 'Start' && in_array($lowerCmd, ['/start', '开始', 'start'])) {
                         $matched = true;
                     }
