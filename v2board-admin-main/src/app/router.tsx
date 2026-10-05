@@ -79,6 +79,7 @@ const routes: RouteObject[] = [
     { path: '/security-audit', ...page(() => import('@/pages/security-audit/SecurityAuditPage')) },
     { path: '/subscribe-logs', ...page(() => import('@/pages/subscribe-logs/SubscribeLogsPage')) },
     { path: '/login-logs', ...page(() => import('@/pages/login-logs/LoginLogsPage')) },
+    { path: '/checkin-logs', ...page(() => import('@/pages/checkin-logs/CheckinLogsPage')) },
   { path: '/ticket', ...page(() => import('@/pages/ticket/TicketPage')) },
   // 工单对话在新窗口打开，没有管理端框架
   

@@ -28,6 +28,7 @@ export const MENU: MenuEntry[] = [
   { type: 'item', title: '内鬼名单', href: '/traitor', icon: 'si-shield' },
   { type: 'item', title: '订阅拉取记录', href: '/subscribe-logs', icon: 'si-list' },
   { type: 'item', title: '登录记录', href: '/login-logs', icon: 'si-login' },
+  { type: 'item', title: '每日签到记录', href: '/checkin-logs', icon: 'si-calendar' },
   { type: 'heading', title: '指标' },
   { type: 'item', title: '队列监控', href: '/queue', icon: 'si-bar-chart' },
 ]
