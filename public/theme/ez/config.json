@@ -130,6 +130,30 @@
         "0": "关闭 (完全隐藏该功能按钮)"
       },
       "default_value": "1"
+    },
+    {
+      "label": "用户默认头像引擎风格",
+      "placeholder": "选择用户默认头像的渲染引擎，每个邮箱生成独一无二形象",
+      "field_name": "avatar_style",
+      "field_type": "select",
+      "select_options": {
+        "notion": "Notion 极简手绘插画风 (默认推荐，高质感)",
+        "bottts": "3D 科技潮玩风 (未来赛博极客机器人)",
+        "avataaars": "现代潮流欧美潮人像 (扁平现代风)",
+        "cravatar": "经典 Cravatar (支持 QQ/Gravatar 真实头像)"
+      },
+      "default_value": "notion"
+    },
+    {
+      "label": "开放用户自选头像开关",
+      "placeholder": "是否允许用户在个人中心从 16 款精选官方头像库中自选更换",
+      "field_name": "enable_custom_avatar_picker",
+      "field_type": "select",
+      "select_options": {
+        "1": "开启 (允许用户在个人中心自由更换个性头像)",
+        "0": "关闭 (全站统一展示默认生成头像风格)"
+      },
+      "default_value": "1"
     }
   ]
 }
