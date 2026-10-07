@@ -154,6 +154,115 @@
         "0": "关闭 (全站统一展示默认生成头像风格)"
       },
       "default_value": "1"
+    },
+    {
+      "label": "套餐卡片流光优惠券舱总开关",
+      "placeholder": "是否在套餐卡片中展示高显眼度的流光优惠券舱与一键复制功能",
+      "field_name": "coupon_streamer_enable",
+      "field_type": "select",
+      "select_options": {
+        "1": "开启 (展示炫彩流光券舱并支持自动抵扣)",
+        "0": "关闭 (完全隐藏卡片优惠券舱)"
+      },
+      "default_value": "1"
+    },
+    {
+      "label": "月付 - 专属优惠码",
+      "placeholder": "输入后台有效优惠码(如 MONTH95)，留空则月付不展示券舱",
+      "field_name": "coupon_month_code",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "月付 - 促销文案标签",
+      "placeholder": "例如：95折 或 限时直减",
+      "field_name": "coupon_month_label",
+      "field_type": "input",
+      "default_value": "95折"
+    },
+    {
+      "label": "季付 - 专属优惠码",
+      "placeholder": "输入后台有效优惠码(如 SEASON90)，留空则季付不展示券舱",
+      "field_name": "coupon_quarter_code",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "季付 - 促销文案标签",
+      "placeholder": "例如：9折 或 季付特惠",
+      "field_name": "coupon_quarter_label",
+      "field_type": "input",
+      "default_value": "9折"
+    },
+    {
+      "label": "半年付 - 专属优惠码",
+      "placeholder": "输入后台有效优惠码(如 HALF85)，留空则半年付不展示券舱",
+      "field_name": "coupon_half_year_code",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "半年付 - 促销文案标签",
+      "placeholder": "例如：85折",
+      "field_name": "coupon_half_year_label",
+      "field_type": "input",
+      "default_value": "85折"
+    },
+    {
+      "label": "年付 - 专属优惠码",
+      "placeholder": "输入后台有效优惠码(如 YEAR80)，留空则年付不展示券舱",
+      "field_name": "coupon_year_code",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "年付 - 促销文案标签",
+      "placeholder": "例如：8折 或 狂欢钜惠",
+      "field_name": "coupon_year_label",
+      "field_type": "input",
+      "default_value": "8折"
+    },
+    {
+      "label": "两年付 - 专属优惠码",
+      "placeholder": "输入后台有效优惠码，留空则两年付不展示券舱",
+      "field_name": "coupon_two_year_code",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "两年付 - 促销文案标签",
+      "placeholder": "例如：75折",
+      "field_name": "coupon_two_year_label",
+      "field_type": "input",
+      "default_value": "75折"
+    },
+    {
+      "label": "三年付 - 专属优惠码",
+      "placeholder": "输入后台有效优惠码，留空则三年付不展示券舱",
+      "field_name": "coupon_three_year_code",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "三年付 - 促销文案标签",
+      "placeholder": "例如：7折",
+      "field_name": "coupon_three_year_label",
+      "field_type": "input",
+      "default_value": "7折"
+    },
+    {
+      "label": "一次性套餐 - 专属优惠码",
+      "placeholder": "输入后台有效优惠码，留空则一次性不展示券舱",
+      "field_name": "coupon_onetime_code",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "一次性套餐 - 促销文案标签",
+      "placeholder": "例如：特惠满减",
+      "field_name": "coupon_onetime_label",
+      "field_type": "input",
+      "default_value": "特惠直减"
     }
   ]
 }

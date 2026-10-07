@@ -19,7 +19,7 @@
             html, body, #app-loading { background-color: #171A1D; color: #f8fafc; }
             .loading-title { color: #3b82f6; }
             .spinner { border-color: #334155; border-top-color: #3b82f6; }
-        }</style><script src="/theme/ez/config.js"></script><script defer="defer" src="/theme/ez/static/js/chunk-vue.1a646b34.js"></script><script defer="defer" src="/theme/ez/static/js/chunk-vendors.c00092a1.js"></script><script defer="defer" src="/theme/ez/static/js/index.d3e8af7f.js"></script><link href="/theme/ez/static/css/index.42136185.css" rel="stylesheet"></head><body><div id="app-loading"><h1 class="loading-title">网站正在加载中...</h1><div class="spinner"></div></div><div id="app"></div><script>// 全局错误捕获，如果白屏，至少能看到报错
+        }</style><script src="/theme/ez/config.js"></script><script defer="defer" src="/theme/ez/static/js/chunk-vue.1a646b34.js"></script><script defer="defer" src="/theme/ez/static/js/chunk-vendors.c00092a1.js"></script><script defer="defer" src="/theme/ez/static/js/index.504c01c5.js"></script><link href="/theme/ez/static/css/index.42136185.css" rel="stylesheet"></head><body><div id="app-loading"><h1 class="loading-title">网站正在加载中...</h1><div class="spinner"></div></div><div id="app"></div><script>// 全局错误捕获，如果白屏，至少能看到报错
         window.onerror = function(msg, url, line) {
             console.error('Captured Error:', msg, 'at', url, ':', line);
             // 如果加载超过5秒还报错，可以考虑提示用户
