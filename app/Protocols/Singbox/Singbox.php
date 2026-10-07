@@ -427,22 +427,22 @@ class Singbox
 
     protected function buildMieru($password, $server)
     {
-        $portRange = $server['port_range'] ?? (is_array($server['tls_settings'] ?? null) ? ($server['tls_settings']['port_range'] ?? '') : '');
         $transport = strtoupper($server['transport'] ?? (is_array($server['tls_settings'] ?? null) ? ($server['tls_settings']['transport'] ?? 'TCP') : 'TCP'));
+        $serverPort = (int)($server['port'] ?? 0);
+        if ($serverPort <= 0 && !empty($server['port_range'])) {
+            $parts = explode('-', $server['port_range']);
+            $serverPort = (int)($parts[0] ?? 443);
+        }
         $array = [
             'type' => 'mieru',
             'tag' => $server['name'],
             'server' => $server['host'],
+            'server_port' => $serverPort > 0 ? $serverPort : 443,
             'username' => $password,
             'password' => $password,
             'transport' => $transport,
             'domain_resolver' => 'local'
         ];
-        if (!empty($portRange)) {
-            $array['port_range'] = $portRange;
-        } else {
-            $array['server_port'] = (int)$server['port'];
-        }
         return $array;
     }
 }
