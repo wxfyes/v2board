@@ -712,7 +712,7 @@ class ClientController extends Controller
                 ]);
             }
             if ($flag) {
-                if (!strpos($flag, 'sing')) {
+                if (strpos($flag, 'sing') === false && strpos($flag, 'hiddify') === false) {
                     $this->setSubscribeInfoToServers($servers, $user);
                     foreach (array_reverse(glob(app_path('Protocols') . '/*.php')) as $file) {
                         $file = 'App\\Protocols\\' . basename($file, '.php');
@@ -735,13 +735,21 @@ class ClientController extends Controller
                     if (preg_match('/hiddify\/([0-9.]+)/i', $flag, $matches)) {
                         $version = $matches[1];
                     }
+                    $userAgent = $request->header('User-Agent', '');
+                    if (!$version && preg_match('/sing-box\s+([0-9.]+)/i', $userAgent, $uaMatches)) {
+                        $version = $uaMatches[1];
+                    }
+                    if (!$version && preg_match('/hiddify\/([0-9.]+)/i', $userAgent, $uaMatches)) {
+                        $version = $uaMatches[1];
+                    }
+
                     $resContent = "";
-                    if (strpos($flag, 'hiddify') !== false) {
+                    if (strpos($flag, 'hiddify') !== false || stripos($userAgent, 'hiddify') !== false) {
                         $class = new Singbox($user, $servers);
-                    } else if (!is_null($version) && $version >= '1.12.0') {
-                        $class = new Singbox($user, $servers);
-                    } else {
+                    } else if (!is_null($version) && version_compare($version, '1.8.0', '<')) {
                         $class = new SingboxOld($user, $servers);
+                    } else {
+                        $class = new Singbox($user, $servers);
                     }
                     $resContent = $class->handle();
                     $processed = $this->sanitizeNormalContent($resContent, $flag);
