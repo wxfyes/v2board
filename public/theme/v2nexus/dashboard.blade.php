@@ -21,7 +21,7 @@
     <link rel="icon" href="{{!empty($theme_config['site_logo']) ? $theme_config['site_logo'] : (!empty($logo) ? $logo : '/theme/'.$theme.'/favicon.svg')}}" />
     <!-- 引入运行时外部配置 (兼容 v2board 后台直出与静态托管) -->
     <script src="/theme/{{$theme}}/config.js"></script>
-    <script type="module" crossorigin src="/theme/v2nexus/static/js/index.DG1zZY_e.js"></script>
+    <script type="module" crossorigin src="/theme/v2nexus/static/js/index.CQiauZzB.js"></script>
     <link rel="modulepreload" crossorigin href="/theme/v2nexus/static/js/vendor-core.CiW1VjKW.js">
     <link rel="modulepreload" crossorigin href="/theme/v2nexus/static/js/vendor-icons.P3KxeZu0.js">
     <link rel="modulepreload" crossorigin href="/theme/v2nexus/static/js/vendor-utils.B0W_wSPZ.js">
