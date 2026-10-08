@@ -134,8 +134,22 @@
       "default_value": ""
     },
     {
-      "label": "自研客户端 MacOS 下载链接",
-      "placeholder": "留空则不展示此平台卡片",
+      "label": "自研客户端 MacOS (Apple Silicon M系列芯片) 下载链接",
+      "placeholder": "适用于 M1/M2/M3/M4 等 Apple 芯片，前端智能优先推荐此架构",
+      "field_name": "client_macos_arm",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端 MacOS (Intel 处理器架构) 下载链接",
+      "placeholder": "适用于 2020 年前老款 Intel Mac 机型",
+      "field_name": "client_macos_intel",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端 MacOS 通用/默认下载链接 (单架构/兜底)",
+      "placeholder": "若上方细分架构未填写，将作为通用默认直链下载",
       "field_name": "client_macos",
       "field_type": "input",
       "default_value": ""
@@ -148,8 +162,43 @@
       "default_value": ""
     },
     {
-      "label": "自研客户端 OpenWrt 下载链接",
-      "placeholder": "留空则不展示此平台卡片",
+      "label": "OpenWrt x86_64 (软路由/工控机/虚拟机) IPK 直链",
+      "placeholder": "适用 J4125、N100、PVE、ESXi 等 64位 x86 软路由，留空不展示",
+      "field_name": "client_openwrt_x86_64",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "OpenWrt aarch64 (ARM 64位硬路由) IPK 直链",
+      "placeholder": "适用 NanoPi R2S/R4S/R5S/R6S、红米 AX6000、MT7986 等，留空不展示",
+      "field_name": "client_openwrt_aarch64",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "OpenWrt arm_cortex-a7 (ARM 32位硬路由) IPK 直链",
+      "placeholder": "适用高通 IPQ40xx、博通等主流 32位硬路由，留空不展示",
+      "field_name": "client_openwrt_arm_v7",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "OpenWrt mipsel_24kc (MT7621经典硬路由) IPK 直链",
+      "placeholder": "适用 MT7621、斐讯 K2P 等常见硬路由，留空不展示",
+      "field_name": "client_openwrt_mips",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "OpenWrt 更多架构 / 通用发布页链接",
+      "placeholder": "全架构 IPK 汇总目录或 GitHub Releases 链接，供小众架构路由器用户下载",
+      "field_name": "client_openwrt_releases",
+      "field_type": "input",
+      "default_value": ""
+    },
+    {
+      "label": "自研客户端 OpenWrt 通用下载链接 (单卡兜底)",
+      "placeholder": "若上方各细分架构未填写，将作为通用默认链接",
       "field_name": "client_openwrt",
       "field_type": "input",
       "default_value": ""

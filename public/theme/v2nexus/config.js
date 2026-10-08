@@ -45,10 +45,17 @@ window.NEXUS_CONFIG = {
   clientLinks: {
     windows: '',
     macos: '',
+    macos_arm: '',
+    macos_intel: '',
     ios: '',
     android: '',
     linux: '',
     openwrt: '',
+    openwrt_x86_64: '',
+    openwrt_aarch64: '',
+    openwrt_arm_v7: '',
+    openwrt_mips: '',
+    openwrt_releases: '',
     tv: '',
   },
 
