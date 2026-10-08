@@ -83,9 +83,16 @@ class AuthController extends Controller
         $user->uuid = Helper::guid(true);
         $user->token = Helper::guid();
         if ($request->input('invite_code')) {
-            $inviteCode = InviteCode::where('code', $request->input('invite_code'))
+            $inputCode = trim((string)$request->input('invite_code'));
+            $inviteCode = InviteCode::where('code', $inputCode)
                 ->where('status', 0)
                 ->first();
+            // 兼容二级泛域名在浏览器/DNS标准中被强制规范化为全小写场景 (如 QQEJnq7J -> qqejnq7j)
+            if (!$inviteCode) {
+                $inviteCode = InviteCode::whereRaw('LOWER(code) = ?', [strtolower($inputCode)])
+                    ->where('status', 0)
+                    ->first();
+            }
             if (!$inviteCode) {
                 if ((int)config('v2board.invite_force', 0)) {
                     abort(500, __('Invalid invitation code'));
