@@ -175,7 +175,7 @@ class OrderService
                 $currentPeriodMonths = self::STR_TO_TIME[$lastActiveOrder->period] ?? null;
                 $newPeriodMonths = self::STR_TO_TIME[$order->period] ?? null;
 
-                // 套餐等效月单价降级限制 (防止高价套餐变更为低价套餐)
+                // 套餐等效月单价判定 (已取消强制阻止降级拦截，全面支持自由更换套餐与折抵换购)
                 $lastActivePlan = Plan::find($lastActiveOrder->plan_id);
                 $newPlan = Plan::find($order->plan_id);
                 if ($lastActivePlan && $newPlan) {
@@ -184,9 +184,6 @@ class OrderService
                     if ($currentPeriodMonths && $newPeriodMonths && $oldPrice !== null && $newPrice !== null) {
                         $oldMonthlyPrice = $oldPrice / $currentPeriodMonths;
                         $newMonthlyPrice = $newPrice / $newPeriodMonths;
-                        if ($lastActiveOrder->period !== 'month_price' && $newMonthlyPrice < $oldMonthlyPrice) {
-                            abort(500, '抱歉，当前套餐不支持直接降级更换为低价套餐。');
-                        }
                         if ($newMonthlyPrice >= $oldMonthlyPrice) {
                             $isUpgradeOrSamePrice = true;
                         }
