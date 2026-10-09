@@ -721,7 +721,12 @@ class ClientController extends Controller
                             $resContent = $class->handle();
                             $processed = $this->sanitizeNormalContent($resContent, $flag);
 
+                            $appName = config('v2board.app_name', 'V2Board');
                             return response($processed, 200, [
+                                'subscription-userinfo' => "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}",
+                                'profile-update-interval' => '24',
+                                'Profile-Title' => 'base64:' . base64_encode($appName),
+                                'Content-Disposition' => 'attachment; filename="' . rawurlencode($appName) . '"',
                                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
                             ]);
                         }
@@ -769,7 +774,12 @@ class ClientController extends Controller
             $resContent = $class->handle();
             $processed = $this->sanitizeNormalContent($resContent, $flag);
 
+            $appName = config('v2board.app_name', 'V2Board');
             return response($processed, 200, [
+                'subscription-userinfo' => "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}",
+                'profile-update-interval' => '24',
+                'Profile-Title' => 'base64:' . base64_encode($appName),
+                'Content-Disposition' => 'attachment; filename="' . rawurlencode($appName) . '"',
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
             ]);
         } catch (\Throwable $e) {
