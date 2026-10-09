@@ -24,7 +24,7 @@ import {
 } from './shared'
 import { SS_CIPHERS } from './ShadowsocksDrawer'
 import { TuicCongestionRow, TuicSniRelayRow } from './TuicDrawer'
-import { ENCRYPTIONS } from './VlessDrawer'
+import { ENCRYPTIONS, FLOW_OPTIONS } from './VlessDrawer'
 import { stringifySettings } from '../utils'
 
 const NETWORK_PLACEHOLDERS = {
@@ -305,10 +305,7 @@ export function V2nodeDrawer({ record, children }: NodeDrawerProps) {
                   placeholder="选择XTLS流控算法"
                   style={{ width: '100%' }}
                   onChange={(v) => formChange('flow', v)}
-                  options={[
-                    { value: null, label: '无' },
-                    { value: 'xtls-rprx-vision', label: 'xtls-rprx-vision' },
-                  ]}
+                  options={server.network == 'tcp' ? FLOW_OPTIONS : [{ value: null, label: '无' }]}
                 />
               </div>
             </div>

@@ -31,7 +31,7 @@ function reloadOnce() {
   if (import.meta.env.DEV) return
   try {
     const last = Number(sessionStorage.getItem(RELOAD_KEY))
-    if (Date.now() - last < 10_000) return
+    if (Date.now() - last < 5_000) return
     sessionStorage.setItem(RELOAD_KEY, String(Date.now()))
   } catch {
     return

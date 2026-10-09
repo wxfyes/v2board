@@ -25,7 +25,7 @@ class V2nodeController extends Controller
             'protocol' => 'required|in:shadowsocks,vmess,vless,trojan,tuic,hysteria2,anytls',
             'tls' => 'required|in:0,1,2',
             'tls_settings' => 'nullable|array',
-            'flow' => 'nullable|in:xtls-rprx-vision',
+            'flow' => 'nullable|in:xtls-rprx-vision,mom-private,mom-vision',
             'network' => 'required|in:tcp,ws,grpc,http,httpupgrade,xhttp',
             'network_settings' => 'nullable|array',
             'encryption' => 'nullable',

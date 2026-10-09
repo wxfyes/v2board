@@ -37,6 +37,13 @@ export const ENCRYPTIONS = [
   { value: 'mlkem768x25519plus', label: 'MLKEM768X25519PLUS' },
 ]
 
+export const FLOW_OPTIONS = [
+  { value: null, label: '无' },
+  { value: 'xtls-rprx-vision', label: 'xtls-rprx-vision' },
+  { value: 'mom-private', label: '自研混淆 (mom-private)' },
+  { value: 'mom-vision', label: '自研混淆+Vision (mom-vision)' },
+]
+
 // VLESS 节点（原版模块 uzXD 的 z）
 export function VlessDrawer({ record, children }: NodeDrawerProps) {
   const { server, setServer, visible, setVisible, child, showChild, change } = useNodeDrawer(record, () => ({
@@ -135,10 +142,7 @@ export function VlessDrawer({ record, children }: NodeDrawerProps) {
                 placeholder="选择XTLS流控算法"
                 style={{ width: '100%' }}
                 onChange={(v) => change('flow', v)}
-                options={[
-                  { value: null, label: '无' },
-                  ...(server.network == 'tcp' ? [{ value: 'xtls-rprx-vision', label: 'xtls-rprx-vision' }] : []),
-                ]}
+                options={server.network == 'tcp' ? FLOW_OPTIONS : [{ value: null, label: '无' }]}
               />
             </div>
           </div>
