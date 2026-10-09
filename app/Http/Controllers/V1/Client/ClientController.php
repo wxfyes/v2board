@@ -586,16 +586,21 @@ class ClientController extends Controller
             if (!$isMomClient && isset($servers) && is_array($servers)) {
                 $servers = array_filter($servers, function($server) use ($tmpUa) {
                     // 0. 过滤 Mieru 协议节点，防止不支持该类型的第三方通用客户端加载报错
-                    if (($server['type'] ?? '') === 'mieru') {
+                    $serverType = $server['type'] ?? '';
+                    $serverProto = $server['protocol'] ?? '';
+                    if ($serverType === 'mieru' || $serverProto === 'mieru') {
                         return false;
                     }
 
-                    // 1. 根据节点名字关键字过滤
+                    // 1. 根据节点名字关键字过滤（支持半角/全角括号及专属前缀）
                     $name = $server['name'] ?? '';
                     if (
                         stripos($name, '[MOM]') !== false 
+                        || stripos($name, '【MOM】') !== false
                         || stripos($name, '[自研]') !== false 
+                        || stripos($name, '【自研】') !== false
                         || stripos($name, '[TQ]') !== false
+                        || stripos($name, '【TQ】') !== false
                     ) {
                         return false;
                     }
