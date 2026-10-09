@@ -128,7 +128,6 @@ class Singbox
         $array['server_port'] = $server['port'];
         $array['method'] = $server['cipher'];
         $array['password'] = $password;
-        $array['domain_resolver'] = 'local';
         if (isset($server['obfs']) && $server['obfs'] === 'http') {
             $array['plugin'] = 'obfs-local';
             $plugin_opts_parts = [];
@@ -164,14 +163,13 @@ class Singbox
         $array['uuid'] = $uuid;
         $array['security'] = 'auto';
         $array['alter_id'] = 0;
-        $array['domain_resolver'] = 'local';
 
         if ($server['tls']) {
             $tlsConfig = [];
             $tlsConfig['enabled'] = true;
             $tlsSettings = $server['tls_settings'] ?? $server['tlsSettings'] ?? [];
             $tlsConfig['insecure'] = ($tlsSettings['allow_insecure'] ?? ($tlsSettings['allowInsecure'] ?? 0)) == 1 ? true : false;
-            $tlsConfig['server_name'] = $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '';
+            $tlsConfig['server_name'] = !empty($tlsSettings['server_name']) ? (string)$tlsSettings['server_name'] : (!empty($tlsSettings['serverName']) ? (string)$tlsSettings['serverName'] : '');
             $array['tls'] = $tlsConfig;
         }
         if ($server['network'] === 'tcp') {
@@ -215,28 +213,32 @@ class Singbox
             "server" => $server['host'],
             "server_port" => $server['port'],
             "uuid" => $password,
-            "domain_resolver" => "local",
             "packet_encoding" => "xudp"
         ];
+
+        // 仅在明确配置了 xtls-rprx-vision 时输出 flow，其余情况绝不输出 flow 字段避免客户端抛出 unknown flow
+        if (!empty($server['flow']) && $server['flow'] === 'xtls-rprx-vision') {
+            $array['flow'] = 'xtls-rprx-vision';
+        }
 
         $tlsSettings = $server['tls_settings'] ?? [];
 
         if ($server['tls']) {
             $tlsConfig = [];
             $tlsConfig['enabled'] = true;
-            $array['flow'] = !empty($server['flow']) ? $server['flow'] : "";
-            $tlsSettings = $server['tls_settings'] ?? [];
             if ($server['tls_settings']) {
                 $tlsConfig['insecure'] = ($tlsSettings['allow_insecure'] ?? 0) == 1 ? true : false;
-                $tlsConfig['server_name'] = $tlsSettings['server_name'] ?? null;
+                if (!empty($tlsSettings['server_name'])) {
+                    $tlsConfig['server_name'] = (string)$tlsSettings['server_name'];
+                }
                 if ($server['tls'] == 2) {
                     $tlsConfig['reality'] = [
                         'enabled' => true,
-                        'public_key' => $tlsSettings['public_key'],
-                        'short_id' => $tlsSettings['short_id']
+                        'public_key' => (string)($tlsSettings['public_key'] ?? ''),
+                        'short_id' => (string)($tlsSettings['short_id'] ?? '')
                     ];
                 }
-                $fingerprints = $tlsSettings['fingerprint'] ?? 'chrome';
+                $fingerprints = !empty($tlsSettings['fingerprint']) ? $tlsSettings['fingerprint'] : 'chrome';
                 $tlsConfig['utls'] = [
                     "enabled" => true,
                     "fingerprint" => $fingerprints
@@ -286,7 +288,6 @@ class Singbox
         $array['server'] = $server['host'];
         $array['server_port'] = $server['port'];
         $array['password'] = $password;
-        $array['domain_resolver'] = 'local';
 
         $tlsSettings = $server['tls_settings'] ?? [];
         $array['tls'] = [
@@ -331,7 +332,6 @@ class Singbox
         $array['congestion_control'] = $server['congestion_control'] ?? 'cubic';
         $array['udp_relay_mode'] = $server['udp_relay_mode'] ?? 'native';
         $array['zero_rtt_handshake'] = $server['zero_rtt_handshake'] ? true : false;
-        $array['domain_resolver'] = 'local';
 
         $tlsSettings = $server['tls_settings'] ?? [];
         $array['tls'] = [
@@ -353,7 +353,6 @@ class Singbox
         $array['server'] = $server['host'];
         $array['server_port'] = $server['port'];
         $array['password'] = $password;
-        $array['domain_resolver'] = 'local';
 
         $tlsSettings = $server['tls_settings'] ?? [];
         $array['tls'] = [
@@ -388,7 +387,6 @@ class Singbox
         $array = [
             'tag' => $server['name'],
             'server' => $server['host'],
-            'domain_resolver' => 'local',
             'tls' => [
                 'enabled' => true,
                 'insecure' => $server['insecure'] ? true : false,
@@ -447,7 +445,6 @@ class Singbox
                 'insecure' => ($tlsSettings['allow_insecure'] ?? 0) == 1 ? true : false,
                 'server_name' => $tlsSettings['server_name'] ?? ''
             ],
-            'domain_resolver' => 'local',
             'password' => $password,
             'tag' => $server['name'],
             'type' => 'hysteria2'
@@ -472,8 +469,7 @@ class Singbox
             'server' => $server['host'],
             'server_port' => $serverPort > 0 ? $serverPort : 443,
             'username' => $password,
-            'password' => $password,
-            'domain_resolver' => 'local'
+            'password' => $password
         ];
         return $array;
     }

@@ -48,10 +48,7 @@
     "outbounds": [
         {
             "tag": "DIRECT",
-            "type": "direct",
-            "domain_resolver": {
-                "server": "local"
-            }
+            "type": "direct"
         },
         {
             "tag": "节点选择",
@@ -114,9 +111,7 @@
         ],
         "auto_detect_interface": true,
         "final": "节点选择",
-        "default_domain_resolver": {
-            "server": "remote"
-        },
+        "default_domain_resolver": "remote",
         "rule_set": [
             {
                 "tag": "geosite-geolocation-!cn",

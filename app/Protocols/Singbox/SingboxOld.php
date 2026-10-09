@@ -206,24 +206,29 @@ class SingboxOld
             "packet_encoding" => "xudp"
         ];
 
+        // 仅在明确配置了 xtls-rprx-vision 时输出 flow，其余情况绝不输出 flow 字段避免客户端抛出 unknown flow
+        if (!empty($server['flow']) && $server['flow'] === 'xtls-rprx-vision') {
+            $array['flow'] = 'xtls-rprx-vision';
+        }
+
         $tlsSettings = $server['tls_settings'] ?? [];
 
         if ($server['tls']) {
             $tlsConfig = [];
             $tlsConfig['enabled'] = true;
-            $array['flow'] = !empty($server['flow']) ? $server['flow'] : "";
-            $tlsSettings = $server['tls_settings'] ?? [];
             if ($server['tls_settings']) {
                 $tlsConfig['insecure'] = ($tlsSettings['allow_insecure'] ?? 0) == 1 ? true : false;
-                $tlsConfig['server_name'] = $tlsSettings['server_name'] ?? null;
+                if (!empty($tlsSettings['server_name'])) {
+                    $tlsConfig['server_name'] = (string)$tlsSettings['server_name'];
+                }
                 if ($server['tls'] == 2) {
                     $tlsConfig['reality'] = [
                         'enabled' => true,
-                        'public_key' => $tlsSettings['public_key'],
-                        'short_id' => $tlsSettings['short_id']
+                        'public_key' => (string)($tlsSettings['public_key'] ?? ''),
+                        'short_id' => (string)($tlsSettings['short_id'] ?? '')
                     ];
                 }
-                $fingerprints = $tlsSettings['fingerprint'] ?? 'chrome';
+                $fingerprints = !empty($tlsSettings['fingerprint']) ? $tlsSettings['fingerprint'] : 'chrome';
                 $tlsConfig['utls'] = [
                     "enabled" => true,
                     "fingerprint" => $fingerprints
