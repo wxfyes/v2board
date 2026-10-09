@@ -731,7 +731,7 @@ class ClientController extends Controller
                                 'subscription-userinfo' => "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}",
                                 'profile-update-interval' => '24',
                                 'Profile-Title' => 'base64:' . base64_encode($appName),
-                                'Content-Disposition' => 'attachment; filename="' . rawurlencode($appName) . '"',
+                                'Content-Disposition' => "attachment;filename*=UTF-8''" . rawurlencode($appName),
                                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
                             ]);
                         }
@@ -775,7 +775,7 @@ class ClientController extends Controller
                         'subscription-userinfo' => "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}",
                         'profile-update-interval' => '24',
                         'Profile-Title' => 'base64:' . base64_encode($appName),
-                        'Content-Disposition' => 'attachment; filename="' . rawurlencode($appName) . '"',
+                        'Content-Disposition' => "attachment;filename*=UTF-8''" . rawurlencode($appName),
                         'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
                     ]);
                 }
@@ -794,7 +794,7 @@ class ClientController extends Controller
                 'subscription-userinfo' => "upload={$user['u']}; download={$user['d']}; total={$user['transfer_enable']}; expire={$user['expired_at']}",
                 'profile-update-interval' => '24',
                 'Profile-Title' => 'base64:' . base64_encode($appName),
-                'Content-Disposition' => 'attachment; filename="' . rawurlencode($appName) . '"',
+                'Content-Disposition' => "attachment;filename*=UTF-8''" . rawurlencode($appName),
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
             ]);
         } catch (\Throwable $e) {
