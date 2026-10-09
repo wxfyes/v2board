@@ -206,39 +206,60 @@ class SingboxOld
             "packet_encoding" => "xudp"
         ];
 
-        // 仅在明确配置了 xtls-rprx-vision 时输出 flow，其余情况绝不输出 flow 字段避免客户端抛出 unknown flow
-        if (!empty($server['flow']) && $server['flow'] === 'xtls-rprx-vision') {
+        // XTLS Vision 流控智能映射：
+        // 1. 若配置了标准 xtls-rprx-vision，输出 xtls-rprx-vision
+        // 2. 若配置了自研流控 mom-vision 或其它包含 vision 的流控，转换为开源客户端标准 xtls-rprx-vision
+        // 3. 其余非 vision 流控绝不输出 flow 键，避免第三方客户端抛出 unknown flow
+        $rawFlow = trim((string)($server['flow'] ?? ''));
+        if (!empty($rawFlow) && ($rawFlow === 'xtls-rprx-vision' || stripos($rawFlow, 'vision') !== false)) {
             $array['flow'] = 'xtls-rprx-vision';
         }
 
-        $tlsSettings = $server['tls_settings'] ?? [];
+        $tlsSettings = $server['tls_settings'] ?? ($server['tlsSettings'] ?? []);
+        if (is_string($tlsSettings)) {
+            $tlsSettings = json_decode($tlsSettings, true) ?: [];
+        }
 
         if ($server['tls']) {
             $tlsConfig = [];
             $tlsConfig['enabled'] = true;
-            if ($server['tls_settings']) {
-                $tlsConfig['insecure'] = ($tlsSettings['allow_insecure'] ?? 0) == 1 ? true : false;
-                if (!empty($tlsSettings['server_name'])) {
-                    $tlsConfig['server_name'] = (string)$tlsSettings['server_name'];
-                }
-                if ($server['tls'] == 2) {
-                    $tlsConfig['reality'] = [
-                        'enabled' => true,
-                        'public_key' => (string)($tlsSettings['public_key'] ?? ''),
-                        'short_id' => (string)($tlsSettings['short_id'] ?? '')
-                    ];
-                }
-                $fingerprints = !empty($tlsSettings['fingerprint']) ? $tlsSettings['fingerprint'] : 'chrome';
-                $tlsConfig['utls'] = [
-                    "enabled" => true,
-                    "fingerprint" => $fingerprints
-                ];
+
+            $serverName = $tlsSettings['server_name'] ?? ($tlsSettings['serverName'] ?? ($server['server_name'] ?? ''));
+            if (!empty($serverName)) {
+                $tlsConfig['server_name'] = (string)$serverName;
             }
+
+            if ($server['tls'] == 2) {
+                // Reality 协议：通过 public_key 验证，严禁设置普通 TLS 的 insecure 标志，且必须保证 server_name 存在
+                if (empty($tlsConfig['server_name'])) {
+                    $tlsConfig['server_name'] = (string)($server['host'] ?? '');
+                }
+                $publicKey = $tlsSettings['public_key'] ?? ($tlsSettings['publicKey'] ?? '');
+                $shortId = $tlsSettings['short_id'] ?? ($tlsSettings['shortId'] ?? '');
+                $tlsConfig['reality'] = [
+                    'enabled' => true,
+                    'public_key' => (string)$publicKey,
+                    'short_id' => (string)$shortId
+                ];
+            } else {
+                // 普通 TLS 协议
+                $tlsConfig['insecure'] = ($tlsSettings['allow_insecure'] ?? ($tlsSettings['allowInsecure'] ?? 0)) == 1 ? true : false;
+            }
+
+            $fingerprint = !empty($tlsSettings['fingerprint']) ? $tlsSettings['fingerprint'] : 'chrome';
+            $tlsConfig['utls'] = [
+                "enabled" => true,
+                "fingerprint" => $fingerprint
+            ];
+
             $array['tls'] = $tlsConfig;
         }
 
         if ($server['network'] === 'tcp') {
-            $tcpSettings = $server['network_settings'] ?? [];
+            $tcpSettings = $server['network_settings'] ?? ($server['networkSettings'] ?? []);
+            if (is_string($tcpSettings)) {
+                $tcpSettings = json_decode($tcpSettings, true) ?: [];
+            }
             if (isset($tcpSettings['header']['type']) && $tcpSettings['header']['type'] == 'http') {
                 $array['transport'] = [
                     'type' => 'http',
@@ -248,7 +269,10 @@ class SingboxOld
             }
         }
         if ($server['network'] === 'ws') {
-            $wsSettings = $server['network_settings'] ?? [];
+            $wsSettings = $server['network_settings'] ?? ($server['networkSettings'] ?? []);
+            if (is_string($wsSettings)) {
+                $wsSettings = json_decode($wsSettings, true) ?: [];
+            }
             $array['transport'] = [
                 'type' => 'ws',
                 'path' => $wsSettings['path'] ?? '/',
@@ -260,7 +284,10 @@ class SingboxOld
             }
         }
         if ($server['network'] === 'grpc') {
-            $grpcSettings = $server['network_settings'] ?? [];
+            $grpcSettings = $server['network_settings'] ?? ($server['networkSettings'] ?? []);
+            if (is_string($grpcSettings)) {
+                $grpcSettings = json_decode($grpcSettings, true) ?: [];
+            }
             $array['transport'] = [
                 'type' => 'grpc',
                 'service_name' => !empty($grpcSettings['serviceName']) ? $grpcSettings['serviceName'] : 'Tun'
