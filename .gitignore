@@ -33,4 +33,5 @@ workerman.log
 /scratch_go
 /scratch_test.php
 /.agents
-
+/storage/app/external_nodes.json
+/storage/app/*.json
