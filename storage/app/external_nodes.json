@@ -1,0 +1,83 @@
+{
+    "version": "1.0.0",
+    "updated_at": 1791539437,
+    "settings": {
+        "enable": true,
+        "admin_secret_key": "83cb76762489a26f8568e41128de40c9",
+        "free_sub_domain": "",
+        "free_sub_path": "api/v1/free/subscribe",
+        "free_plan_ids": "1",
+        "deduct_traffic_mb": 1024,
+        "max_nodes_per_sub": 15,
+        "auto_clean_offline_hours": 12,
+        "node_prefix": "⚡ [免费体验]",
+        "node_ad_suffix": " - 升级VIP享4K"
+    },
+    "sources": [
+        {
+            "id": 1,
+            "name": "GitHub-Daily-Ermaozi (114KB高质池)",
+            "url": "https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt",
+            "enabled": true,
+            "last_sync_at": 0,
+            "node_count": 0
+        },
+        {
+            "id": 2,
+            "name": "GitHub-Daily-Anaer (169KB优质Clash)",
+            "url": "https://raw.githubusercontent.com/anaer/Sub/main/clash.yaml",
+            "enabled": true,
+            "last_sync_at": 0,
+            "node_count": 0
+        },
+        {
+            "id": 3,
+            "name": "GitHub-Daily-Free18 (43KB轮换精选)",
+            "url": "https://raw.githubusercontent.com/free18/v2ray/master/v.txt",
+            "enabled": true,
+            "last_sync_at": 0,
+            "node_count": 0
+        },
+        {
+            "id": 4,
+            "name": "GitHub-Daily-Pawdroid (高可用精选)",
+            "url": "https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub",
+            "enabled": true,
+            "last_sync_at": 0,
+            "node_count": 0
+        },
+        {
+            "id": 5,
+            "name": "GitHub-Daily-Ripao (日抛高带宽)",
+            "url": "https://raw.githubusercontent.com/ripaojiedian/freenode/main/sub",
+            "enabled": true,
+            "last_sync_at": 0,
+            "node_count": 0
+        },
+        {
+            "id": 6,
+            "name": "GitHub-Daily-V2rayLinks (自建直连池)",
+            "url": "https://raw.githubusercontent.com/v2ray-links/v2ray-free/master/v2ray",
+            "enabled": true,
+            "last_sync_at": 0,
+            "node_count": 0
+        },
+        {
+            "id": 7,
+            "name": "GitHub-Daily-Zhuhaiuk (通用V2Ray)",
+            "url": "https://raw.githubusercontent.com/zhuhaiuk/free-nodes/main/nodes.txt",
+            "enabled": true,
+            "last_sync_at": 0,
+            "node_count": 0
+        },
+        {
+            "id": 8,
+            "name": "GitHub-Daily-Zhuhaiuk (Clash配置)",
+            "url": "https://raw.githubusercontent.com/zhuhaiuk/free-nodes/main/clash_config.yaml",
+            "enabled": true,
+            "last_sync_at": 0,
+            "node_count": 0
+        }
+    ],
+    "nodes": []
+}
