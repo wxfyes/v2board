@@ -216,11 +216,6 @@ export function UserDrawer({ userId, children }: UserDrawerProps) {
                   <Switch checked={Boolean(user.is_admin)} onChange={(checked) => change('is_admin', checked ? 1 : 0)} />
                 </div>
               </FormGroup>
-              <FormGroup label="是否员工">
-                <div>
-                  <Switch checked={Boolean(user.is_staff)} onChange={(checked) => change('is_staff', checked ? 1 : 0)} />
-                </div>
-              </FormGroup>
               <FormGroup label="备注">
                 <div>
                   <Input.TextArea

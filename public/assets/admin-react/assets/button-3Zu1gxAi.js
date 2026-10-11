@@ -1,1 +1,0 @@
-import{Qt as e}from"./staticApi-DgmNKFZd.js";var t=e;export{t};
