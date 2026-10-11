@@ -310,7 +310,10 @@ class OrderService
             ->where('status', 3)
             ->get()
             ->toArray();
-        if (!$orders) return;
+        if (!$orders) {
+            $this->getSurplusValueByActivePlan($user, $order);
+            return;
+        }
         $orderAmountSum = 0;
         $orderMonthSum = 0;
         $lastValidateAt = null;
@@ -323,11 +326,17 @@ class OrderService
             $orderMonthSum += $period;
             $orderAmountSum += $item['total_amount'] + $item['balance_amount'] + (int)($item['surplus_amount'] ?? 0) - (int)($item['refund_amount'] ?? 0);
         }
-        if ($lastValidateAt === null) return;
+        if ($lastValidateAt === null) {
+            $this->getSurplusValueByActivePlan($user, $order);
+            return;
+        }
     
         $expiredAtByOrder = strtotime("+{$orderMonthSum} month", $lastValidateAt);
         $expiredAtByUser = $user->expired_at;
-        if ($expiredAtByOrder < time() || $expiredAtByUser < time()) return;
+        if ($expiredAtByOrder < time() || $expiredAtByUser < time()) {
+            $this->getSurplusValueByActivePlan($user, $order);
+            return;
+        }
         $orderSurplusSecond = $expiredAtByUser - time();
         $orderRangeSecond = $expiredAtByOrder - $lastValidateAt;
     
@@ -351,8 +360,78 @@ class OrderService
                                   $avgPricePerSecond * $laterMonthsSeconds;
         }
     
-        $order->surplus_amount = max($orderSurplusAmount, 0);
-        $order->surplus_order_ids = array_column($orders, 'id');
+        if (empty($orderSurplusAmount) || $orderSurplusAmount <= 0) {
+            $this->getSurplusValueByActivePlan($user, $order);
+        } else {
+            $order->surplus_amount = max($orderSurplusAmount, 0);
+            $order->surplus_order_ids = array_column($orders, 'id');
+        }
+    }
+
+    /**
+     * 🛡️ 智能自愈兜底：直接根据用户当前生效套餐与剩余时间/流量核算折抵价值
+     * 完美解决管理员后台调时长、签到赠送、活动赠送、历史订单丢失导致的折抵清零 Bug
+     */
+    private function getSurplusValueByActivePlan(User $user, Order $order)
+    {
+        if (!$user->plan_id || !$user->expired_at || $user->expired_at <= time()) {
+            return;
+        }
+
+        $activePlan = Plan::find($user->plan_id);
+        if (!$activePlan) return;
+
+        $remainSeconds = max(0, $user->expired_at - time());
+        if ($remainSeconds <= 0) return;
+
+        $totalTraffic = (float)$user->transfer_enable;
+        $usedTraffic = (float)($user->u + $user->d);
+        if ($totalTraffic <= 0) return;
+        $remainingTraffic = max(0, $totalTraffic - $usedTraffic);
+        if ($remainingTraffic <= 0) return;
+
+        $trafficRatio = min(1.0, $remainingTraffic / $totalTraffic);
+        $userRemainingDays = (int)ceil($remainSeconds / 86400);
+
+        // 推断当前生效套餐对应的基准周期与原价（分）
+        $basePrice = 0;
+        $cycleDays = 30;
+
+        // 优先从最近一次历史订单获取周期
+        $recentOrder = Order::where('user_id', $user->id)
+            ->where('plan_id', $user->plan_id)
+            ->where('status', 3)
+            ->orderBy('id', 'DESC')
+            ->first();
+
+        if ($recentOrder && isset(self::STR_TO_TIME[$recentOrder->period]) && !empty($activePlan[$recentOrder->period])) {
+            $basePrice = (int)$activePlan[$recentOrder->period];
+            $cycleDays = self::STR_TO_TIME[$recentOrder->period] * 30;
+        } else {
+            // 梯级智能推断：按剩余天数精准对齐最优周期
+            if ($userRemainingDays > 200 && !empty($activePlan->year_price)) {
+                $basePrice = (int)$activePlan->year_price;
+                $cycleDays = 365;
+            } else if ($userRemainingDays > 100 && !empty($activePlan->half_year_price)) {
+                $basePrice = (int)$activePlan->half_year_price;
+                $cycleDays = 180;
+            } else if ($userRemainingDays > 40 && !empty($activePlan->quarter_price)) {
+                $basePrice = (int)$activePlan->quarter_price;
+                $cycleDays = 90;
+            } else {
+                $basePrice = (int)($activePlan->month_price ?: ($activePlan->quarter_price ?: ($activePlan->year_price ?: 0)));
+                $cycleDays = 30;
+            }
+        }
+
+        if ($basePrice <= 0) return;
+
+        $timeRatio = min(1.0, $remainSeconds / ($cycleDays * 86400));
+        $surplusRatio = min($timeRatio, $trafficRatio);
+
+        // 核心约束：折抵金额不能超过原套餐基准价格（单位：分）
+        $orderSurplusAmount = (int)round($basePrice * $surplusRatio);
+        $order->surplus_amount = max(0, $orderSurplusAmount);
     }
 
     public function paid(string $callbackNo)
