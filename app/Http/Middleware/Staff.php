@@ -16,14 +16,7 @@ class Staff
      */
     public function handle($request, Closure $next)
     {
-        $authorization = $request->input('auth_data') ?? $request->header('authorization');
-        if (!$authorization) abort(403, '未登录或登陆已过期');
-
-        $user = AuthService::decryptAuthData($authorization);
-        if (!$user || !$user['is_staff']) abort(403, '未登录或登陆已过期');
-        $request->merge([
-            'user' => $user
-        ]);
-        return $next($request);
+        // 🛡️ 安全加固：员工模式已被系统永久禁用，直接返回 404
+        abort(404);
     }
 }
