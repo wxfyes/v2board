@@ -366,6 +366,9 @@ class OrderService
             $order->surplus_amount = max($orderSurplusAmount, 0);
             $order->surplus_order_ids = array_column($orders, 'id');
         }
+
+        // 💰 商业资金天花板硬锁：折抵金额绝对不允许超过该用户在当前套餐上实际付过的合法金额总额
+        $this->capSurplusByMaxPaidAmount($user, $order);
     }
 
     /**
@@ -432,6 +435,38 @@ class OrderService
         // 核心约束：折抵金额不能超过原套餐基准价格（单位：分）
         $orderSurplusAmount = (int)round($basePrice * $surplusRatio);
         $order->surplus_amount = max(0, $orderSurplusAmount);
+
+        // 💰 商业资金天花板硬锁：折抵金额绝对不允许超过该用户在当前套餐上实际付过的合法金额总额
+        $this->capSurplusByMaxPaidAmount($user, $order);
+    }
+
+    /**
+     * 💰 资金安全天花板核心规则：
+     * 严防纯免费/白嫖/送时长的账号套现实付折抵。折抵金额绝对不能超过用户历史真实付费总额。
+     */
+    private function capSurplusByMaxPaidAmount(User $user, Order $order): void
+    {
+        $paidOrders = Order::where('user_id', $user->id)
+            ->where('plan_id', $user->plan_id)
+            ->where('status', 3)
+            ->whereIn('period', ['month_price', 'quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price', 'onetime_price'])
+            ->get();
+
+        if ($paidOrders->isEmpty()) {
+            // 历史上从未为该套餐付过款（纯免费送/无单测试账号），折抵上限直接锁死为 0 元
+            $order->surplus_amount = 0;
+            return;
+        }
+
+        $maxPaidAmount = (int)$paidOrders->sum(function ($item) {
+            return (int)($item->total_amount + $item->balance_amount + (int)($item->surplus_amount ?? 0) - (int)($item->refund_amount ?? 0));
+        });
+
+        if ($maxPaidAmount <= 0) {
+            $order->surplus_amount = 0;
+        } else {
+            $order->surplus_amount = min((int)$order->surplus_amount, $maxPaidAmount);
+        }
     }
 
     public function paid(string $callbackNo)

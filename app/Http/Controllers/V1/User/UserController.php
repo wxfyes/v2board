@@ -648,6 +648,23 @@ class UserController extends Controller
         }
         $user['allow_new_period'] = $allowNewPeriod;
         $user['reset_price'] = $resetPrice;
+
+        // 💰 商业资金天花板核算：当前套餐用户历史实际付费总额（单位：分，严防未付费白嫖）
+        $maxSurplusAmount = 0;
+        if ($planId) {
+            $paidOrders = \App\Models\Order::where('user_id', $userId)
+                ->where('plan_id', $planId)
+                ->where('status', 3)
+                ->whereIn('period', ['month_price', 'quarter_price', 'half_year_price', 'year_price', 'two_year_price', 'three_year_price', 'onetime_price'])
+                ->get();
+            if ($paidOrders->isNotEmpty()) {
+                $maxSurplusAmount = (int)$paidOrders->sum(function ($item) {
+                    return (int)($item->total_amount + $item->balance_amount + (int)($item->surplus_amount ?? 0) - (int)($item->refund_amount ?? 0));
+                });
+                $maxSurplusAmount = max(0, $maxSurplusAmount);
+            }
+        }
+        $user['max_surplus_amount'] = $maxSurplusAmount;
     }
 
     public function unbindTelegram(Request $request)
