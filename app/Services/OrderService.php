@@ -429,12 +429,31 @@ class OrderService
 
         if ($basePrice <= 0) return;
 
-        $timeRatio = min(1.0, $remainSeconds / ($cycleDays * 86400));
-        $surplusRatio = min($timeRatio, $trafficRatio);
+        $cycleSeconds = $cycleDays * 86400;
+        $avgPricePerSecond = $basePrice / $cycleSeconds;
+
+        if ($cycleDays <= 31) {
+            // 单月周期：时间比例与流量比例双重取小
+            $timeRatio = min(1.0, $remainSeconds / $cycleSeconds);
+            $surplusRatio = min($timeRatio, $trafficRatio);
+            $orderSurplusAmount = (int)round($basePrice * $surplusRatio);
+        } else {
+            // 长周期（季付/半年/年付等）：拆成当月剩余与未来月份两截
+            // 1. 当月剩余时间：受当前月剩余流量比例约束（没流量当月不折抵）
+            $monthSeconds = 30 * 86400;
+            $firstMonthRemainSeconds = $remainSeconds % $monthSeconds;
+            $surplusRatio = min($firstMonthRemainSeconds / $monthSeconds, $trafficRatio);
+            // 2. 未来还没开始的月份：按 100% 全额原价折抵
+            $laterMonthsSeconds = max(0, $remainSeconds - $firstMonthRemainSeconds);
+            $orderSurplusAmount = (int)round(
+                $avgPricePerSecond * $monthSeconds * $surplusRatio +
+                $avgPricePerSecond * $laterMonthsSeconds
+            );
+        }
 
         // 核心约束：折抵金额不能超过原套餐基准价格（单位：分）
-        $orderSurplusAmount = (int)round($basePrice * $surplusRatio);
-        $order->surplus_amount = max(0, $orderSurplusAmount);
+        $orderSurplusAmount = min((int)$basePrice, max(0, $orderSurplusAmount));
+        $order->surplus_amount = $orderSurplusAmount;
 
         // 💰 商业资金天花板硬锁：折抵金额绝对不允许超过该用户在当前套餐上实际付过的合法金额总额
         $this->capSurplusByMaxPaidAmount($user, $order);
