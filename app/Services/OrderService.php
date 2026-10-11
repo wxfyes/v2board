@@ -375,11 +375,17 @@ class OrderService
     {
         $order = $this->order;
         DB::beginTransaction();
-        $order->status = 2;
-        if (!$order->save()) {
+        $affected = Order::where('id', $order->id)
+            ->where('status', 0)
+            ->update([
+                'status' => 2
+            ]);
+
+        if ($affected !== 1) {
             DB::rollBack();
             return false;
         }
+        $order->status = 2;
         if ($order->balance_amount) {
             $userService = new UserService();
             if (!$userService->addBalance($order->user_id, $order->balance_amount)) {
