@@ -87,7 +87,7 @@ class AiService
         ];
 
         // 3. 组装 System Prompt
-        $systemPromptTemplate = config('v2board.ai_system_prompt');
+        $systemPromptTemplate = (string)config('v2board.ai_system_prompt');
         if (empty(trim($systemPromptTemplate))) {
             $systemPromptTemplate = $this->getDefaultSystemPrompt();
         }
@@ -159,12 +159,14 @@ class AiService
                 ->post($endpoint, $payload);
 
             if (!$response->successful()) {
-                Log::warning('[AiService] LLM 响应异常', [
+                $errPayload = [
                     'status' => $response->status(),
                     'body' => $response->body(),
                     'endpoint' => $endpoint,
                     'model' => $model,
-                ]);
+                ];
+                Log::warning('[AiService] LLM 响应异常', $errPayload);
+                try { Log::channel('single')->warning('[AiService] LLM 响应异常', $errPayload); } catch (\Throwable $e) {}
                 return null;
             }
 
@@ -173,15 +175,19 @@ class AiService
 
             if (empty($content) || !is_string($content)) {
                 Log::warning('[AiService] LLM 返回文本为空', ['res' => $resData]);
+                try { Log::channel('single')->warning('[AiService] LLM 返回文本为空', ['res' => $resData]); } catch (\Throwable $e) {}
                 return null;
             }
 
             return trim($content);
         } catch (\Throwable $e) {
-            Log::error('[AiService] LLM 请求崩溃或超时: ' . $e->getMessage(), [
+            $errPayload = [
+                'error' => $e->getMessage(),
                 'endpoint' => $endpoint,
                 'model' => $model,
-            ]);
+            ];
+            Log::error('[AiService] LLM 请求崩溃或超时: ' . $e->getMessage(), $errPayload);
+            try { Log::channel('single')->error('[AiService] LLM 请求崩溃或超时: ' . $e->getMessage(), $errPayload); } catch (\Throwable $ex) {}
             return null;
         }
     }

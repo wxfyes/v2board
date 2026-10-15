@@ -56,7 +56,9 @@ class TicketAiReplyJob implements ShouldQueue
 
         // 互斥安全原则：若最新一条消息已由管理员或客服回复，AI立即退避！
         if ((int)$lastMsg->user_id === 0 || (int)$lastMsg->user_id !== (int)$ticket->user_id) {
-            Log::info("[TicketAiReplyJob] 工单 #{$ticket->id} 已由管理员/客服回复，AI主动退避");
+            $info = "[TicketAiReplyJob] 工单 #{$ticket->id} 已由管理员/客服回复，AI主动退避";
+            Log::info($info);
+            try { Log::channel('single')->info($info); } catch (\Throwable $e) {}
             return;
         }
 
@@ -67,7 +69,9 @@ class TicketAiReplyJob implements ShouldQueue
             if ($msgTimestamp > 0) {
                 $elapsedMinutes = (time() - $msgTimestamp) / 60;
                 if ($elapsedMinutes > $maxWaitTime) {
-                    Log::warning("[TicketAiReplyJob] 工单 #{$ticket->id} 堆积等待超过 {$maxWaitTime} 分钟，为防挖坟自动放弃AI回复，留待人工");
+                    $warn = "[TicketAiReplyJob] 工单 #{$ticket->id} 堆积等待超过 {$maxWaitTime} 分钟，为防挖坟自动放弃AI回复，留待人工";
+                    Log::warning($warn);
+                    try { Log::channel('single')->warning($warn); } catch (\Throwable $e) {}
                     return;
                 }
             }
@@ -78,7 +82,9 @@ class TicketAiReplyJob implements ShouldQueue
         $replyText = $aiService->generateReply($ticket, $lastMsg);
 
         if (empty($replyText)) {
-            Log::info("[TicketAiReplyJob] 工单 #{$ticket->id} AI 未生成有效回复内容，静默退出");
+            $info = "[TicketAiReplyJob] 工单 #{$ticket->id} AI 未生成有效回复内容，静默退出";
+            Log::info($info);
+            try { Log::channel('single')->info($info); } catch (\Throwable $e) {}
             return;
         }
 
@@ -87,9 +93,11 @@ class TicketAiReplyJob implements ShouldQueue
         $ticketService = new TicketService();
         $ticketService->replyByAdmin($ticket->id, $replyText, $aiUserId);
 
-        Log::info("[TicketAiReplyJob] 工单 #{$ticket->id} AI 自动回复成功", [
+        $successPayload = [
             'ticket_id' => $ticket->id,
             'reply_preview' => mb_substr($replyText, 0, 80),
-        ]);
+        ];
+        Log::info("[TicketAiReplyJob] 工单 #{$ticket->id} AI 自动回复成功", $successPayload);
+        try { Log::channel('single')->info("[TicketAiReplyJob] 工单 #{$ticket->id} AI 自动回复成功", $successPayload); } catch (\Throwable $e) {}
     }
 }
