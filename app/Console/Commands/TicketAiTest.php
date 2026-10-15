@@ -128,6 +128,17 @@ class TicketAiTest extends Command
         $this->line("用户最后提问: {$lastMsg->message}");
 
         $aiService = new AiService();
+
+        $historyFewShot = $aiService->recallHistoryTickets($ticket);
+        if (!empty($historyFewShot)) {
+            $this->info("\n📚 [历史工单召回] 成功提取到历史参考案例：");
+            $this->line("--------------------------------------------------");
+            $this->line($historyFewShot);
+            $this->line("--------------------------------------------------");
+        } else {
+            $this->warn("\n📚 [历史工单召回] 未检索到符合条件的历史工单（条件：已结单或管理员已回且在180天内）");
+        }
+
         $reply = $aiService->generateReply($ticket, $lastMsg);
 
         if (empty($reply)) {

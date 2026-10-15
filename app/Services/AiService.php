@@ -193,32 +193,59 @@ class AiService
     }
 
     /**
-     * 召回最近完结的参考工单 (Few-shot 上下文)
+     * 召回最近完结或已有回复的参考工单 (基于关键词相关性优先召回 Few-shot 上下文)
      */
-    protected function recallHistoryTickets(Ticket $currentTicket): string
+    public function recallHistoryTickets(Ticket $currentTicket): string
     {
         $num = (int)config('v2board.ai_history_num', 5);
         if ($num <= 0) {
             return '';
         }
 
-        $days = (int)config('v2board.ai_history_days', 90);
+        $days = (int)config('v2board.ai_history_days', 180);
         $since = time() - ($days * 86400);
 
-        // 查找已关闭 (status=1) 且有回复的历史优质工单
-        $pastTickets = Ticket::where('status', 1)
-            ->where('id', '!=', $currentTicket->id)
-            ->where('updated_at', '>=', $since)
-            ->orderBy('updated_at', 'DESC')
-            ->limit($num)
-            ->get();
+        // 提取工单主题中的关键词进行相关性匹配
+        $subject = trim($currentTicket->subject);
+        $cleanSubject = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $subject);
+        $words = array_filter(explode(' ', $cleanSubject), fn($w) => mb_strlen($w) >= 2);
 
-        if ($pastTickets->isEmpty()) {
+        // 基础查询：只要已关闭 (status=1) 或管理员已回复过 (reply_status=1) 的工单均可作为样本
+        $queryBase = Ticket::where('id', '!=', $currentTicket->id)
+            ->where(function ($q) {
+                $q->where('status', 1)->orWhere('reply_status', 1);
+            })
+            ->where('updated_at', '>=', $since);
+
+        $matchedTickets = collect();
+        if (!empty($words)) {
+            $matchedQuery = clone $queryBase;
+            $matchedQuery->where(function ($q) use ($words) {
+                foreach ($words as $word) {
+                    $q->orWhere('subject', 'like', "%{$word}%");
+                }
+            });
+            $matchedTickets = $matchedQuery->orderBy('updated_at', 'DESC')->limit($num)->get();
+        }
+
+        // 若相关工单不足，按时间倒序补充最近的其他优质历史工单
+        $needed = $num - $matchedTickets->count();
+        if ($needed > 0) {
+            $excludeIds = $matchedTickets->pluck('id')->push($currentTicket->id)->all();
+            $recentTickets = (clone $queryBase)
+                ->whereNotIn('id', $excludeIds)
+                ->orderBy('updated_at', 'DESC')
+                ->limit($needed)
+                ->get();
+            $matchedTickets = $matchedTickets->merge($recentTickets);
+        }
+
+        if ($matchedTickets->isEmpty()) {
             return '';
         }
 
         $fewShotText = '';
-        foreach ($pastTickets as $t) {
+        foreach ($matchedTickets as $t) {
             $msgs = TicketMessage::where('ticket_id', $t->id)->orderBy('id', 'ASC')->get();
             if ($msgs->count() < 2) continue;
 
@@ -229,8 +256,8 @@ class AiService
 
             if ($firstUserMsg && $lastAdminMsg) {
                 $q = mb_substr(trim($firstUserMsg->message), 0, 150);
-                $a = mb_substr(trim($lastAdminMsg->message), 0, 200);
-                $fewShotText .= "【问】: {$q}\n【答】: {$a}\n---\n";
+                $a = mb_substr(trim($lastAdminMsg->message), 0, 250);
+                $fewShotText .= "【问题主题】: {$t->subject}\n【用户提问】: {$q}\n【管理员历史答复】: {$a}\n---\n";
             }
         }
 
@@ -261,6 +288,7 @@ class AiService
    - 更新订阅链接或切换不同节点/网络尝试；
    - 检查本地是否开启了其他代理软件冲突。
 4. 若涉及账单退款、节点被墙大面积检修、复杂配置等无法自动化解决的事项，请明确告知：“已为您将工单流转至人工专席，人工客服将在上班后第一时间为您处理，请您耐心等待。”
+5. 【历史工单优先遵循】：若下方附带有历史工单参考案例，且案例中包含当前类似问题的解决方案，请务必优先遵循过往管理员的排障方案与专业话术作答，保证站点技术支持口径高度一致。
 PROMPT;
     }
 }
