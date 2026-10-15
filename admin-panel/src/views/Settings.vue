@@ -544,6 +544,108 @@
             </el-row>
           </el-form>
         </el-tab-pane>
+
+        <!-- AI 智能客服设置 -->
+        <el-tab-pane label="AI客服" name="ai_service">
+          <div class="pane-title">AI 智能客服工单自动回复设置</div>
+          <el-alert
+            type="info"
+            :closable="false"
+            show-icon
+            style="margin-bottom: 20px;"
+            title="基于大语言模型（LLM）的智能客服系统。支持 OpenAI、DeepSeek、Google Gemini、xAI Grok、智谱 GLM、硅基流动等任意 OpenAI 兼容服务与本地私有模型，支持 100% 免费接入。"
+          />
+          <el-form :model="configData.ai_service" :label-position="isMobile ? 'top' : 'right'" :label-width="isMobile ? undefined : '180px'">
+            <el-form-item label="AI 客服总开关">
+              <el-switch v-model="configData.ai_service.ai_reply_enable" :active-value="1" :inactive-value="0" />
+              <div class="form-tip">开启后，用户发起工单或追加问题若管理员未及时回复，AI 将自动介入解答。</div>
+            </el-form-item>
+
+            <template v-if="configData.ai_service.ai_reply_enable">
+              <el-form-item label="服务商快捷预设">
+                <el-select
+                  v-model="aiProviderPreset"
+                  placeholder="-- 点击快速填充推荐服务商配置 --"
+                  style="width: 100%"
+                  @change="handleAiPresetChange"
+                >
+                  <el-option label="🎁 智谱 AI (GLM-4-Flash [官方永久免费/国内直连])" value="zhipu" />
+                  <el-option label="🎁 硅基流动 SiliconFlow (Qwen2.5 [含免费模型池])" value="siliconflow" />
+                  <el-option label="🎁 Google Gemini (Gemini 1.5/2.0 Flash [每天1500次免费])" value="gemini" />
+                  <el-option label="🎁 Groq (Llama-3.1 [免费极速推理])" value="groq" />
+                  <el-option label="💰 DeepSeek 深度求索 (deepseek-chat [1元可用几千次])" value="deepseek" />
+                  <el-option label="🚀 xAI Grok (grok-2 / grok-beta)" value="grok" />
+                  <el-option label="🤖 OpenAI (gpt-4o-mini)" value="openai" />
+                  <el-option label="🏠 本地私有自建 (Ollama [0成本/局域网私有化])" value="ollama" />
+                </el-select>
+                <div class="form-tip">选择上方常见平台可一键自动填充官方端点与推荐模型 ID。</div>
+              </el-form-item>
+
+              <el-form-item label="接口基地址 (API URL)">
+                <el-input v-model="configData.ai_service.ai_api_url" placeholder="例如 https://api.deepseek.com/v1 或官方 OpenAI 兼容端点" />
+              </el-form-item>
+
+              <el-form-item label="接口密钥 (API Key)">
+                <el-input v-model="configData.ai_service.ai_api_key" type="password" show-password placeholder="请输入大模型 API Key，自建本地 Ollama 可随意填写" />
+              </el-form-item>
+
+              <el-form-item label="模型名称 (Model)">
+                <el-input v-model="configData.ai_service.ai_model" placeholder="例如 glm-4-flash, gemini-1.5-flash, deepseek-chat, grok-2" />
+              </el-form-item>
+
+              <el-form-item label="客服自称昵称">
+                <el-input v-model="configData.ai_service.ai_agent_name" placeholder="官方智能客服" />
+                <div class="form-tip">AI 在工单问答中对用户的自称称谓，对应变量 {agent_name}。</div>
+              </el-form-item>
+
+              <el-form-item label="调度时段策略">
+                <el-select v-model="configData.ai_service.ai_schedule_mode" style="width: 100%">
+                  <el-option label="全时段开启 (24小时全天候托管代班)" value="all" />
+                  <el-option label="仅夜间非工作时段开启 (22:00 ~ 次日 08:00)" value="night" />
+                </el-select>
+              </el-form-item>
+
+              <el-row :gutter="20">
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="人工优先等待时间">
+                    <el-input-number v-model="configData.ai_service.ai_wait_time" :min="0" :max="1440" style="width: 100%" />
+                    <div class="form-tip">单位：分钟。用户提单后等待 N 分钟若人工未回复则 AI 接管；0 为立即秒回。</div>
+                  </el-form-item>
+                </el-col>
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="防积压超时上限">
+                    <el-input-number v-model="configData.ai_service.ai_max_wait_time" :min="0" :max="1440" style="width: 100%" />
+                    <div class="form-tip">单位：分钟。超过设定时间不予回复，留待人工（防队列阻塞后挖坟，建议 60）。</div>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-form-item label="参考历史工单条数">
+                <el-input-number v-model="configData.ai_service.ai_history_num" :min="0" :max="10" style="width: 100%" />
+                <div class="form-tip">提取最近结单的真实历史问答供 AI 学习过往排障风格与方案（推荐 3~5 条，0 为不参考）。</div>
+              </el-form-item>
+
+              <el-form-item label="企业背景 / 业务排障说明">
+                <el-input
+                  v-model="configData.ai_service.ai_company_bg"
+                  type="textarea"
+                  :rows="4"
+                  placeholder="例如：本站支持 Shadowrocket / Clash 等客户端，节点超时请优先校准本地系统时间，退款须在购买后24小时内联系..."
+                />
+                <div class="form-tip">站点的专有规则、排障流程与注意事项，将作为知识库提示词注入给大模型。</div>
+              </el-form-item>
+
+              <el-form-item label="自定义系统提示词 (Prompt)">
+                <el-input
+                  v-model="configData.ai_service.ai_system_prompt"
+                  type="textarea"
+                  :rows="5"
+                  placeholder="留空自动使用内置专业客服提示词。支持变量：{agent_name}, {app_name}, {user_email}, {plan_name}, {expired_at}, {current_time}, {company_background}"
+                />
+              </el-form-item>
+            </template>
+          </el-form>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
   </div>
@@ -679,8 +781,66 @@ const configData = reactive({
     android_download_url: '',
     macos_version: '',
     macos_download_url: '',
+  },
+  ai_service: {
+    ai_reply_enable: 0,
+    ai_provider: 'OpenAI',
+    ai_api_url: 'https://api.openai.com/v1',
+    ai_api_key: '',
+    ai_model: 'gpt-4o-mini',
+    ai_temperature: 0.3,
+    ai_max_tokens: 1024,
+    ai_timeout: 60,
+    ai_schedule_mode: 'all',
+    ai_wait_time: 5,
+    ai_max_wait_time: 60,
+    ai_user_id: 0,
+    ai_email_notify: 0,
+    ai_history_num: 5,
+    ai_history_tokens: 2000,
+    ai_history_days: 90,
+    ai_agent_name: '官方智能客服',
+    ai_company_bg: '',
+    ai_system_prompt: '',
   }
 });
+
+const aiProviderPreset = ref('');
+const handleAiPresetChange = (val) => {
+  if (val === 'zhipu') {
+    configData.ai_service.ai_provider = '智谱 AI (免费)';
+    configData.ai_service.ai_api_url = 'https://open.bigmodel.cn/api/paas/v4';
+    configData.ai_service.ai_model = 'glm-4-flash';
+  } else if (val === 'siliconflow') {
+    configData.ai_service.ai_provider = '硅基流动 (含免费池)';
+    configData.ai_service.ai_api_url = 'https://api.siliconflow.cn/v1';
+    configData.ai_service.ai_model = 'Qwen/Qwen2.5-7B-Instruct';
+  } else if (val === 'gemini') {
+    configData.ai_service.ai_provider = 'Google Gemini (免费层)';
+    configData.ai_service.ai_api_url = 'https://generativelanguage.googleapis.com/v1beta/openai';
+    configData.ai_service.ai_model = 'gemini-1.5-flash';
+  } else if (val === 'groq') {
+    configData.ai_service.ai_provider = 'Groq (免费极速)';
+    configData.ai_service.ai_api_url = 'https://api.groq.com/openai/v1';
+    configData.ai_service.ai_model = 'llama-3.1-8b-instant';
+  } else if (val === 'grok') {
+    configData.ai_service.ai_provider = 'xAI Grok';
+    configData.ai_service.ai_api_url = 'https://api.x.ai/v1';
+    configData.ai_service.ai_model = 'grok-2';
+  } else if (val === 'deepseek') {
+    configData.ai_service.ai_provider = 'DeepSeek 深度求索';
+    configData.ai_service.ai_api_url = 'https://api.deepseek.com/v1';
+    configData.ai_service.ai_model = 'deepseek-chat';
+  } else if (val === 'openai') {
+    configData.ai_service.ai_provider = 'OpenAI';
+    configData.ai_service.ai_api_url = 'https://api.openai.com/v1';
+    configData.ai_service.ai_model = 'gpt-4o-mini';
+  } else if (val === 'ollama') {
+    configData.ai_service.ai_provider = '本地 Ollama (完全私有)';
+    configData.ai_service.ai_api_url = 'http://127.0.0.1:11434/v1';
+    configData.ai_service.ai_model = 'qwen2.5:7b';
+  }
+};
 
 const addBonusRule = () => {
   bonusRules.value.push({ amount: 100, bonus: 10 });

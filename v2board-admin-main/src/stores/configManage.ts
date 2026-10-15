@@ -33,6 +33,7 @@ export type ConfigGroup =
   | 'telegram'
   | 'app'
   | 'safe'
+  | 'ai_service'
 
 export type ConfigValues = Record<string, unknown>
 
@@ -84,6 +85,7 @@ export const useConfigManageStore = create<ConfigManageState>((set, get) => ({
   telegram: {},
   app: {},
   safe: {},
+  ai_service: {},
   tabs: 'site',
   fetchLoading: false,
   emailTemplate: [],

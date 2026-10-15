@@ -106,6 +106,26 @@ class ConfigSave extends FormRequest
         'password_limit_enable' => 'in:0,1',
         'password_limit_count' => 'integer',
         'password_limit_expire' => 'integer',
+        // ai service
+        'ai_reply_enable' => 'in:0,1',
+        'ai_provider' => 'nullable|string',
+        'ai_api_url' => 'nullable|string',
+        'ai_api_key' => 'nullable|string',
+        'ai_model' => 'nullable|string',
+        'ai_temperature' => 'nullable|numeric',
+        'ai_max_tokens' => 'nullable|integer',
+        'ai_timeout' => 'nullable|integer',
+        'ai_schedule_mode' => 'nullable|in:all,night',
+        'ai_wait_time' => 'nullable|integer',
+        'ai_max_wait_time' => 'nullable|integer',
+        'ai_user_id' => 'nullable|integer',
+        'ai_email_notify' => 'in:0,1',
+        'ai_history_num' => 'nullable|integer',
+        'ai_history_tokens' => 'nullable|integer',
+        'ai_history_days' => 'nullable|integer',
+        'ai_agent_name' => 'nullable|string',
+        'ai_company_bg' => 'nullable|string',
+        'ai_system_prompt' => 'nullable|string',
     ];
     /**
      * Get the validation rules that apply to the request.

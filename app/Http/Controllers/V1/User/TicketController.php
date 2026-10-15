@@ -97,6 +97,13 @@ class TicketController extends Controller
 
             DB::commit();
             $this->sendNotify($ticket, $request->input('message'),$request->user['id']);
+
+            // 挂载 AI 智能客服回复延迟任务
+            if (config('v2board.ai_reply_enable', 0)) {
+                $waitTime = max(0, (int)config('v2board.ai_wait_time', 5));
+                \App\Jobs\TicketAiReplyJob::dispatch($ticket->id)->delay(now()->addMinutes($waitTime));
+            }
+
             return response([
                 'data' => true
             ]);
@@ -138,6 +145,13 @@ class TicketController extends Controller
             abort(500, __('Ticket reply failed'));
         }
         $this->sendNotify($ticket, $request->input('message'), $request->user['id']);
+
+        // 挂载 AI 智能客服回复延迟任务
+        if (config('v2board.ai_reply_enable', 0)) {
+            $waitTime = max(0, (int)config('v2board.ai_wait_time', 5));
+            \App\Jobs\TicketAiReplyJob::dispatch($ticket->id)->delay(now()->addMinutes($waitTime));
+        }
+
         return response([
             'data' => true
         ]);

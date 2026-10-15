@@ -173,6 +173,27 @@ class ConfigController extends Controller
                 'password_limit_enable' => (int)config('v2board.password_limit_enable', 1),
                 'password_limit_count' => config('v2board.password_limit_count', 5),
                 'password_limit_expire' => config('v2board.password_limit_expire', 60)
+            ],
+            'ai_service' => [
+                'ai_reply_enable' => (int)config('v2board.ai_reply_enable', 0),
+                'ai_provider' => config('v2board.ai_provider', 'OpenAI'),
+                'ai_api_url' => config('v2board.ai_api_url', 'https://api.openai.com/v1'),
+                'ai_api_key' => config('v2board.ai_api_key', ''),
+                'ai_model' => config('v2board.ai_model', 'gpt-4o-mini'),
+                'ai_temperature' => (float)config('v2board.ai_temperature', 0.3),
+                'ai_max_tokens' => (int)config('v2board.ai_max_tokens', 1024),
+                'ai_timeout' => (int)config('v2board.ai_timeout', 60),
+                'ai_schedule_mode' => config('v2board.ai_schedule_mode', 'all'),
+                'ai_wait_time' => (int)config('v2board.ai_wait_time', 5),
+                'ai_max_wait_time' => (int)config('v2board.ai_max_wait_time', 60),
+                'ai_user_id' => (int)config('v2board.ai_user_id', 0),
+                'ai_email_notify' => (int)config('v2board.ai_email_notify', 0),
+                'ai_history_num' => (int)config('v2board.ai_history_num', 5),
+                'ai_history_tokens' => (int)config('v2board.ai_history_tokens', 2000),
+                'ai_history_days' => (int)config('v2board.ai_history_days', 90),
+                'ai_agent_name' => config('v2board.ai_agent_name', '官方智能客服'),
+                'ai_company_bg' => config('v2board.ai_company_bg', ''),
+                'ai_system_prompt' => config('v2board.ai_system_prompt', ''),
             ]
         ];
         if ($key && isset($data[$key])) {
