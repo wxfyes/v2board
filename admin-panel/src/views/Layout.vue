@@ -19,11 +19,20 @@
           <template #title>仪表盘</template>
         </el-menu-item>
         
+        <el-menu-item index="/connection-map">
+          <el-icon><Compass /></el-icon>
+          <template #title>连接地图</template>
+        </el-menu-item>
+        
         <el-sub-menu index="server-group">
           <template #title>
             <el-icon><Connection /></el-icon>
             <span>节点网络</span>
           </template>
+          <el-menu-item index="/connection-map">
+            <el-icon><Compass /></el-icon>
+            <span>连接地图</span>
+          </el-menu-item>
           <el-menu-item index="/servers">
             <el-icon><Link /></el-icon>
             <span>节点管理</span>
@@ -205,11 +214,20 @@
           <template #title>仪表盘</template>
         </el-menu-item>
         
+        <el-menu-item index="/connection-map">
+          <el-icon><Compass /></el-icon>
+          <template #title>连接地图</template>
+        </el-menu-item>
+        
         <el-sub-menu index="server-group">
           <template #title>
             <el-icon><Connection /></el-icon>
             <span>节点网络</span>
           </template>
+          <el-menu-item index="/connection-map">
+            <el-icon><Compass /></el-icon>
+            <span>连接地图</span>
+          </el-menu-item>
           <el-menu-item index="/servers">
             <el-icon><Link /></el-icon>
             <span>节点管理</span>

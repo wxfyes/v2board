@@ -1,6 +1,6 @@
 import { adminPath } from '@/app/settings'
 import { get } from '../request'
-import type { ServerRankItem, StatOrderItem, StatOverride, StatUserRecord, UserRankItem } from '../types'
+import type { ConnectionMapData, ServerRankItem, StatOrderItem, StatOverride, StatUserRecord, UserRankItem } from '../types'
 
 export const getOverride = () => get<StatOverride>(adminPath('/stat/getOverride'))
 export const getOrder = () => get<StatOrderItem[]>(adminPath('/stat/getOrder'))
@@ -10,3 +10,7 @@ export const getUserTodayRank = () => get<UserRankItem[]>(adminPath('/stat/getUs
 export const getUserLastRank = () => get<UserRankItem[]>(adminPath('/stat/getUserLastRank'))
 /** 用户流量记录：参数为 { user_id, ...pagination }（原版的分页对象） */
 export const getStatUser = (params: object) => get<StatUserRecord[]>(adminPath('/stat/getStatUser'), params)
+/** 连接地图与在线节点统计数据 */
+export const getConnectionMap = (params?: { refresh?: number }) =>
+  get<ConnectionMapData>(adminPath('/stat/getConnectionMap'), params)
+

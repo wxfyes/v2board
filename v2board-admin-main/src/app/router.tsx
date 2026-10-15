@@ -61,6 +61,7 @@ const routes: RouteObject[] = [
   { path: '/', element: <Navigate to="/login" replace /> },
   { path: '/login', ...page(() => import('@/pages/login/LoginPage')) },
   { path: '/dashboard', ...page(() => import('@/pages/dashboard/DashboardPage')) },
+  { path: '/connection-map', ...page(() => import('@/pages/connection-map/ConnectionMapPage')) },
   { path: '/config/system', ...page(() => import('@/pages/config/SystemConfigPage')) },
   { path: '/config/payment', ...page(() => import('@/pages/config/PaymentPage')) },
   { path: '/config/theme', ...page(() => import('@/pages/config/ThemePage')) },

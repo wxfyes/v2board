@@ -394,3 +394,43 @@ export interface QueueWorkload {
   wait: number
   processes: number
 }
+
+/** 连接地图与在线节点统计数据 (stat/getConnectionMap) */
+export interface ConnectionMapProvince {
+  rank: number
+  name: string
+  region: string
+  value: number
+  ratio: number
+}
+
+export interface ConnectionMapRegion {
+  name: string
+  value: number
+  ratio: number
+}
+
+export interface ConnectionMapDetail {
+  user_id: number
+  email: string
+  ip: string
+  country: string
+  region: string
+  province: string
+  city: string
+  isp: string
+  node: string
+  updated_at: number
+}
+
+export interface ConnectionMapData {
+  total_online_users: number
+  total_active_ips: number
+  covered_provinces: number
+  overseas_or_lan: number
+  provinces: ConnectionMapProvince[]
+  regions: ConnectionMapRegion[]
+  details: ConnectionMapDetail[]
+  updated_at: number
+}
+

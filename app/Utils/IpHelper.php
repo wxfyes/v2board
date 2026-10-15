@@ -208,4 +208,210 @@ class IpHelper
 
         return '未知';
     }
+
+    /**
+     * 结构化解析 IP 地理位置信息 (极速离线内存查询)
+     */
+    public static function parseGeo(string $ip): array
+    {
+        $default = [
+            'ip' => $ip,
+            'country' => '局域网/未知',
+            'region' => '未知',
+            'province' => '',
+            'city' => '',
+            'isp' => '',
+            'is_china' => false,
+            'is_lan' => true,
+        ];
+
+        if (empty($ip) || $ip === '127.0.0.1' || !filter_var($ip, FILTER_VALIDATE_IP)) {
+            return $default;
+        }
+
+        // 检查是否为私有保留内网 IP
+        if (
+            filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false
+        ) {
+            return [
+                'ip' => $ip,
+                'country' => '局域网',
+                'region' => '内网',
+                'province' => '',
+                'city' => '',
+                'isp' => '局域网',
+                'is_china' => false,
+                'is_lan' => true,
+            ];
+        }
+
+        try {
+            static $searcherV4 = null;
+            static $searcherV6 = null;
+
+            $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+            $candidatePaths = $isV6 ? [
+                app_path('Utils/ip2region_v6.xdb'),
+                base_path('app/Utils/ip2region_v6.xdb'),
+                dirname(__DIR__) . '/Utils/ip2region_v6.xdb',
+            ] : [
+                app_path('Utils/ip2region_v4.xdb'),
+                base_path('app/Utils/ip2region_v4.xdb'),
+                dirname(__DIR__) . '/Utils/ip2region_v4.xdb',
+                app_path('Utils/ip2region.xdb'),
+                base_path('app/Utils/ip2region.xdb'),
+                dirname(__DIR__) . '/Utils/ip2region.xdb',
+            ];
+
+            $xdbPath = null;
+            foreach ($candidatePaths as $p) {
+                if (file_exists($p)) {
+                    $xdbPath = $p;
+                    break;
+                }
+            }
+
+            if (!$xdbPath) {
+                return $default;
+            }
+
+            if (!class_exists('\App\Utils\Ip2RegionSearcher')) {
+                require_once app_path('Utils/Ip2RegionSearcher.php');
+            }
+
+            if ($isV6) {
+                if ($searcherV6 === null) {
+                    $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
+                    $version = \App\Utils\Util::versionFromHeader($header);
+                    $vIndex = \App\Utils\Util::loadVectorIndexFromFile($xdbPath);
+                    $searcherV6 = \App\Utils\Ip2RegionSearcher::newWithVectorIndex($version, $xdbPath, $vIndex);
+                }
+                $searcher = $searcherV6;
+            } else {
+                if ($searcherV4 === null) {
+                    $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
+                    $version = \App\Utils\Util::versionFromHeader($header);
+                    $vIndex = \App\Utils\Util::loadVectorIndexFromFile($xdbPath);
+                    $searcherV4 = \App\Utils\Ip2RegionSearcher::newWithVectorIndex($version, $xdbPath, $vIndex);
+                }
+                $searcher = $searcherV4;
+            }
+
+            $rawRegion = $searcher->search($ip);
+            if (!$rawRegion) {
+                return $default;
+            }
+
+            // ip2region 格式: 国家|区域|省份|城市|ISP
+            $parts = explode('|', $rawRegion);
+            $country = isset($parts[0]) && $parts[0] !== '0' ? trim($parts[0]) : '';
+            $rawRegionPart = isset($parts[1]) && $parts[1] !== '0' ? trim($parts[1]) : '';
+            $rawProvince = isset($parts[2]) && $parts[2] !== '0' ? trim($parts[2]) : '';
+            $city = isset($parts[3]) && $parts[3] !== '0' ? trim($parts[3]) : '';
+            $isp = isset($parts[4]) && $parts[4] !== '0' ? trim($parts[4]) : '';
+
+            $isLan = ($country === '内网IP' || $rawProvince === '内网IP' || $isp === '内网IP');
+            if ($isLan) {
+                return [
+                    'ip' => $ip,
+                    'country' => '局域网',
+                    'region' => '内网',
+                    'province' => '',
+                    'city' => '',
+                    'isp' => '局域网',
+                    'is_china' => false,
+                    'is_lan' => true,
+                ];
+            }
+
+            $isChina = ($country === '中国');
+            $province = '';
+            $region = '';
+
+            if ($isChina) {
+                $province = self::normalizeProvince($rawProvince);
+                $region = self::getChinaRegionByProvince($province);
+            } else {
+                $region = !empty($rawRegionPart) ? $rawRegionPart : ($country ?: '海外');
+                $province = $rawProvince;
+            }
+
+            return [
+                'ip' => $ip,
+                'country' => $country ?: '未知',
+                'region' => $region ?: '其他地区',
+                'province' => $province,
+                'city' => $city,
+                'isp' => $isp,
+                'is_china' => $isChina,
+                'is_lan' => false,
+            ];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('IpHelper::parseGeo Error: ' . $e->getMessage());
+            return $default;
+        }
+    }
+
+    /**
+     * 规范化中国省份名称（严格匹配 ECharts 中国地图官方命名）
+     */
+    public static function normalizeProvince(string $province): string
+    {
+        $province = trim($province);
+        if (empty($province) || $province === '0') {
+            return '';
+        }
+
+        $special = [
+            '北京' => '北京市',
+            '天津' => '天津市',
+            '上海' => '上海市',
+            '重庆' => '重庆市',
+            '内蒙古' => '内蒙古自治区',
+            '广西' => '广西壮族自治区',
+            '西藏' => '西藏自治区',
+            '宁夏' => '宁夏回族自治区',
+            '新疆' => '新疆维吾尔自治区',
+            '香港' => '香港特别行政区',
+            '澳门' => '澳门特别行政区',
+            '台湾' => '台湾省',
+        ];
+
+        foreach ($special as $key => $val) {
+            if ($province === $key || $province === $val || str_starts_with($province, $key)) {
+                return $val;
+            }
+        }
+
+        // 如果已有常规后缀
+        if (str_ends_with($province, '省') || str_ends_with($province, '市') || str_ends_with($province, '自治区') || str_ends_with($province, '特别行政区')) {
+            return $province;
+        }
+
+        return $province . '省';
+    }
+
+    /**
+     * 获取省份对应的中国七大地理分区
+     */
+    public static function getChinaRegionByProvince(string $province): string
+    {
+        $regions = [
+            '华北地区' => ['北京市', '天津市', '河北省', '山西省', '内蒙古自治区'],
+            '东北地区' => ['辽宁省', '吉林省', '黑龙江省'],
+            '华东地区' => ['上海市', '江苏省', '浙江省', '安徽省', '福建省', '江西省', '山东省', '台湾省'],
+            '华中地区' => ['河南省', '湖北省', '湖南省'],
+            '华南地区' => ['广东省', '广西壮族自治区', '海南省', '香港特别行政区', '澳门特别行政区'],
+            '西南地区' => ['重庆市', '四川省', '贵州省', '云南省', '西藏自治区'],
+            '西北地区' => ['陕西省', '甘肃省', '青海省', '宁夏回族自治区', '新疆维吾尔自治区'],
+        ];
+
+        foreach ($regions as $region => $provinces) {
+            if (in_array($province, $provinces, true)) {
+                return $region;
+            }
+        }
+
+        return '其他地区';
+    }
 }

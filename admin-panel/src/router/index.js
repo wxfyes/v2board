@@ -25,6 +25,7 @@ const Traitors = () => import('../views/Traitors.vue');
 const SubscribeLogs = () => import('../views/SubscribeLogs.vue');
 const LoginLogs = () => import('../views/LoginLogs.vue');
 const CheckinLogs = () => import('../views/CheckinLogs.vue');
+const ConnectionMap = () => import('../views/ConnectionMap.vue');
 
 const routes = [
   {
@@ -43,6 +44,12 @@ const routes = [
         name: 'Dashboard',
         component: Dashboard,
         meta: { title: '仪表盘', requiresAuth: true }
+      },
+      {
+        path: 'connection-map',
+        name: 'ConnectionMap',
+        component: ConnectionMap,
+        meta: { title: '连接地图', requiresAuth: true }
       },
       {
         path: 'users',

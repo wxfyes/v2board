@@ -1818,5 +1818,169 @@ class StatController extends Controller
         
         return array_values(array_unique($ips));
     }
+
+    /**
+     * 获取连接地图及在线节点统计数据 (零阻塞极速缓存)
+     */
+    public function getConnectionMap(Request $request)
+    {
+        $refresh = (bool)$request->input('refresh', false);
+        $cacheKey = 'ADMIN_STAT_CONNECTION_MAP';
+
+        if (!$refresh && \Illuminate\Support\Facades\Cache::has($cacheKey)) {
+            $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+            if (!empty($cached)) {
+                return response(['data' => $cached]);
+            }
+        }
+
+        try {
+            // 1. 获取近 5 分钟内产生流量或心跳的活跃用户 (避免 KEYS 扫描 Redis 造成单线程阻塞)
+            $activeWindow = time() - 300;
+            $recentUsers = User::where('t', '>=', $activeWindow)
+                ->select(['id', 'email', 't'])
+                ->limit(1000)
+                ->get()
+                ->keyBy('id');
+
+            $userIds = $recentUsers->keys()->toArray();
+            $cacheKeys = array_map(function ($uid) {
+                return 'ALIVE_IP_USER_' . $uid;
+            }, $userIds);
+
+            $cachedAliveData = !empty($cacheKeys) ? \Illuminate\Support\Facades\Cache::many($cacheKeys) : [];
+
+            $totalOnlineUsers = count($userIds);
+            $totalActiveConnections = 0;
+            $overseasOrLanCount = 0;
+
+            $provinceStats = []; // [省份 => ['name' => 省份, 'region' => '华南地区', 'value' => 连接数]]
+            $regionStats = [];   // [大区 => 连接数]
+            $onlineDetails = []; // 节点/连接明细列表
+
+            foreach ($cachedAliveData as $cKey => $userData) {
+                if (!is_array($userData)) continue;
+                $uid = (int)str_replace('ALIVE_IP_USER_', '', $cKey);
+                $uInfo = $recentUsers->get($uid);
+
+                foreach ($userData as $nodeKey => $nodeItem) {
+                    if ($nodeKey === 'alive_ip' || !is_array($nodeItem) || empty($nodeItem['aliveips'])) {
+                        continue;
+                    }
+
+                    foreach ($nodeItem['aliveips'] as $ipWithNode) {
+                        $rawIp = explode('_', $ipWithNode)[0];
+                        if (empty($rawIp)) continue;
+
+                        $totalActiveConnections++;
+                        $geo = \App\Utils\IpHelper::parseGeo($rawIp);
+
+                        if (!$geo['is_china'] || $geo['is_lan']) {
+                            $overseasOrLanCount++;
+                        } else {
+                            $prov = $geo['province'];
+                            $reg = $geo['region'];
+
+                            if (!empty($prov)) {
+                                if (!isset($provinceStats[$prov])) {
+                                    $provinceStats[$prov] = [
+                                        'name' => $prov,
+                                        'region' => $reg,
+                                        'value' => 0,
+                                    ];
+                                }
+                                $provinceStats[$prov]['value']++;
+                            }
+
+                            if (!empty($reg)) {
+                                $regionStats[$reg] = ($regionStats[$reg] ?? 0) + 1;
+                            }
+                        }
+
+                        // 收集明细 (最多保留前 300 条明细，防止响应体过大)
+                        if (count($onlineDetails) < 300) {
+                            $onlineDetails[] = [
+                                'user_id' => $uid,
+                                'email' => $uInfo ? $uInfo->email : ('UID:' . $uid),
+                                'ip' => $rawIp,
+                                'country' => $geo['country'],
+                                'region' => $geo['region'],
+                                'province' => $geo['province'] ?: ($geo['is_lan'] ? '局域网' : '海外/其他'),
+                                'city' => $geo['city'],
+                                'isp' => $geo['isp'],
+                                'node' => $nodeKey,
+                                'updated_at' => $nodeItem['lastupdateAt'] ?? time(),
+                            ];
+                        }
+                    }
+                }
+            }
+
+            // 计算省份连接排名与占比
+            $provinceList = array_values($provinceStats);
+            usort($provinceList, function ($a, $b) {
+                return $b['value'] <=> $a['value'];
+            });
+
+            $rank = 1;
+            foreach ($provinceList as &$pItem) {
+                $pItem['rank'] = $rank++;
+                $pItem['ratio'] = $totalActiveConnections > 0
+                    ? round(($pItem['value'] / $totalActiveConnections) * 100, 1)
+                    : 0;
+            }
+            unset($pItem);
+
+            // 大区统计列表
+            $regionList = [];
+            foreach ($regionStats as $rName => $rCount) {
+                $regionList[] = [
+                    'name' => $rName,
+                    'value' => $rCount,
+                    'ratio' => $totalActiveConnections > 0
+                        ? round(($rCount / $totalActiveConnections) * 100, 1)
+                        : 0,
+                ];
+            }
+            usort($regionList, function ($a, $b) {
+                return $b['value'] <=> $a['value'];
+            });
+
+            // 涵盖省份数
+            $coveredProvincesCount = count($provinceList);
+
+            $result = [
+                'total_online_users' => $totalOnlineUsers,
+                'total_active_ips' => $totalActiveConnections,
+                'covered_provinces' => $coveredProvincesCount,
+                'overseas_or_lan' => $overseasOrLanCount,
+                'provinces' => $provinceList,
+                'regions' => $regionList,
+                'details' => $onlineDetails,
+                'updated_at' => time(),
+            ];
+
+            // 写入短缓存 20 秒
+            \Illuminate\Support\Facades\Cache::put($cacheKey, $result, 20);
+
+            return response(['data' => $result]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('getConnectionMap error: ' . $e->getMessage());
+            return response([
+                'data' => [
+                    'total_online_users' => 0,
+                    'total_active_ips' => 0,
+                    'covered_provinces' => 0,
+                    'overseas_or_lan' => 0,
+                    'provinces' => [],
+                    'regions' => [],
+                    'details' => [],
+                    'updated_at' => time(),
+                    'error' => $e->getMessage(),
+                ]
+            ]);
+        }
+    }
 }
+
 
