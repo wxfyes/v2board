@@ -1840,7 +1840,7 @@ class StatController extends Controller
             $totalOnlineUsers = User::where('t', '>=', $activeWindow)->count();
 
             $recentUsers = User::where('t', '>=', $activeWindow)
-                ->select(['id', 'email', 't'])
+                ->select(['id', 'email', 't', 'client_type'])
                 ->limit(2000)
                 ->get()
                 ->keyBy('id');
@@ -1858,12 +1858,15 @@ class StatController extends Controller
             $provinceStats = []; // [省份 => ['name' => 省份, 'region' => '华南地区', 'value' => 连接数]]
             $regionStats = [];   // [大区 => 连接数]
             $onlineDetails = []; // 节点/连接明细列表
+            $processedUserIds = [];
 
+            // 1. 优先提取当前正在与节点保持长连接心跳的实时 IP
             foreach ($cachedAliveData as $cKey => $userData) {
                 if (!is_array($userData)) continue;
                 $uid = (int)str_replace('ALIVE_IP_USER_', '', $cKey);
                 $uInfo = $recentUsers->get($uid);
 
+                $userHasNodeIp = false;
                 foreach ($userData as $nodeKey => $nodeItem) {
                     if ($nodeKey === 'alive_ip' || !is_array($nodeItem) || empty($nodeItem['aliveips'])) {
                         continue;
@@ -1873,6 +1876,7 @@ class StatController extends Controller
                         $rawIp = explode('_', $ipWithNode)[0];
                         if (empty($rawIp)) continue;
 
+                        $userHasNodeIp = true;
                         $totalActiveConnections++;
                         $geo = \App\Utils\IpHelper::parseGeo($rawIp);
 
@@ -1913,6 +1917,68 @@ class StatController extends Controller
                                 'updated_at' => $nodeItem['lastupdateAt'] ?? time(),
                             ];
                         }
+                    }
+                }
+
+                if ($userHasNodeIp) {
+                    $processedUserIds[$uid] = true;
+                }
+            }
+
+            // 2. 对于 10 分钟内在线但节点心跳刚好在 120 秒后过期的空闲用户，通过客户端历史 IP 进行地理位置补充
+            foreach ($recentUsers as $uid => $uInfo) {
+                if (isset($processedUserIds[$uid])) continue;
+
+                $fallbackIp = '';
+                if (!empty($uInfo->client_type)) {
+                    $history = json_decode($uInfo->client_type, true);
+                    if (is_array($history) && !empty($history)) {
+                        $latest = reset($history);
+                        if (!empty($latest['ip']) && filter_var($latest['ip'], FILTER_VALIDATE_IP)) {
+                            $fallbackIp = $latest['ip'];
+                        }
+                    }
+                }
+
+                if (!empty($fallbackIp)) {
+                    $totalActiveConnections++;
+                    $geo = \App\Utils\IpHelper::parseGeo($fallbackIp);
+
+                    if (!$geo['is_china'] || $geo['is_lan']) {
+                        $overseasOrLanCount++;
+                    } else {
+                        $prov = $geo['province'];
+                        $reg = $geo['region'];
+
+                        if (!empty($prov)) {
+                            if (!isset($provinceStats[$prov])) {
+                                $provinceStats[$prov] = [
+                                    'name' => $prov,
+                                    'region' => $reg,
+                                    'value' => 0,
+                                ];
+                            }
+                            $provinceStats[$prov]['value']++;
+                        }
+
+                        if (!empty($reg)) {
+                            $regionStats[$reg] = ($regionStats[$reg] ?? 0) + 1;
+                        }
+                    }
+
+                    if (count($onlineDetails) < 300) {
+                        $onlineDetails[] = [
+                            'user_id' => $uid,
+                            'email' => $uInfo->email,
+                            'ip' => $fallbackIp,
+                            'country' => $geo['country'],
+                            'region' => $geo['region'],
+                            'province' => $geo['province'] ?: ($geo['is_lan'] ? '局域网' : '海外/其他'),
+                            'city' => $geo['city'],
+                            'isp' => $geo['isp'],
+                            'node' => '在线(空闲心跳)',
+                            'updated_at' => $uInfo->t,
+                        ];
                     }
                 }
             }
