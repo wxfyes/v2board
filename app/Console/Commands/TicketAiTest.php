@@ -74,6 +74,21 @@ class TicketAiTest extends Command
             if (!$res->successful()) {
                 $this->error("❌ 请求失败！服务端返回错误：");
                 $this->line($res->body());
+
+                // 自动拉取该服务商为当前 API Key 提供的可用模型列表
+                try {
+                    $modelsEndpoint = preg_replace('/\/chat\/completions$/', '/models', $endpoint);
+                    $modelsRes = Http::timeout(10)
+                        ->withHeaders(['Authorization' => 'Bearer ' . $apiKey])
+                        ->get($modelsEndpoint);
+                    if ($modelsRes->successful()) {
+                        $modelList = $modelsRes->json('data') ?? [];
+                        $modelIds = array_column($modelList, 'id');
+                        $this->warn("\n💡 该 API Key 在当前平台实际支持调用的模型列表（共 " . count($modelIds) . " 个）：");
+                        $this->line(implode("\n", array_map(fn($id) => " - " . $id, array_slice($modelIds, 0, 15))));
+                    }
+                } catch (\Throwable $e) {}
+
                 return 1;
             }
 

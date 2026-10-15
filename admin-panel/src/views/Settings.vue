@@ -837,7 +837,7 @@ const handleAiPresetChange = (val) => {
   } else if (val === 'groq') {
     configData.ai_service.ai_provider = 'Groq (免费极速)';
     configData.ai_service.ai_api_url = 'https://api.groq.com/openai/v1';
-    configData.ai_service.ai_model = 'llama-3.1-8b-instant';
+    configData.ai_service.ai_model = 'llama-3.3-70b-versatile';
   } else if (val === 'grok') {
     configData.ai_service.ai_provider = 'xAI Grok';
     configData.ai_service.ai_api_url = 'https://api.x.ai/v1';
