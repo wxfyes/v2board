@@ -1835,11 +1835,13 @@ class StatController extends Controller
         }
 
         try {
-            // 1. 获取近 5 分钟内产生流量或心跳的活跃用户 (避免 KEYS 扫描 Redis 造成单线程阻塞)
-            $activeWindow = time() - 300;
+            // 1. 获取近 10 分钟内活跃用户 (严格与仪表盘 online_user 逻辑对齐: User::where('t','>=', time() - 600)->count())
+            $activeWindow = time() - 600;
+            $totalOnlineUsers = User::where('t', '>=', $activeWindow)->count();
+
             $recentUsers = User::where('t', '>=', $activeWindow)
                 ->select(['id', 'email', 't'])
-                ->limit(1000)
+                ->limit(2000)
                 ->get()
                 ->keyBy('id');
 
@@ -1850,7 +1852,6 @@ class StatController extends Controller
 
             $cachedAliveData = !empty($cacheKeys) ? \Illuminate\Support\Facades\Cache::many($cacheKeys) : [];
 
-            $totalOnlineUsers = count($userIds);
             $totalActiveConnections = 0;
             $overseasOrLanCount = 0;
 

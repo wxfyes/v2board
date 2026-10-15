@@ -370,8 +370,10 @@ const updateChartData = () => {
         type: 'map',
         map: 'china',
         roam: true,
-        scaleLimit: { min: 1, max: 4 },
-        zoom: 1.15,
+        scaleLimit: { min: 1, max: 5 },
+        zoom: 1.35,
+        top: 20,
+        bottom: 20,
         center: [105, 36],
         label: {
           show: true,

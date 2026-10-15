@@ -302,16 +302,19 @@ class IpHelper
                 return $default;
             }
 
-            // ip2region 格式: 国家|区域|省份|城市|ISP
             $parts = explode('|', $rawRegion);
             $country = isset($parts[0]) && $parts[0] !== '0' ? trim($parts[0]) : '';
-            $rawRegionPart = isset($parts[1]) && $parts[1] !== '0' ? trim($parts[1]) : '';
-            $rawProvince = isset($parts[2]) && $parts[2] !== '0' ? trim($parts[2]) : '';
-            $city = isset($parts[3]) && $parts[3] !== '0' ? trim($parts[3]) : '';
-            $isp = isset($parts[4]) && $parts[4] !== '0' ? trim($parts[4]) : '';
+            
+            // 智能识别当前 xdb 的格式：
+            // 格式 A（当前本地库真实格式）：国家|省份|城市|ISP|国家简码 (例如: 中国|广东省|广州市|电信|CN)
+            // 格式 B（经典格式）：国家|区域|省份|城市|ISP (例如: 中国|0|广东省|广州市|电信)
+            $p1 = isset($parts[1]) && $parts[1] !== '0' ? trim($parts[1]) : '';
+            $p2 = isset($parts[2]) && $parts[2] !== '0' ? trim($parts[2]) : '';
+            $p3 = isset($parts[3]) && $parts[3] !== '0' ? trim($parts[3]) : '';
+            $p4 = isset($parts[4]) && $parts[4] !== '0' ? trim($parts[4]) : '';
 
-            $isLan = ($country === '内网IP' || $rawProvince === '内网IP' || $isp === '内网IP');
-            if ($isLan) {
+            $isLan = ($country === '内网IP' || $p1 === '内网IP' || $p2 === '内网IP' || $p3 === '内网IP');
+            if ($isLan || $country === '局域网') {
                 return [
                     'ip' => $ip,
                     'country' => '局域网',
@@ -326,14 +329,31 @@ class IpHelper
 
             $isChina = ($country === '中国');
             $province = '';
+            $city = '';
+            $isp = '';
             $region = '';
 
             if ($isChina) {
-                $province = self::normalizeProvince($rawProvince);
+                // 如果 p1 已经是省份（如 "广东省"、"北京市"、"浙江"）
+                if (
+                    str_contains($p1, '省') || str_contains($p1, '市') || str_contains($p1, '自治区')
+                    || in_array($p1, ['北京', '天津', '河北', '山西', '内蒙古', '辽宁', '吉林', '黑龙江', '上海', '江苏', '浙江', '安徽', '福建', '江西', '山东', '河南', '湖北', '湖南', '广东', '广西', '海南', '重庆', '四川', '贵州', '云南', '西藏', '陕西', '甘肃', '青海', '宁夏', '新疆', '香港', '澳门', '台湾'], true)
+                ) {
+                    $province = self::normalizeProvince($p1);
+                    $city = $p2;
+                    $isp = $p3;
+                } else {
+                    // 格式 B：p1 是区域（如 华南 / 0），p2 是省份
+                    $province = self::normalizeProvince($p2);
+                    $city = $p3;
+                    $isp = $p4;
+                }
                 $region = self::getChinaRegionByProvince($province);
             } else {
-                $region = !empty($rawRegionPart) ? $rawRegionPart : ($country ?: '海外');
-                $province = $rawProvince;
+                $province = $p1 ?: $p2;
+                $city = $p2 ?: $p3;
+                $isp = $p3 ?: $p4;
+                $region = $country ?: '海外';
             }
 
             return [
