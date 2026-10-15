@@ -118,35 +118,61 @@ class IpHelper
         }
 
         $cacheKey = "ip_loc_" . md5($ip);
-        if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
-            $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
-            if (!empty($cached) && $cached !== '未知' && $cached !== '未知位置' && $cached !== '未知地理位置') {
-                return $cached;
+        if (class_exists('\Illuminate\Support\Facades\Cache') && \Illuminate\Support\Facades\Cache::getFacadeRoot()) {
+            if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+                $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+                if (!empty($cached) && $cached !== '未知' && $cached !== '未知位置' && $cached !== '未知地理位置') {
+                    return $cached;
+                }
             }
         }
 
         try {
+            $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+
+            // 针对 IPv6：优先使用高精度纯离线纯真 ZXInc 引擎
+            if ($isV6) {
+                $geo = self::parseGeo($ip);
+                if ($geo['is_lan']) {
+                    return '局域网';
+                }
+                $locParts = [];
+                if (!empty($geo['country']) && $geo['country'] !== '未知') $locParts[] = $geo['country'];
+                if (!empty($geo['province'])) $locParts[] = $geo['province'];
+                if (!empty($geo['city'])) $locParts[] = $geo['city'];
+                if (!empty($geo['isp'])) $locParts[] = $geo['isp'];
+
+                $location = !empty($locParts) ? implode('-', array_unique($locParts)) : '';
+                if ($location) {
+                    if (class_exists('\Illuminate\Support\Facades\Cache') && \Illuminate\Support\Facades\Cache::getFacadeRoot()) {
+                        \Illuminate\Support\Facades\Cache::put($cacheKey, $location, 86400 * 30);
+                    }
+                    return $location;
+                }
+            }
+
             static $xdbSearcherV4 = null;
             static $xdbSearcherV6 = null;
             
-            $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
-            
             $candidatePaths = $isV6 ? [
-                app_path('Utils/ip2region_v6.xdb'),
-                base_path('app/Utils/ip2region_v6.xdb'),
+                function_exists('app_path') ? app_path('Utils/ip2region_v6.xdb') : null,
+                function_exists('base_path') ? base_path('app/Utils/ip2region_v6.xdb') : null,
+                __DIR__ . '/ip2region_v6.xdb',
                 dirname(__DIR__) . '/Utils/ip2region_v6.xdb',
             ] : [
-                app_path('Utils/ip2region_v4.xdb'),
-                base_path('app/Utils/ip2region_v4.xdb'),
+                function_exists('app_path') ? app_path('Utils/ip2region_v4.xdb') : null,
+                function_exists('base_path') ? base_path('app/Utils/ip2region_v4.xdb') : null,
+                __DIR__ . '/ip2region_v4.xdb',
                 dirname(__DIR__) . '/Utils/ip2region_v4.xdb',
-                app_path('Utils/ip2region.xdb'),
-                base_path('app/Utils/ip2region.xdb'),
+                function_exists('app_path') ? app_path('Utils/ip2region.xdb') : null,
+                function_exists('base_path') ? base_path('app/Utils/ip2region.xdb') : null,
+                __DIR__ . '/ip2region.xdb',
                 dirname(__DIR__) . '/Utils/ip2region.xdb',
             ];
             
             $xdbPath = null;
             foreach ($candidatePaths as $p) {
-                if (file_exists($p)) {
+                if ($p && file_exists($p)) {
                     $xdbPath = $p;
                     break;
                 }
@@ -154,7 +180,10 @@ class IpHelper
 
             if ($xdbPath) {
                 if (!class_exists('\App\Utils\Ip2RegionSearcher')) {
-                    require_once app_path('Utils/Ip2RegionSearcher.php');
+                    $searcherFile = function_exists('app_path') ? app_path('Utils/Ip2RegionSearcher.php') : __DIR__ . '/Ip2RegionSearcher.php';
+                    if (file_exists($searcherFile)) {
+                        require_once $searcherFile;
+                    }
                 }
                 
                 if ($isV6) {
@@ -197,13 +226,17 @@ class IpHelper
                     }
                     $location = implode('-', array_unique($locationParts));
                     if ($location) {
-                        \Illuminate\Support\Facades\Cache::put($cacheKey, $location, 86400 * 30);
+                        if (class_exists('\Illuminate\Support\Facades\Cache') && \Illuminate\Support\Facades\Cache::getFacadeRoot()) {
+                            \Illuminate\Support\Facades\Cache::put($cacheKey, $location, 86400 * 30);
+                        }
                         return $location;
                     }
                 }
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('IpLocation Parse Error: ' . $e->getMessage());
+            if (class_exists('\Illuminate\Support\Facades\Log')) {
+                \Illuminate\Support\Facades\Log::error('IpLocation Parse Error: ' . $e->getMessage());
+            }
         }
 
         return '未知';
@@ -246,26 +279,37 @@ class IpHelper
         }
 
         try {
+            $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+
+            // 针对 IPv6：优先使用高精度纯离线纯真 ZXInc 数据库
+            if ($isV6) {
+                $v6Geo = self::parseIPv6Geo($ip);
+                if ($v6Geo !== null) {
+                    return $v6Geo;
+                }
+            }
+
             static $searcherV4 = null;
             static $searcherV6 = null;
-
-            $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
             $candidatePaths = $isV6 ? [
-                app_path('Utils/ip2region_v6.xdb'),
-                base_path('app/Utils/ip2region_v6.xdb'),
+                function_exists('app_path') ? app_path('Utils/ip2region_v6.xdb') : null,
+                function_exists('base_path') ? base_path('app/Utils/ip2region_v6.xdb') : null,
+                __DIR__ . '/ip2region_v6.xdb',
                 dirname(__DIR__) . '/Utils/ip2region_v6.xdb',
             ] : [
-                app_path('Utils/ip2region_v4.xdb'),
-                base_path('app/Utils/ip2region_v4.xdb'),
+                function_exists('app_path') ? app_path('Utils/ip2region_v4.xdb') : null,
+                function_exists('base_path') ? base_path('app/Utils/ip2region_v4.xdb') : null,
+                __DIR__ . '/ip2region_v4.xdb',
                 dirname(__DIR__) . '/Utils/ip2region_v4.xdb',
-                app_path('Utils/ip2region.xdb'),
-                base_path('app/Utils/ip2region.xdb'),
+                function_exists('app_path') ? app_path('Utils/ip2region.xdb') : null,
+                function_exists('base_path') ? base_path('app/Utils/ip2region.xdb') : null,
+                __DIR__ . '/ip2region.xdb',
                 dirname(__DIR__) . '/Utils/ip2region.xdb',
             ];
 
             $xdbPath = null;
             foreach ($candidatePaths as $p) {
-                if (file_exists($p)) {
+                if ($p && file_exists($p)) {
                     $xdbPath = $p;
                     break;
                 }
@@ -276,7 +320,10 @@ class IpHelper
             }
 
             if (!class_exists('\App\Utils\Ip2RegionSearcher')) {
-                require_once app_path('Utils/Ip2RegionSearcher.php');
+                $searcherFile = function_exists('app_path') ? app_path('Utils/Ip2RegionSearcher.php') : __DIR__ . '/Ip2RegionSearcher.php';
+                if (file_exists($searcherFile)) {
+                    require_once $searcherFile;
+                }
             }
 
             if ($isV6) {
@@ -367,7 +414,9 @@ class IpHelper
                 'is_lan' => false,
             ];
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('IpHelper::parseGeo Error: ' . $e->getMessage());
+            if (class_exists('\Illuminate\Support\Facades\Log')) {
+                \Illuminate\Support\Facades\Log::error('IpHelper::parseGeo Error: ' . $e->getMessage());
+            }
             return $default;
         }
     }
@@ -433,5 +482,136 @@ class IpHelper
         }
 
         return '其他地区';
+    }
+
+    /**
+     * 纯真 ZXInc 纯离线 IPv6 解析与标准化
+     */
+    private static function parseIPv6Geo(string $ip): ?array
+    {
+        try {
+            if (!class_exists('\App\Utils\IPv6WrySearcher')) {
+                $searcherFile = function_exists('app_path') ? app_path('Utils/IPv6WrySearcher.php') : __DIR__ . '/IPv6WrySearcher.php';
+                if (file_exists($searcherFile)) {
+                    require_once $searcherFile;
+                }
+            }
+
+            if (!class_exists('\App\Utils\IPv6WrySearcher')) {
+                return null;
+            }
+
+            $rawText = \App\Utils\IPv6WrySearcher::search($ip);
+            if (empty($rawText)) {
+                return null;
+            }
+
+            $clean = preg_replace('/[\t\s]+/', ' ', trim($rawText));
+            if (str_contains($clean, '局域网') || str_contains($clean, '本地') || str_contains($clean, '保留地址')) {
+                return [
+                    'ip' => $ip,
+                    'country' => '局域网',
+                    'region' => '内网',
+                    'province' => '',
+                    'city' => '',
+                    'isp' => '局域网',
+                    'is_china' => false,
+                    'is_lan' => true,
+                ];
+            }
+
+            $isChina = false;
+            $country = '海外';
+            $province = '';
+            $city = '';
+            $isp = '';
+
+            if (
+                str_starts_with($clean, '中国') ||
+                str_contains($clean, '省') ||
+                str_contains($clean, '自治区') ||
+                str_contains($clean, '特别行政区')
+            ) {
+                $isChina = true;
+                $country = '中国';
+            }
+
+            $provinces = [
+                '北京', '天津', '河北', '山西', '内蒙古', '辽宁', '吉林', '黑龙江',
+                '上海', '江苏', '浙江', '安徽', '福建', '江西', '山东', '河南',
+                '湖北', '湖南', '广东', '广西', '海南', '重庆', '四川', '贵州',
+                '云南', '西藏', '陕西', '甘肃', '青海', '宁夏', '新疆', '香港', '澳门', '台湾'
+            ];
+
+            foreach ($provinces as $p) {
+                if (str_contains($clean, $p)) {
+                    $isChina = true;
+                    $country = '中国';
+                    $province = self::normalizeProvince($p);
+                    break;
+                }
+            }
+
+            // ISP 提取
+            if (str_contains($clean, '电信')) $isp = '中国电信';
+            elseif (str_contains($clean, '移动')) $isp = '中国移动';
+            elseif (str_contains($clean, '联通')) $isp = '中国联通';
+            elseif (str_contains($clean, '广电')) $isp = '中国广电';
+            elseif (str_contains($clean, '教育网') || str_contains($clean, 'CERNET') || str_contains($clean, '大学')) $isp = '教育网';
+            elseif (str_contains($clean, '阿里云') || str_contains($clean, 'Alibaba')) $isp = '阿里云';
+            elseif (str_contains($clean, '腾讯云') || str_contains($clean, 'Tencent')) $isp = '腾讯云';
+            elseif (str_contains($clean, '华为云') || str_contains($clean, 'Huawei')) $isp = '华为云';
+            elseif (str_contains($clean, 'Google')) $isp = 'Google';
+            elseif (str_contains($clean, 'Cloudflare')) $isp = 'Cloudflare';
+            elseif (str_contains($clean, 'Microsoft')) $isp = 'Microsoft';
+
+            // 地级市/区县提取
+            $tokens = explode(' ', $clean);
+            foreach ($tokens as $token) {
+                if (
+                    empty($token) ||
+                    $token === '中国' ||
+                    $token === '全球' ||
+                    str_contains($token, '电信') ||
+                    str_contains($token, '移动') ||
+                    str_contains($token, '联通') ||
+                    str_contains($token, '广电') ||
+                    str_contains($token, '公众宽带') ||
+                    str_contains($token, 'Anycast')
+                ) {
+                    continue;
+                }
+                if (!empty($province)) {
+                    $shortP = mb_substr($province, 0, 2);
+                    if (str_contains($token, $shortP)) {
+                        $rem = str_replace([$province, $shortP . '省', $shortP . '市', $shortP . '区', $shortP . '自治区', $shortP], '', $token);
+                        if (!empty($rem)) {
+                            $city = $rem;
+                            break;
+                        }
+                        continue;
+                    }
+                }
+                if (preg_match('/(市|地区|州|盟|县|区)$/u', $token)) {
+                    $city = $token;
+                    break;
+                }
+            }
+
+            $region = $isChina ? self::getChinaRegionByProvince($province) : ($country ?: '海外');
+
+            return [
+                'ip' => $ip,
+                'country' => $country,
+                'region' => $region ?: '其他地区',
+                'province' => $province,
+                'city' => $city,
+                'isp' => $isp,
+                'is_china' => $isChina,
+                'is_lan' => false,
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }
