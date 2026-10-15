@@ -31,7 +31,7 @@ class TicketService {
         return $ticketMessage;
     }
 
-    public function replyByAdmin($ticketId, $message, $userId):void
+    public function replyByAdmin($ticketId, $message, $userId, bool $sendEmail = true):void
     {
         $ticket = Ticket::where('id', $ticketId)
             ->first();
@@ -57,7 +57,9 @@ class TicketService {
             abort(500, '工单回复失败');
         }
         DB::commit();
-        $this->sendEmailNotify($ticket, $ticketMessage);
+        if ($sendEmail) {
+            $this->sendEmailNotify($ticket, $ticketMessage);
+        }
     }
 
     // 半小时内不再重复通知

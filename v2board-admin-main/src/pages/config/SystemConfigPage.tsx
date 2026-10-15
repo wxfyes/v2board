@@ -828,6 +828,28 @@ export default function SystemConfigPage() {
                 </ConfigItem>
 
                 <ConfigItem
+                  title="AI 回复账号 (用户ID)"
+                  description="AI 回复将以该账号的身份发送，必须是管理员或客服账号的用户ID，未设置时默认使用超级管理员。"
+                  isChildren
+                >
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="请输入管理员用户ID"
+                    defaultValue={text(ai_service.ai_user_id || '')}
+                    onChange={(e) => set('ai_service', 'ai_user_id')(integer(e.target.value))}
+                  />
+                </ConfigItem>
+
+                <ConfigItem
+                  title="邮件通知用户"
+                  description="AI 回复后是否向用户发送工单回复邮件。"
+                  isChildren
+                >
+                  {toggle('ai_service', 'ai_email_notify')}
+                </ConfigItem>
+
+                <ConfigItem
                   title="参考历史工单条数"
                   description="提取最近结单的真实历史问答注入给 AI 学习参考回复风格与排障方案（0 为不参考，推荐 3~5 条）。"
                   isChildren

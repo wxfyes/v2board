@@ -90,8 +90,13 @@ class TicketAiReplyJob implements ShouldQueue
 
         // 5. 写入工单回复
         $aiUserId = (int)config('v2board.ai_user_id', 0);
+        if ($aiUserId <= 0) {
+            $adminUser = \App\Models\User::where('is_admin', 1)->first();
+            $aiUserId = $adminUser ? $adminUser->id : 1;
+        }
+        $sendEmail = (bool)config('v2board.ai_email_notify', 0);
         $ticketService = new TicketService();
-        $ticketService->replyByAdmin($ticket->id, $replyText, $aiUserId);
+        $ticketService->replyByAdmin($ticket->id, $replyText, $aiUserId, $sendEmail);
 
         $successPayload = [
             'ticket_id' => $ticket->id,

@@ -620,6 +620,21 @@
                 </el-col>
               </el-row>
 
+              <el-row :gutter="20">
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="AI 回复账号 (用户ID)">
+                    <el-input-number v-model="configData.ai_service.ai_user_id" :min="0" style="width: 100%" placeholder="请输入管理员用户ID" />
+                    <div class="form-tip">AI 回复将以该账号身份发送，必须是管理员或客服ID；未设置时默认使用超级管理员。</div>
+                  </el-form-item>
+                </el-col>
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="邮件通知用户">
+                    <el-switch v-model="configData.ai_service.ai_email_notify" :active-value="1" :inactive-value="0" />
+                    <div class="form-tip">AI 自动回复后是否向用户发送工单邮件提醒。</div>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
               <el-form-item label="参考历史工单条数">
                 <el-input-number v-model="configData.ai_service.ai_history_num" :min="0" :max="10" style="width: 100%" />
                 <div class="form-tip">提取最近结单的真实历史问答供 AI 学习过往排障风格与方案（推荐 3~5 条，0 为不参考）。</div>
