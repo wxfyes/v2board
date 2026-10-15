@@ -10,12 +10,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { unwrap } from '@/api/request'
 import { getConnectionMap } from '@/api/services/stat'
 import type { ConnectionMapData, ConnectionMapDetail, ConnectionMapProvince, ConnectionMapRegion } from '@/api/types'
+import { useMobile } from '@/hooks/useMobile'
 import { AdminLayout } from '@/layouts/AdminLayout'
 
 // 按需注册 ECharts 组件
 echarts.use([MapChart, VisualMapComponent, TooltipComponent, CanvasRenderer])
 
 export default function ConnectionMapPage() {
+  const isMobile = useMobile()
   const [mapScope, setMapScope] = useState<'china' | 'all'>('china')
   const [activeTab, setActiveTab] = useState<string>('provinces')
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null)
@@ -162,9 +164,9 @@ export default function ConnectionMapPage() {
             name: '活跃连接',
             type: 'map',
             map: 'china',
-            roam: true,
+            roam: !isMobile,
             scaleLimit: { min: 1, max: 5 },
-            zoom: 1.35,
+            zoom: isMobile ? 1.2 : 1.35,
             top: 20,
             bottom: 20,
             center: [105, 36],
@@ -198,7 +200,7 @@ export default function ConnectionMapPage() {
       },
       true,
     )
-  }, [stats])
+  }, [stats, isMobile])
 
   // 筛选后的列表
   const filteredProvinces = useMemo(() => {
@@ -438,8 +440,8 @@ export default function ConnectionMapPage() {
           <Col xs={24} lg={14}>
             <Card
               variant="borderless"
-              style={{ borderRadius: 12, minHeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}
-              styles={{ body: { padding: '16px 20px 20px' } }}
+              style={{ borderRadius: 12, minHeight: isMobile ? 'auto' : 600, boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}
+              styles={{ body: { padding: isMobile ? '12px' : '16px 20px 20px' } }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
                 <Radio.Group
@@ -459,7 +461,7 @@ export default function ConnectionMapPage() {
 
                 <Space size="middle">
                   <span style={{ fontSize: 12, color: '#8c8c8c', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <InfoCircleOutlined /> 提示：滚轮可缩放，点击省份可筛选右侧列表
+                    <InfoCircleOutlined /> {isMobile ? '提示：点击省份可筛选下方列表' : '提示：滚轮可缩放，点击省份可筛选右侧列表'}
                   </span>
                   <Button
                     icon={<ReloadOutlined spin={query.isFetching} />}
@@ -486,7 +488,7 @@ export default function ConnectionMapPage() {
               )}
 
               {/* 地图容器 */}
-              <div style={{ position: 'relative', width: '100%', height: 520 }}>
+              <div style={{ position: 'relative', width: '100%', height: isMobile ? 360 : 520 }}>
                 <div ref={chartRef} style={{ width: '100%', height: '100%' }} />
               </div>
             </Card>
@@ -496,8 +498,8 @@ export default function ConnectionMapPage() {
           <Col xs={24} lg={10}>
             <Card
               variant="borderless"
-              style={{ borderRadius: 12, minHeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}
-              styles={{ body: { padding: '12px 16px 16px' } }}
+              style={{ borderRadius: 12, minHeight: isMobile ? 'auto' : 600, boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}
+              styles={{ body: { padding: isMobile ? '12px' : '12px 16px 16px' } }}
             >
               <Tabs
                 activeKey={activeTab}
@@ -521,7 +523,7 @@ export default function ConnectionMapPage() {
                         rowKey="name"
                         size="small"
                         pagination={false}
-                        scroll={{ y: 490 }}
+                        scroll={{ y: isMobile ? 320 : 490 }}
                         onRow={(record) => ({
                           onClick: () => setSelectedProvince((prev) => (prev === record.name ? null : record.name)),
                           style: {
@@ -542,7 +544,7 @@ export default function ConnectionMapPage() {
                         rowKey="name"
                         size="small"
                         pagination={false}
-                        scroll={{ y: 490 }}
+                        scroll={{ y: isMobile ? 320 : 490 }}
                       />
                     ),
                   },
@@ -564,7 +566,7 @@ export default function ConnectionMapPage() {
                         rowKey={(r, i) => `${r.ip}_${i}`}
                         size="small"
                         pagination={false}
-                        scroll={{ y: 490 }}
+                        scroll={{ y: isMobile ? 320 : 490 }}
                       />
                     ),
                   },

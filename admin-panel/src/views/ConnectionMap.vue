@@ -369,9 +369,9 @@ const updateChartData = () => {
         name: '活跃连接',
         type: 'map',
         map: 'china',
-        roam: true,
+        roam: window.innerWidth > 768,
         scaleLimit: { min: 1, max: 5 },
-        zoom: 1.35,
+        zoom: window.innerWidth > 768 ? 1.35 : 1.2,
         top: 20,
         bottom: 20,
         center: [105, 36],
@@ -745,5 +745,23 @@ onBeforeUnmount(() => {
 
 :deep(.selected-table-row) {
   background-color: #fef0f0 !important;
+}
+
+@media screen and (max-width: 768px) {
+  .echarts-map-wrapper {
+    height: 360px !important;
+  }
+  .map-card, .rank-card {
+    min-height: auto !important;
+  }
+  .map-toolbar {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 8px;
+  }
+  .toolbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 </style>

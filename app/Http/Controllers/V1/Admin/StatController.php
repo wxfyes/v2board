@@ -1880,6 +1880,25 @@ class StatController extends Controller
                         $totalActiveConnections++;
                         $geo = \App\Utils\IpHelper::parseGeo($rawIp);
 
+                        // 穿透中转与内网 IP：如果节点握手 IP 属于内网/局域网或中转海外机房，尝试溯源真实用户客户端 IP
+                        if (!$geo['is_china'] || $geo['is_lan']) {
+                            if ($uInfo && !empty($uInfo->client_type)) {
+                                $clientHistory = json_decode($uInfo->client_type, true);
+                                if (is_array($clientHistory)) {
+                                    foreach ($clientHistory as $hItem) {
+                                        if (!empty($hItem['ip']) && filter_var($hItem['ip'], FILTER_VALIDATE_IP)) {
+                                            $penetratedGeo = \App\Utils\IpHelper::parseGeo($hItem['ip']);
+                                            if ($penetratedGeo['is_china'] && !$penetratedGeo['is_lan']) {
+                                                $geo = $penetratedGeo;
+                                                $rawIp = $hItem['ip'];
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         if (!$geo['is_china'] || $geo['is_lan']) {
                             $overseasOrLanCount++;
                         } else {
