@@ -53,6 +53,7 @@ export default function ConnectionMapPage() {
   const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(0)
 
   // 异地并发筛选与下钻明细状态
+  const [hideRiskAlert, setHideRiskAlert] = useState<boolean>(false)
   const [onlyMultiLocation, setOnlyMultiLocation] = useState<boolean>(false)
   const [drilldownProvince, setDrilldownProvince] = useState<string | null>(null)
   const [drilldownSearch, setDrilldownSearch] = useState<string>('')
@@ -641,28 +642,41 @@ export default function ConnectionMapPage() {
         </Row>
 
         {/* 异常跨省并发风控预警 Banner */}
-        {Boolean(stats.multi_location_users && stats.multi_location_users > 0) && (
+        {Boolean(stats.multi_location_users && stats.multi_location_users > 0 && !hideRiskAlert) && (
           <Alert
             type="warning"
             showIcon
+            closable
+            onClose={() => setHideRiskAlert(true)}
             style={{ marginBottom: 16, borderRadius: 8, border: '1px solid #ffe58f' }}
             message={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <span>
                   <strong>多地并发风控预警：</strong>检测到当前有 <b style={{ color: '#cf1322', fontSize: 15 }}>{stats.multi_location_users}</b> 位用户正在从多个不同省份并发连接，疑似合租共享账号或凭证泄漏。
                 </span>
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  style={{ padding: 0, fontWeight: 500 }}
-                  onClick={() => {
-                    setActiveTab('details')
-                    setOnlyMultiLocation(true)
-                  }}
-                >
-                  立即查看涉事用户明细 →
-                </Button>
+                {!(activeTab === 'details' && onlyMultiLocation) ? (
+                  <Button
+                    type="link"
+                    size="small"
+                    danger
+                    style={{ padding: 0, fontWeight: 500 }}
+                    onClick={() => {
+                      setActiveTab('details')
+                      setOnlyMultiLocation(true)
+                    }}
+                  >
+                    立即查看涉事用户明细 →
+                  </Button>
+                ) : (
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ padding: 0, fontWeight: 500, color: '#1890ff' }}
+                    onClick={() => setOnlyMultiLocation(false)}
+                  >
+                    ✅ 已筛选涉事用户 (点击查看全部连接)
+                  </Button>
+                )}
               </div>
             }
           />

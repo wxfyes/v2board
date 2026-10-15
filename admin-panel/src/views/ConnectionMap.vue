@@ -42,20 +42,38 @@
 
     <!-- 异常跨省并发风控预警 Banner -->
     <el-alert
-      v-if="(stats.multi_location_users || 0) > 0"
+      v-if="(stats.multi_location_users || 0) > 0 && !hideRiskAlert"
       type="warning"
       show-icon
       class="mb-16 risk-alert"
-      :closable="false"
+      closable
+      @close="hideRiskAlert = true"
     >
       <template #title>
         <div class="risk-alert-content">
           <span>
             <strong>多地并发风控预警：</strong>检测到当前有 <b class="text-danger">{{ stats.multi_location_users }}</b> 位用户正在从多个不同省份并发连接，疑似合租共享账号或凭证泄漏。
           </span>
-          <el-button type="danger" link size="small" @click="activeTab = 'details'; onlyMultiLocation = true;">
-            立即查看涉事用户明细 →
-          </el-button>
+          <div class="risk-alert-actions">
+            <el-button
+              v-if="!(activeTab === 'details' && onlyMultiLocation)"
+              type="danger"
+              link
+              size="small"
+              @click="activeTab = 'details'; onlyMultiLocation = true;"
+            >
+              立即查看涉事用户明细 →
+            </el-button>
+            <el-button
+              v-else
+              type="primary"
+              link
+              size="small"
+              @click="onlyMultiLocation = false"
+            >
+              ✅ 已筛选涉事用户 (点击查看全部连接)
+            </el-button>
+          </div>
         </div>
       </template>
     </el-alert>
@@ -467,6 +485,7 @@ const autoRefreshInterval = ref(0);
 let autoRefreshTimer = null;
 
 // 风控筛选与省份下钻穿透弹窗
+const hideRiskAlert = ref(false);
 const onlyMultiLocation = ref(false);
 const drilldownVisible = ref(false);
 const drilldownProvince = ref('');

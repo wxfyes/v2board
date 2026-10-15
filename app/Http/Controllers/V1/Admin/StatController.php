@@ -1977,6 +1977,7 @@ class StatController extends Controller
                                 'isp' => $geo['isp'],
                                 'node' => $nodeKey,
                                 'updated_at' => $nodeItem['lastupdateAt'] ?? time(),
+                                'last_active_at' => date('Y-m-d H:i:s', $nodeItem['lastupdateAt'] ?? time()),
                             ];
                         }
                     }
