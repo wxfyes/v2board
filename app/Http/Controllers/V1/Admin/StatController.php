@@ -1825,7 +1825,37 @@ class StatController extends Controller
     public function getConnectionMap(Request $request)
     {
         $refresh = (bool)$request->input('refresh', false);
-        $cacheKey = 'ADMIN_STAT_CONNECTION_MAP';
+        $timeRange = (string)$request->input('time_range', 'realtime');
+        if (!in_array($timeRange, ['realtime', '24h', '7d', '15d'], true)) {
+            $timeRange = 'realtime';
+        }
+
+        switch ($timeRange) {
+            case '24h':
+                $windowSeconds = 86400;
+                $rangeLabel = '今日活跃 (24小时)';
+                $cacheTtl = 300;
+                break;
+            case '7d':
+                $windowSeconds = 86400 * 7;
+                $rangeLabel = '本周轨迹 (7天)';
+                $cacheTtl = 300;
+                break;
+            case '15d':
+                $windowSeconds = 86400 * 15;
+                $rangeLabel = '半月全景 (15天)';
+                $cacheTtl = 300;
+                break;
+            case 'realtime':
+            default:
+                $windowSeconds = 600;
+                $rangeLabel = '实时在线 (10分钟)';
+                $cacheTtl = 20;
+                $timeRange = 'realtime';
+                break;
+        }
+
+        $cacheKey = 'ADMIN_STAT_CONNECTION_MAP_' . $timeRange;
 
         if (!$refresh && \Illuminate\Support\Facades\Cache::has($cacheKey)) {
             $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
@@ -1835,22 +1865,7 @@ class StatController extends Controller
         }
 
         try {
-            // 1. 获取近 10 分钟内活跃用户 (严格与仪表盘 online_user 逻辑对齐: User::where('t','>=', time() - 600)->count())
-            $activeWindow = time() - 600;
-            $totalOnlineUsers = User::where('t', '>=', $activeWindow)->count();
-
-            $recentUsers = User::where('t', '>=', $activeWindow)
-                ->select(['id', 'email', 't', 'client_type'])
-                ->limit(2000)
-                ->get()
-                ->keyBy('id');
-
-            $userIds = $recentUsers->keys()->toArray();
-            $cacheKeys = array_map(function ($uid) {
-                return 'ALIVE_IP_USER_' . $uid;
-            }, $userIds);
-
-            $cachedAliveData = !empty($cacheKeys) ? \Illuminate\Support\Facades\Cache::many($cacheKeys) : [];
+            $activeWindow = time() - $windowSeconds;
 
             $totalActiveConnections = 0;
             $overseasOrLanCount = 0;
@@ -1860,6 +1875,22 @@ class StatController extends Controller
             $rawDetails = [];    // 暂存明细列表
             $userProvincesMap = []; // [$uid => [$province => true]] 用户省份分布集合(用于跨省并发风控分析)
             $processedUserIds = [];
+
+            if ($timeRange === 'realtime') {
+                $totalOnlineUsers = User::where('t', '>=', $activeWindow)->count();
+
+                $recentUsers = User::where('t', '>=', $activeWindow)
+                    ->select(['id', 'email', 't', 'client_type'])
+                    ->limit(2000)
+                    ->get()
+                    ->keyBy('id');
+
+                $userIds = $recentUsers->keys()->toArray();
+                $cacheKeys = array_map(function ($uid) {
+                    return 'ALIVE_IP_USER_' . $uid;
+                }, $userIds);
+
+                $cachedAliveData = !empty($cacheKeys) ? \Illuminate\Support\Facades\Cache::many($cacheKeys) : [];
 
             // 1. 优先提取当前正在与节点保持长连接心跳的实时 IP
             foreach ($cachedAliveData as $cKey => $userData) {
@@ -2000,95 +2031,216 @@ class StatController extends Controller
                             'isp' => $geo['isp'],
                             'node' => '在线(空闲心跳)',
                             'updated_at' => $uInfo->t,
+                            'last_active_at' => date('Y-m-d H:i:s', $uInfo->t),
                         ];
                     }
                 }
             }
+        } else {
+            // 历史轨迹模式 (24h / 7d / 15d)
+            $totalOnlineUsers = User::where('t', '>=', $activeWindow)->count();
 
-            // 3. 多地并发风控识别：分析同一账号在当前窗口是否在 >= 2 个不同省份并发连接
-            $multiLocationUsers = 0;
-            $multiLocationUidMap = [];
-            foreach ($userProvincesMap as $uid => $provs) {
-                if (count($provs) >= 2) {
-                    $multiLocationUsers++;
-                    $multiLocationUidMap[$uid] = array_keys($provs);
+            $historicalUsers = User::where('t', '>=', $activeWindow)
+                ->select(['id', 'email', 't', 'client_type'])
+                ->orderBy('t', 'desc')
+                ->limit(3000)
+                ->get();
+
+            foreach ($historicalUsers as $uInfo) {
+                $uid = $uInfo->id;
+                $userIps = [];
+
+                // 1. 优先从 client_type 解析该用户在时间窗口内的真实客户端 IP
+                if (!empty($uInfo->client_type)) {
+                    $history = json_decode($uInfo->client_type, true);
+                    if (is_array($history)) {
+                        foreach ($history as $hItem) {
+                            if (!empty($hItem['ip']) && filter_var($hItem['ip'], FILTER_VALIDATE_IP)) {
+                                $hTime = isset($hItem['time']) ? (int)$hItem['time'] : (int)$uInfo->t;
+                                if ($hTime >= $activeWindow) {
+                                    $userIps[$hItem['ip']] = [
+                                        'ip' => $hItem['ip'],
+                                        'time' => $hTime,
+                                        'type' => $hItem['type'] ?? '客户端',
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. 如果 client_type 未匹配到时间窗口内记录，使用该用户最新的一条 IP
+                if (empty($userIps)) {
+                    if (!empty($uInfo->client_type)) {
+                        $history = json_decode($uInfo->client_type, true);
+                        if (is_array($history) && !empty($history)) {
+                            $latest = reset($history);
+                            if (!empty($latest['ip']) && filter_var($latest['ip'], FILTER_VALIDATE_IP)) {
+                                $userIps[$latest['ip']] = [
+                                    'ip' => $latest['ip'],
+                                    'time' => (int)($latest['time'] ?? $uInfo->t),
+                                    'type' => $latest['type'] ?? '客户端',
+                                ];
+                            }
+                        }
+                    }
+                }
+
+                // 3. 若仍为空且时间窗口大于 1 天，尝试查询登录日志
+                if (empty($userIps) && \Illuminate\Support\Facades\Schema::hasTable('v2_user_login_log')) {
+                    $lastLogin = \Illuminate\Support\Facades\DB::table('v2_user_login_log')
+                        ->where('user_id', $uid)
+                        ->where('created_at', '>=', $activeWindow)
+                        ->orderBy('created_at', 'desc')
+                        ->first(['ip', 'created_at', 'type']);
+                    if ($lastLogin && !empty($lastLogin->ip) && filter_var($lastLogin->ip, FILTER_VALIDATE_IP)) {
+                        $userIps[$lastLogin->ip] = [
+                            'ip' => $lastLogin->ip,
+                            'time' => (int)$lastLogin->created_at,
+                            'type' => $lastLogin->type ?: '登录',
+                        ];
+                    }
+                }
+
+                if (empty($userIps)) {
+                    continue;
+                }
+
+                foreach ($userIps as $ipRecord) {
+                    $rawIp = $ipRecord['ip'];
+                    $totalActiveConnections++;
+                    $geo = \App\Utils\IpHelper::parseGeo($rawIp);
+
+                    if (!$geo['is_china'] || $geo['is_lan']) {
+                        $overseasOrLanCount++;
+                    } else {
+                        $prov = $geo['province'];
+                        $reg = $geo['region'];
+
+                        if (!empty($prov)) {
+                            if (!isset($provinceStats[$prov])) {
+                                $provinceStats[$prov] = [
+                                    'name' => $prov,
+                                    'region' => $reg,
+                                    'value' => 0,
+                                ];
+                            }
+                            $provinceStats[$prov]['value']++;
+                            $userProvincesMap[$uid][$prov] = true;
+                        }
+
+                        if (!empty($reg)) {
+                            $regionStats[$reg] = ($regionStats[$reg] ?? 0) + 1;
+                        }
+                    }
+
+                    if (count($rawDetails) < 1000) {
+                        $rawDetails[] = [
+                            'user_id' => $uid,
+                            'email' => $uInfo->email,
+                            'ip' => $rawIp,
+                            'country' => $geo['country'],
+                            'region' => $geo['region'],
+                            'province' => $geo['province'] ?: ($geo['is_lan'] ? '局域网' : '海外/其他'),
+                            'city' => $geo['city'],
+                            'isp' => $geo['isp'],
+                            'node' => '历史活跃 (' . $ipRecord['type'] . ')',
+                            'updated_at' => $ipRecord['time'],
+                            'last_active_at' => date('Y-m-d H:i:s', $ipRecord['time']),
+                        ];
+                    }
                 }
             }
-
-            $onlineDetails = [];
-            foreach ($rawDetails as $item) {
-                $uid = $item['user_id'];
-                $isMulti = isset($multiLocationUidMap[$uid]);
-                $item['is_multi_location'] = $isMulti;
-                $item['concurrent_provinces'] = $isMulti ? $multiLocationUidMap[$uid] : [];
-                $onlineDetails[] = $item;
-            }
-
-            // 计算省份连接排名与占比
-            $provinceList = array_values($provinceStats);
-            usort($provinceList, function ($a, $b) {
-                return $b['value'] <=> $a['value'];
-            });
-
-            $rank = 1;
-            foreach ($provinceList as &$pItem) {
-                $pItem['rank'] = $rank++;
-                $pItem['ratio'] = $totalActiveConnections > 0
-                    ? round(($pItem['value'] / $totalActiveConnections) * 100, 1)
-                    : 0;
-            }
-            unset($pItem);
-
-            // 大区统计列表
-            $regionList = [];
-            foreach ($regionStats as $rName => $rCount) {
-                $regionList[] = [
-                    'name' => $rName,
-                    'value' => $rCount,
-                    'ratio' => $totalActiveConnections > 0
-                        ? round(($rCount / $totalActiveConnections) * 100, 1)
-                        : 0,
-                ];
-            }
-            usort($regionList, function ($a, $b) {
-                return $b['value'] <=> $a['value'];
-            });
-
-            // 涵盖省份数
-            $coveredProvincesCount = count($provinceList);
-
-            $result = [
-                'total_online_users' => $totalOnlineUsers,
-                'total_active_ips' => $totalActiveConnections,
-                'covered_provinces' => $coveredProvincesCount,
-                'overseas_or_lan' => $overseasOrLanCount,
-                'multi_location_users' => $multiLocationUsers,
-                'provinces' => $provinceList,
-                'regions' => $regionList,
-                'details' => $onlineDetails,
-                'updated_at' => time(),
-            ];
-
-            // 写入短缓存 20 秒
-            \Illuminate\Support\Facades\Cache::put($cacheKey, $result, 20);
-
-            return response(['data' => $result]);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('getConnectionMap error: ' . $e->getMessage());
-            return response([
-                'data' => [
-                    'total_online_users' => 0,
-                    'total_active_ips' => 0,
-                    'covered_provinces' => 0,
-                    'overseas_or_lan' => 0,
-                    'provinces' => [],
-                    'regions' => [],
-                    'details' => [],
-                    'updated_at' => time(),
-                    'error' => $e->getMessage(),
-                ]
-            ]);
         }
+
+        // 3. 多地并发风控识别：分析同一账号在当前窗口是否在 >= 2 个不同省份并发连接
+        $multiLocationUsers = 0;
+        $multiLocationUidMap = [];
+        foreach ($userProvincesMap as $uid => $provs) {
+            if (count($provs) >= 2) {
+                $multiLocationUsers++;
+                $multiLocationUidMap[$uid] = array_keys($provs);
+            }
+        }
+
+        $onlineDetails = [];
+        foreach ($rawDetails as $item) {
+            $uid = $item['user_id'];
+            $isMulti = isset($multiLocationUidMap[$uid]);
+            $item['is_multi_location'] = $isMulti;
+            $item['concurrent_provinces'] = $isMulti ? $multiLocationUidMap[$uid] : [];
+            $onlineDetails[] = $item;
+        }
+
+        // 计算省份连接排名与占比
+        $provinceList = array_values($provinceStats);
+        usort($provinceList, function ($a, $b) {
+            return $b['value'] <=> $a['value'];
+        });
+
+        $rank = 1;
+        foreach ($provinceList as &$pItem) {
+            $pItem['rank'] = $rank++;
+            $pItem['ratio'] = $totalActiveConnections > 0
+                ? round(($pItem['value'] / $totalActiveConnections) * 100, 1)
+                : 0;
+        }
+        unset($pItem);
+
+        // 大区统计列表
+        $regionList = [];
+        foreach ($regionStats as $rName => $rCount) {
+            $regionList[] = [
+                'name' => $rName,
+                'value' => $rCount,
+                'ratio' => $totalActiveConnections > 0
+                    ? round(($rCount / $totalActiveConnections) * 100, 1)
+                    : 0,
+            ];
+        }
+        usort($regionList, function ($a, $b) {
+            return $b['value'] <=> $a['value'];
+        });
+
+        // 涵盖省份数
+        $coveredProvincesCount = count($provinceList);
+
+        $result = [
+            'time_range' => $timeRange,
+            'range_label' => $rangeLabel,
+            'total_online_users' => $totalOnlineUsers,
+            'total_active_ips' => $totalActiveConnections,
+            'covered_provinces' => $coveredProvincesCount,
+            'overseas_or_lan' => $overseasOrLanCount,
+            'multi_location_users' => $multiLocationUsers,
+            'provinces' => $provinceList,
+            'regions' => $regionList,
+            'details' => $onlineDetails,
+            'updated_at' => time(),
+        ];
+
+        // 写入缓存 (实时模式 20 秒，历史模式 300 秒)
+        \Illuminate\Support\Facades\Cache::put($cacheKey, $result, $cacheTtl);
+
+        return response(['data' => $result]);
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error('getConnectionMap error: ' . $e->getMessage());
+        return response([
+            'data' => [
+                'time_range' => $timeRange,
+                'range_label' => $rangeLabel,
+                'total_online_users' => 0,
+                'total_active_ips' => 0,
+                'covered_provinces' => 0,
+                'overseas_or_lan' => 0,
+                'provinces' => [],
+                'regions' => [],
+                'details' => [],
+                'updated_at' => time(),
+                'error' => $e->getMessage(),
+            ]
+        ]);
+    }
     }
 }
 

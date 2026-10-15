@@ -423,9 +423,12 @@ export interface ConnectionMapDetail {
   updated_at: number
   is_multi_location?: boolean
   concurrent_provinces?: string[]
+  last_active_at?: string
 }
 
 export interface ConnectionMapData {
+  time_range?: string
+  range_label?: string
   total_online_users: number
   total_active_ips: number
   covered_provinces: number

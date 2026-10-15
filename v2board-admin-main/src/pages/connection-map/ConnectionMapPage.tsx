@@ -45,7 +45,7 @@ echarts.use([MapChart, VisualMapComponent, TooltipComponent, CanvasRenderer])
 
 export default function ConnectionMapPage() {
   const isMobile = useMobile()
-  const [mapScope, setMapScope] = useState<'china' | 'all'>('china')
+  const [timeRange, setTimeRange] = useState<'realtime' | '24h' | '7d' | '15d'>('realtime')
   const [activeTab, setActiveTab] = useState<string>('provinces')
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null)
 
@@ -60,14 +60,14 @@ export default function ConnectionMapPage() {
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
-  // 获取统计数据 (React Query，20秒原子缓存)
+  // 获取统计数据 (React Query，原子缓存与时间窗联动)
   const query = useQuery({
-    queryKey: ['stat', 'connection-map'],
-    queryFn: () => unwrap(getConnectionMap()),
-    staleTime: 20_000,
+    queryKey: ['stat', 'connection-map', timeRange],
+    queryFn: () => unwrap(getConnectionMap({ time_range: timeRange })),
+    staleTime: timeRange === 'realtime' ? 15_000 : 60_000,
   })
 
-  // 自动刷新定时器
+  // 自动刷新定时器 (仅在实时模式或用户配置自动刷新时触发)
   useEffect(() => {
     if (autoRefreshInterval <= 0) return
     const timer = setInterval(() => {
@@ -77,6 +77,8 @@ export default function ConnectionMapPage() {
   }, [autoRefreshInterval, query])
 
   const stats: ConnectionMapData = query.data ?? {
+    time_range: timeRange,
+    range_label: '实时在线',
     total_online_users: 0,
     total_active_ips: 0,
     covered_provinces: 0,
@@ -91,7 +93,7 @@ export default function ConnectionMapPage() {
   // 手动刷新
   const handleRefresh = async () => {
     try {
-      await unwrap(getConnectionMap({ refresh: 1 }))
+      await unwrap(getConnectionMap({ refresh: 1, time_range: timeRange }))
       await query.refetch()
       message.success('数据已更新')
     } catch {
@@ -500,6 +502,15 @@ export default function ConnectionMapPage() {
       ),
     },
     {
+      title: '最后活跃时间',
+      key: 'last_active_at',
+      width: 150,
+      render: (_, r) => {
+        const val = r.last_active_at || (r.updated_at ? new Date(r.updated_at * 1000).toLocaleString('zh-CN', { hour12: false }) : '-')
+        return <span style={{ fontSize: 12, color: '#595959' }}>{val}</span>
+      },
+    },
+    {
       title: '风控状态',
       key: 'risk',
       width: 110,
@@ -533,29 +544,35 @@ export default function ConnectionMapPage() {
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={12} sm={12} md={6}>
             <Card variant="borderless" style={{ borderRadius: 10, boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 8 }}>总在线用户数</div>
+              <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 8 }}>
+                {timeRange === 'realtime' ? '实时在线用户数' : `${stats.range_label || '时段'}活跃用户`}
+              </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                 <span style={{ fontSize: 28, fontWeight: 700, color: '#f5222d', lineHeight: 1 }}>
                   {stats.total_online_users || 0}
                 </span>
-                <span style={{ fontSize: 13, color: '#595959' }}>位</span>
+                <span style={{ fontSize: 13, color: '#595959' }}>{timeRange === 'realtime' ? '位在线' : '位活跃'}</span>
               </div>
             </Card>
           </Col>
           <Col xs={12} sm={12} md={6}>
             <Card variant="borderless" style={{ borderRadius: 10, boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 8 }}>总活跃连接数 (IP)</div>
+              <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 8 }}>
+                {timeRange === 'realtime' ? '总活跃连接数 (IP)' : '覆盖活跃连接 / IP'}
+              </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                 <span style={{ fontSize: 28, fontWeight: 700, color: '#1890ff', lineHeight: 1 }}>
                   {stats.total_active_ips || 0}
                 </span>
-                <span style={{ fontSize: 13, color: '#595959' }}>条</span>
+                <span style={{ fontSize: 13, color: '#595959' }}>{timeRange === 'realtime' ? '条心跳' : '个痕迹'}</span>
               </div>
             </Card>
           </Col>
           <Col xs={12} sm={12} md={6}>
             <Card variant="borderless" style={{ borderRadius: 10, boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 8 }}>覆盖中国省份数</div>
+              <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 8 }}>
+                {timeRange === 'realtime' ? '当前覆盖省份数' : '历史覆盖省份数'}
+              </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                 <span style={{ fontSize: 28, fontWeight: 700, color: '#52c41a', lineHeight: 1 }}>
                   {stats.covered_provinces || 0}
@@ -615,18 +632,19 @@ export default function ConnectionMapPage() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
                 <Radio.Group
-                  value={mapScope}
+                  value={timeRange}
                   onChange={(e) => {
                     const val = e.target.value
-                    setMapScope(val)
-                    if (val === 'all') {
-                      message.info(`海外及局域网连接共 ${stats.overseas_or_lan || 0} 个，可在右侧明细中查看`)
-                    }
+                    setTimeRange(val)
+                    setSelectedProvince(null)
                   }}
                   buttonStyle="solid"
+                  size={isMobile ? 'small' : 'middle'}
                 >
-                  <Radio.Button value="china">中国地区</Radio.Button>
-                  <Radio.Button value="all">全部 / 包含海外</Radio.Button>
+                  <Radio.Button value="realtime">⚡ 实时在线 (10分)</Radio.Button>
+                  <Radio.Button value="24h">🕒 今日活跃 (24h)</Radio.Button>
+                  <Radio.Button value="7d">📅 本周轨迹 (7天)</Radio.Button>
+                  <Radio.Button value="15d">🗓️ 半月全景 (15天)</Radio.Button>
                 </Radio.Group>
 
                 <Space size="middle" wrap>
@@ -875,6 +893,15 @@ export default function ConnectionMapPage() {
                   dataIndex: 'node',
                   key: 'node',
                   render: (node: string) => <Tag color="blue">{node}</Tag>,
+                },
+                {
+                  title: '最后活跃时间',
+                  key: 'last_active_at',
+                  width: 155,
+                  render: (_, r) => {
+                    const val = r.last_active_at || (r.updated_at ? new Date(r.updated_at * 1000).toLocaleString('zh-CN', { hour12: false }) : '-')
+                    return <span style={{ fontSize: 12, color: '#595959' }}>{val}</span>
+                  },
                 },
                 {
                   title: '风控状态',

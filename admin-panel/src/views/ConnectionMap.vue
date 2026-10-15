@@ -4,25 +4,25 @@
     <el-row :gutter="16" class="stat-row">
       <el-col :xs="12" :sm="12" :md="6" class="stat-col">
         <el-card shadow="hover" class="stat-card">
-          <div class="stat-title">总在线用户数</div>
+          <div class="stat-title">{{ timeRange === 'realtime' ? '实时在线用户数' : `${stats.range_label || '时段'}活跃用户` }}</div>
           <div class="stat-value-box text-danger">
             <span class="stat-num">{{ stats.total_online_users || 0 }}</span>
-            <span class="stat-unit">位</span>
+            <span class="stat-unit">{{ timeRange === 'realtime' ? '位在线' : '位活跃' }}</span>
           </div>
         </el-card>
       </el-col>
       <el-col :xs="12" :sm="12" :md="6" class="stat-col">
         <el-card shadow="hover" class="stat-card">
-          <div class="stat-title">总活跃连接数 (IP)</div>
+          <div class="stat-title">{{ timeRange === 'realtime' ? '总活跃连接数 (IP)' : '覆盖活跃连接 / IP' }}</div>
           <div class="stat-value-box text-primary">
             <span class="stat-num">{{ stats.total_active_ips || 0 }}</span>
-            <span class="stat-unit">条</span>
+            <span class="stat-unit">{{ timeRange === 'realtime' ? '条心跳' : '个痕迹' }}</span>
           </div>
         </el-card>
       </el-col>
       <el-col :xs="12" :sm="12" :md="6" class="stat-col">
         <el-card shadow="hover" class="stat-card">
-          <div class="stat-title">覆盖中国省份数</div>
+          <div class="stat-title">{{ timeRange === 'realtime' ? '当前覆盖省份数' : '历史覆盖省份数' }}</div>
           <div class="stat-value-box text-success">
             <span class="stat-num">{{ stats.covered_provinces || 0 }}</span>
             <span class="stat-unit">个省市</span>
@@ -67,9 +67,11 @@
         <el-card shadow="hover" class="map-card" :body-style="{ padding: '16px 20px 20px' }">
           <div class="map-toolbar">
             <div class="toolbar-left">
-              <el-radio-group v-model="mapScope" size="default" class="scope-radio-group">
-                <el-radio-button label="china">中国地区</el-radio-button>
-                <el-radio-button label="all">全部 / 包含海外</el-radio-button>
+              <el-radio-group v-model="timeRange" size="default" class="scope-radio-group" @change="handleRangeChange">
+                <el-radio-button label="realtime">⚡ 实时在线 (10分)</el-radio-button>
+                <el-radio-button label="24h">🕒 今日活跃 (24h)</el-radio-button>
+                <el-radio-button label="7d">📅 本周轨迹 (7天)</el-radio-button>
+                <el-radio-button label="15d">🗓️ 半月全景 (15天)</el-radio-button>
               </el-radio-group>
             </div>
             <div class="toolbar-right">
@@ -282,11 +284,11 @@
       </el-col>
     </el-row>
 
-    <!-- 省份实时在线用户下钻穿透弹窗 -->
+    <!-- 省份实时在线/历史活跃用户下钻穿透弹窗 -->
     <el-dialog
       v-model="drilldownVisible"
-      :title="'【' + drilldownProvince + '】实时在线用户清单'"
-      width="820px"
+      :title="'【' + drilldownProvince + '】' + (stats.range_label || '实时在线') + '用户清单'"
+      width="840px"
       destroy-on-close
       append-to-body
     >
@@ -342,6 +344,13 @@
               <el-tag size="small" type="info">{{ row.node }}</el-tag>
             </template>
           </el-table-column>
+          <el-table-column label="最后活跃时间" min-width="150">
+            <template #default="{ row }">
+              <span style="font-size: 12px; color: #606266;">
+                {{ row.last_active_at || (row.updated_at ? new Date(row.updated_at * 1000).toLocaleString('zh-CN', { hour12: false }) : '-') }}
+              </span>
+            </template>
+          </el-table-column>
           <el-table-column label="风控状态" width="115" align="center">
             <template #default="{ row }">
               <el-tooltip
@@ -379,9 +388,14 @@ const chartInitialized = ref(false);
 const chartContainer = ref(null);
 let chartInstance = null;
 
-const mapScope = ref('china'); // 'china' | 'all'
+const timeRange = ref('realtime'); // 'realtime' | '24h' | '7d' | '15d'
 const activeTab = ref('provinces'); // 'provinces' | 'regions' | 'details'
 const selectedProvince = ref('');
+
+const handleRangeChange = () => {
+  selectedProvince.value = '';
+  fetchData(false);
+};
 
 // 自动定时刷新 (0: 关, 30s, 60s, 120s)
 const autoRefreshInterval = ref(0);
@@ -510,7 +524,7 @@ const fetchData = async (forceRefresh = false) => {
   loading.value = true;
   try {
     const res = await api.get('/admin/stat/getConnectionMap', {
-      params: { refresh: forceRefresh ? 1 : 0 },
+      params: { refresh: forceRefresh ? 1 : 0, time_range: timeRange.value },
     });
     if (res && res.data) {
       stats.value = res.data;
@@ -698,12 +712,6 @@ const handleResize = () => {
   }
 };
 
-// 监听视图范围切换
-watch(mapScope, (newScope) => {
-  if (newScope === 'all') {
-    ElMessage.info('海外及局域网连接共 ' + (stats.value.overseas_or_lan || 0) + ' 个，详情请查看右侧明细');
-  }
-});
 
 onMounted(async () => {
   await nextTick();

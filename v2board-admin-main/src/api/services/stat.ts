@@ -11,6 +11,6 @@ export const getUserLastRank = () => get<UserRankItem[]>(adminPath('/stat/getUse
 /** 用户流量记录：参数为 { user_id, ...pagination }（原版的分页对象） */
 export const getStatUser = (params: object) => get<StatUserRecord[]>(adminPath('/stat/getStatUser'), params)
 /** 连接地图与在线节点统计数据 */
-export const getConnectionMap = (params?: { refresh?: number }) =>
+export const getConnectionMap = (params?: { refresh?: number; time_range?: string }) =>
   get<ConnectionMapData>(adminPath('/stat/getConnectionMap'), params)
 
