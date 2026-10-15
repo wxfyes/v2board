@@ -118,18 +118,26 @@ class IpHelper
         }
 
         $cacheKey = "ip_loc_" . md5($ip);
+        $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+
         if (class_exists('\Illuminate\Support\Facades\Cache') && \Illuminate\Support\Facades\Cache::getFacadeRoot()) {
             if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
-                $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
-                if (!empty($cached) && $cached !== '未知' && $cached !== '未知位置' && $cached !== '未知地理位置') {
+                $cached = (string)\Illuminate\Support\Facades\Cache::get($cacheKey);
+                // 历史旧脏缓存自动穿透与洗涤：
+                // 如果是 IPv6 且旧缓存包含 -CN（旧 ip2region 标志）或旧误报数据，直接废弃并重新用纯真引擎计算并覆写！
+                $isDirtyV6Cache = $isV6 && (
+                    str_ends_with($cached, '-CN') ||
+                    str_contains($cached, '北京市-电信') ||
+                    str_contains($cached, '北京-电信')
+                );
+
+                if (!$isDirtyV6Cache && !empty($cached) && $cached !== '未知' && $cached !== '未知位置' && $cached !== '未知地理位置') {
                     return $cached;
                 }
             }
         }
 
         try {
-            $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
-
             // 针对 IPv6：优先使用高精度纯离线纯真 ZXInc 引擎
             if ($isV6) {
                 $geo = self::parseGeo($ip);
