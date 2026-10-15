@@ -179,6 +179,8 @@ return [
                     'send_email',
                     'send_email_mass',
                     'send_telegram',
+                    'ai_ticket',
+                    'default',
                 ],
                 'balance' => 'auto',
                 'minProcesses' => 1,

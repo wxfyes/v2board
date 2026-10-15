@@ -25,6 +25,7 @@ class TicketAiReplyJob implements ShouldQueue
 
     public function __construct(int $ticketId, ?int $targetMessageId = null)
     {
+        $this->onQueue('send_telegram');
         $this->ticketId = $ticketId;
         $this->targetMessageId = $targetMessageId;
     }

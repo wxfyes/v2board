@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Http;
 
 class TicketAiTest extends Command
 {
-    protected $signature = 'ticket:ai-test {ticketId?}';
+    protected $signature = 'ticket:ai-test {ticketId?} {--apply : 真实将生成的回复写入工单数据库}';
     protected $description = '一键测试 AI 工单客服连通性与回复功能';
 
     public function handle()
@@ -150,6 +150,16 @@ class TicketAiTest extends Command
         $this->line("--------------------------------------------------");
         $this->line($reply);
         $this->line("--------------------------------------------------");
+
+        if ($this->option('apply')) {
+            $this->info("\n[写入数据库] 正在以 AI 客服身份真实写入工单回复...");
+            $job = new \App\Jobs\TicketAiReplyJob($ticket->id);
+            $job->handle();
+            $this->info("🎉 写入完成！请在用户前台刷新工单页面查看！");
+        } else {
+            $this->comment("\n💡 提示：以上为真实模拟预览。如需立即将此回复直接写入当前工单数据库，可运行：");
+            $this->line("php artisan ticket:ai-test --apply");
+        }
 
         $this->info("\n🎉 诊断全部通过！AI 客服核心引擎工作完全正常。");
         return 0;
