@@ -84,6 +84,29 @@ export default function SystemConfigPage() {
   }, [])
 
   const set = (group: ConfigGroup, key: string) => (value: unknown) => config.setValue(group, key, value)
+  const getCurrentProvider = () => {
+    const provider = String(ai_service.ai_provider || '').toLowerCase()
+    if (provider.includes('groq')) return 'groq'
+    if (provider.includes('gemini') || provider.includes('google')) return 'gemini'
+    if (provider.includes('zhipu') || provider.includes('智谱')) return 'zhipu'
+    if (provider.includes('siliconflow') || provider.includes('硅基')) return 'siliconflow'
+    if (provider.includes('deepseek')) return 'deepseek'
+    if (provider.includes('grok') || provider.includes('xai')) return 'grok'
+    if (provider.includes('openai') && !provider.includes('oss')) return 'openai'
+    if (provider.includes('ollama')) return 'ollama'
+
+    const url = String(ai_service.ai_api_url || '').toLowerCase()
+    const model = String(ai_service.ai_model || '').toLowerCase()
+    if (url.includes('groq') || model.includes('llama') || model.includes('oss')) return 'groq'
+    if (url.includes('generativelanguage') || model.includes('gemini')) return 'gemini'
+    if (url.includes('bigmodel') || model.includes('glm')) return 'zhipu'
+    if (url.includes('siliconflow') || model.includes('qwen')) return 'siliconflow'
+    if (url.includes('deepseek') || model.includes('deepseek')) return 'deepseek'
+    if (url.includes('x.ai') || model.includes('grok')) return 'grok'
+    if (url.includes('11434')) return 'ollama'
+    if (url.includes('openai.com')) return 'openai'
+    return ''
+  }
   const input = (group: ConfigGroup, key: string, placeholder: string, className = 'form-control') => (
     <input
       type="text"
@@ -401,6 +424,216 @@ export default function SystemConfigPage() {
       ),
     },
     {
+      key: 'ai_service',
+      label: 'AI客服',
+      children: (
+        <>
+          <div className="">
+            <ConfigItem
+              title="启用工单 AI 自动回复"
+              description="开启后，用户发起工单或追问时，AI 智能客服将根据知识库与历史工单自动接管解答。"
+            >
+              {toggle('ai_service', 'ai_reply_enable')}
+            </ConfigItem>
+
+            {Number(ai_service.ai_reply_enable) === 1 && (
+              <>
+                <ConfigItem
+                  title="模型服务商快捷预设"
+                  description="选择推荐的高性价比主流大模型平台，系统将自动填充端点与模型名称。"
+                  isChildren
+                >
+                  <select
+                    className="form-control"
+                    value={getCurrentProvider()}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === 'zhipu') {
+                        set('ai_service', 'ai_provider')('智谱 AI (GLM-4-Flash [官方永久免费/国内直连])')
+                        set('ai_service', 'ai_api_url')('https://open.bigmodel.cn/api/paas/v4')
+                        set('ai_service', 'ai_model')('glm-4-flash')
+                      } else if (val === 'siliconflow') {
+                        set('ai_service', 'ai_provider')('硅基流动 SiliconFlow (Qwen2.5 [含免费模型池])')
+                        set('ai_service', 'ai_api_url')('https://api.siliconflow.cn/v1')
+                        set('ai_service', 'ai_model')('Qwen/Qwen2.5-7B-Instruct')
+                      } else if (val === 'gemini') {
+                        set('ai_service', 'ai_provider')('Google Gemini (Gemini 2.0 Flash [每天1500次免费])')
+                        set('ai_service', 'ai_api_url')('https://generativelanguage.googleapis.com/v1beta/openai')
+                        set('ai_service', 'ai_model')('gemini-2.0-flash')
+                      } else if (val === 'groq') {
+                        set('ai_service', 'ai_provider')('Groq (GPT-OSS-120B / Llama-3.1 [极速推理])')
+                        set('ai_service', 'ai_api_url')('https://api.groq.com/openai/v1')
+                        set('ai_service', 'ai_model')('openai/gpt-oss-120b')
+                      } else if (val === 'deepseek') {
+                        set('ai_service', 'ai_provider')('DeepSeek 深度求索 (deepseek-chat)')
+                        set('ai_service', 'ai_api_url')('https://api.deepseek.com/v1')
+                        set('ai_service', 'ai_model')('deepseek-chat')
+                      } else if (val === 'grok') {
+                        set('ai_service', 'ai_provider')('xAI Grok (grok-2 / grok-beta)')
+                        set('ai_service', 'ai_api_url')('https://api.x.ai/v1')
+                        set('ai_service', 'ai_model')('grok-2-latest')
+                      } else if (val === 'openai') {
+                        set('ai_service', 'ai_provider')('OpenAI (gpt-4o-mini)')
+                        set('ai_service', 'ai_api_url')('https://api.openai.com/v1')
+                        set('ai_service', 'ai_model')('gpt-4o-mini')
+                      } else if (val === 'ollama') {
+                        set('ai_service', 'ai_provider')('本地 Ollama (完全私有)')
+                        set('ai_service', 'ai_api_url')('http://127.0.0.1:11434/v1')
+                        set('ai_service', 'ai_model')('qwen2.5:7b')
+                      }
+                    }}
+                  >
+                    <option value="" disabled>-- 自定义配置 / 未匹配预设 --</option>
+                    <option value="zhipu">🎁 智谱 AI (GLM-4-Flash [官方永久免费/国内直连])</option>
+                    <option value="siliconflow">🎁 硅基流动 SiliconFlow (Qwen2.5 [含免费模型池])</option>
+                    <option value="gemini">🎁 Google Gemini (Gemini 2.0 Flash [每天1500次免费])</option>
+                    <option value="groq">🎁 Groq (GPT-OSS-120B / Llama-3.1 [免费极速推理])</option>
+                    <option value="deepseek">💰 DeepSeek 深度求索 (deepseek-chat [1元可用几千次])</option>
+                    <option value="grok">🚀 xAI Grok (grok-2 / grok-beta)</option>
+                    <option value="openai">🤖 OpenAI (gpt-4o-mini)</option>
+                    <option value="ollama">🏠 本地私有自建 (Ollama [0成本/局域网私有化])</option>
+                  </select>
+                </ConfigItem>
+
+                <ConfigItem
+                  title="接口基地址 (API Base URL)"
+                  description="兼容 OpenAI 协议的接口基地址，如 https://api.deepseek.com/v1 或官方端点。"
+                  isChildren
+                >
+                  {controlledInput('ai_service', 'ai_api_url', 'https://api.openai.com/v1')}
+                </ConfigItem>
+
+                <ConfigItem
+                  title="接口密钥 (API Key)"
+                  description="对应大模型平台的 API Key 密钥，本地自建 Ollama 可随意填写。"
+                  isChildren
+                >
+                  <input
+                    type="password"
+                    className="form-control"
+                    placeholder="请输入 API Key"
+                    value={(ai_service.ai_api_key as string) ?? ''}
+                    onChange={(e) => set('ai_service', 'ai_api_key')(e.target.value)}
+                  />
+                </ConfigItem>
+
+                <ConfigItem
+                  title="模型名称 (Model)"
+                  description="调用的模型 ID，如 openai/gpt-oss-120b, glm-4-flash, deepseek-chat 等。"
+                  isChildren
+                >
+                  {controlledInput('ai_service', 'ai_model', 'openai/gpt-oss-120b')}
+                </ConfigItem>
+
+                <ConfigItem
+                  title="客服称谓"
+                  description="AI 在问答中自称的客服昵称，对应提示词变量 {agent_name}。"
+                  isChildren
+                >
+                  {input('ai_service', 'ai_agent_name', '官方智能客服')}
+                </ConfigItem>
+
+                <ConfigItem
+                  title="调度时段策略"
+                  description="全时段开启，或仅在夜间/非工作时段 (22:00 ~ 次日 08:00) 自动代班接管。"
+                  isChildren
+                >
+                  <select
+                    className="form-control"
+                    value={selected(ai_service.ai_schedule_mode || 'all')}
+                    onChange={(e) => set('ai_service', 'ai_schedule_mode')(e.target.value)}
+                  >
+                    <option value="all">全时段开启 (24小时全天候托管)</option>
+                    <option value="night">仅夜间非工作时段开启 (22:00 ~ 08:00)</option>
+                  </select>
+                </ConfigItem>
+
+                <ConfigItem
+                  title="人工优先等待时间 (分钟)"
+                  description="用户提单或回复后等待 N 分钟，若管理员未回复则 AI 接入；填 0 为用户一提问立即秒回。"
+                  isChildren
+                >
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="5"
+                    defaultValue={text(ai_service.ai_wait_time ?? 5)}
+                    onChange={(e) => set('ai_service', 'ai_wait_time')(integer(e.target.value))}
+                  />
+                </ConfigItem>
+
+                <ConfigItem
+                  title="防积压超时上限 (分钟)"
+                  description="自用户提问起若超过该时间仍未处理，放弃 AI 回复留待人工（防队列阻塞后突然挖坟回复旧工单，建议 60）。"
+                  isChildren
+                >
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="60"
+                    defaultValue={text(ai_service.ai_max_wait_time ?? 60)}
+                    onChange={(e) => set('ai_service', 'ai_max_wait_time')(integer(e.target.value))}
+                  />
+                </ConfigItem>
+
+                <ConfigItem
+                  title="AI 回复账号 (用户ID)"
+                  description="AI 回复将以该账号的身份发送，必须是管理员或客服账号的用户ID，未设置时默认使用超级管理员。"
+                  isChildren
+                >
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="请输入管理员用户ID"
+                    defaultValue={text(ai_service.ai_user_id || '')}
+                    onChange={(e) => set('ai_service', 'ai_user_id')(integer(e.target.value))}
+                  />
+                </ConfigItem>
+
+                <ConfigItem
+                  title="邮件通知用户"
+                  description="AI 回复后是否向用户发送工单回复邮件。"
+                  isChildren
+                >
+                  {toggle('ai_service', 'ai_email_notify')}
+                </ConfigItem>
+
+                <ConfigItem
+                  title="参考历史工单条数"
+                  description="提取最近结单的真实历史问答注入给 AI 学习参考回复风格与排障方案（0 为不参考，推荐 3~5 条）。"
+                  isChildren
+                >
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="5"
+                    defaultValue={text(ai_service.ai_history_num ?? 5)}
+                    onChange={(e) => set('ai_service', 'ai_history_num')(integer(e.target.value))}
+                  />
+                </ConfigItem>
+
+                <ConfigItem
+                  title="企业知识背景 / 排障说明"
+                  description="站点的业务规则、退款政策、客户端使用注意事项、排障指引等，将作为私有知识注入给大模型。"
+                  isChildren
+                >
+                  {textarea('ai_service', 'ai_company_bg', '例如：本站支持 Shadowrocket / Clash 等客户端，节点超时请优先校准系统时间...', '5')}
+                </ConfigItem>
+
+                <ConfigItem
+                  title="自定义系统提示词 (System Prompt)"
+                  description="留空使用内置专业客服提示词。支持变量：{agent_name}, {app_name}, {user_email}, {plan_name}, {expired_at}, {current_time}, {company_background}"
+                  isChildren
+                >
+                  {textarea('ai_service', 'ai_system_prompt', '留空使用内置系统提示词...', '6')}
+                </ConfigItem>
+              </>
+            )}
+          </div>
+        </>
+      ),
+    },
+    {
       key: 'invite',
       label: '邀请&佣金',
       children: (
@@ -667,219 +900,6 @@ export default function SystemConfigPage() {
               {input('app', 'android_version', '1.0.0')}
               {input('app', 'android_download_url', 'https://xxxx.com/xxx.apk', 'form-control mt-1')}
             </ConfigItem>
-          </div>
-        </>
-      ),
-    },
-    {
-      key: 'ai_service',
-      label: 'AI客服',
-      children: (
-        <>
-          <Alert>
-            基于大语言模型（LLM）的智能客服工单自动回复系统。支持 OpenAI、DeepSeek、Google Gemini、xAI Grok、智谱 GLM、硅基流动等任意 OpenAI 兼容服务与本地私有模型，支持 100% 免费接入。
-          </Alert>
-          <div>
-            <ConfigItem
-              title="AI 客服总开关"
-              description="开启后，用户发起工单或追加问题若管理员未及时回复，AI 将自动介入解答。"
-            >
-              {toggle('ai_service', 'ai_reply_enable')}
-            </ConfigItem>
-
-            {on(ai_service.ai_reply_enable) && (
-              <>
-                <ConfigItem
-                  title="模型服务商快捷预设"
-                  description="选择常见服务商一键填充端点与模型，支持免充值免费模型。"
-                  isChildren
-                >
-                  <select
-                    className="form-control"
-                    onChange={(e) => {
-                      const val = e.target.value
-                      if (val === 'zhipu') {
-                        set('ai_service', 'ai_provider')('智谱 AI (免费)')
-                        set('ai_service', 'ai_api_url')('https://open.bigmodel.cn/api/paas/v4')
-                        set('ai_service', 'ai_model')('glm-4-flash')
-                      } else if (val === 'siliconflow') {
-                        set('ai_service', 'ai_provider')('硅基流动 (含免费池)')
-                        set('ai_service', 'ai_api_url')('https://api.siliconflow.cn/v1')
-                        set('ai_service', 'ai_model')('Qwen/Qwen2.5-7B-Instruct')
-                      } else if (val === 'gemini') {
-                        set('ai_service', 'ai_provider')('Google Gemini (免费层)')
-                        set('ai_service', 'ai_api_url')('https://generativelanguage.googleapis.com/v1beta/openai')
-                        set('ai_service', 'ai_model')('gemini-1.5-flash')
-                      } else if (val === 'groq') {
-                        set('ai_service', 'ai_provider')('Groq (免费极速)')
-                        set('ai_service', 'ai_api_url')('https://api.groq.com/openai/v1')
-                        set('ai_service', 'ai_model')('llama-3.3-70b-versatile')
-                      } else if (val === 'grok') {
-                        set('ai_service', 'ai_provider')('xAI Grok')
-                        set('ai_service', 'ai_api_url')('https://api.x.ai/v1')
-                        set('ai_service', 'ai_model')('grok-2')
-                      } else if (val === 'deepseek') {
-                        set('ai_service', 'ai_provider')('DeepSeek 深度求索')
-                        set('ai_service', 'ai_api_url')('https://api.deepseek.com/v1')
-                        set('ai_service', 'ai_model')('deepseek-chat')
-                      } else if (val === 'openai') {
-                        set('ai_service', 'ai_provider')('OpenAI')
-                        set('ai_service', 'ai_api_url')('https://api.openai.com/v1')
-                        set('ai_service', 'ai_model')('gpt-4o-mini')
-                      } else if (val === 'ollama') {
-                        set('ai_service', 'ai_provider')('本地 Ollama (完全私有)')
-                        set('ai_service', 'ai_api_url')('http://127.0.0.1:11434/v1')
-                        set('ai_service', 'ai_model')('qwen2.5:7b')
-                      }
-                    }}
-                    defaultValue=""
-                  >
-                    <option value="" disabled>-- 点击快速填充推荐服务商配置 --</option>
-                    <option value="zhipu">🎁 智谱 AI (GLM-4-Flash [官方永久免费/国内直连])</option>
-                    <option value="siliconflow">🎁 硅基流动 SiliconFlow (Qwen2.5 [含免费模型池])</option>
-                    <option value="gemini">🎁 Google Gemini (Gemini 1.5/2.0 Flash [每天1500次免费])</option>
-                    <option value="groq">🎁 Groq (Llama-3.1 [免费极速推理])</option>
-                    <option value="deepseek">💰 DeepSeek 深度求索 (deepseek-chat [1元可用几千次])</option>
-                    <option value="grok">🚀 xAI Grok (grok-2 / grok-beta)</option>
-                    <option value="openai">🤖 OpenAI (gpt-4o-mini)</option>
-                    <option value="ollama">🏠 本地私有自建 (Ollama [0成本/局域网私有化])</option>
-                  </select>
-                </ConfigItem>
-
-                <ConfigItem
-                  title="接口基地址 (API Base URL)"
-                  description="兼容 OpenAI 协议的接口基地址，如 https://api.deepseek.com/v1 或官方端点。"
-                  isChildren
-                >
-                  {controlledInput('ai_service', 'ai_api_url', 'https://api.openai.com/v1')}
-                </ConfigItem>
-
-                <ConfigItem
-                  title="接口密钥 (API Key)"
-                  description="对应大模型平台的 API Key 密钥，本地自建 Ollama 可随意填写。"
-                  isChildren
-                >
-                  <input
-                    type="password"
-                    className="form-control"
-                    placeholder="请输入 API Key"
-                    value={(ai_service.ai_api_key as string) ?? ''}
-                    onChange={(e) => set('ai_service', 'ai_api_key')(e.target.value)}
-                  />
-                </ConfigItem>
-
-                <ConfigItem
-                  title="模型名称 (Model)"
-                  description="调用的模型 ID，如 glm-4-flash, gemini-1.5-flash, deepseek-chat, grok-2 等。"
-                  isChildren
-                >
-                  {controlledInput('ai_service', 'ai_model', 'gpt-4o-mini')}
-                </ConfigItem>
-
-                <ConfigItem
-                  title="客服称谓"
-                  description="AI 在问答中自称的客服昵称，对应提示词变量 {agent_name}。"
-                  isChildren
-                >
-                  {input('ai_service', 'ai_agent_name', '官方智能客服')}
-                </ConfigItem>
-
-                <ConfigItem
-                  title="调度时段策略"
-                  description="全时段开启，或仅在夜间/非工作时段 (22:00 ~ 次日 08:00) 自动代班接管。"
-                  isChildren
-                >
-                  <select
-                    className="form-control"
-                    value={selected(ai_service.ai_schedule_mode || 'all')}
-                    onChange={(e) => set('ai_service', 'ai_schedule_mode')(e.target.value)}
-                  >
-                    <option value="all">全时段开启 (24小时全天候托管)</option>
-                    <option value="night">仅夜间非工作时段开启 (22:00 ~ 08:00)</option>
-                  </select>
-                </ConfigItem>
-
-                <ConfigItem
-                  title="人工优先等待时间 (分钟)"
-                  description="用户提单或回复后等待 N 分钟，若管理员未回复则 AI 接入；填 0 为用户一提问立即秒回。"
-                  isChildren
-                >
-                  <input
-                    type="number"
-                    className="form-control"
-                    placeholder="5"
-                    defaultValue={text(ai_service.ai_wait_time ?? 5)}
-                    onChange={(e) => set('ai_service', 'ai_wait_time')(integer(e.target.value))}
-                  />
-                </ConfigItem>
-
-                <ConfigItem
-                  title="防积压超时上限 (分钟)"
-                  description="自用户提问起若超过该时间仍未处理，放弃 AI 回复留待人工（防队列阻塞后突然挖坟回复旧工单，建议 60）。"
-                  isChildren
-                >
-                  <input
-                    type="number"
-                    className="form-control"
-                    placeholder="60"
-                    defaultValue={text(ai_service.ai_max_wait_time ?? 60)}
-                    onChange={(e) => set('ai_service', 'ai_max_wait_time')(integer(e.target.value))}
-                  />
-                </ConfigItem>
-
-                <ConfigItem
-                  title="AI 回复账号 (用户ID)"
-                  description="AI 回复将以该账号的身份发送，必须是管理员或客服账号的用户ID，未设置时默认使用超级管理员。"
-                  isChildren
-                >
-                  <input
-                    type="number"
-                    className="form-control"
-                    placeholder="请输入管理员用户ID"
-                    defaultValue={text(ai_service.ai_user_id || '')}
-                    onChange={(e) => set('ai_service', 'ai_user_id')(integer(e.target.value))}
-                  />
-                </ConfigItem>
-
-                <ConfigItem
-                  title="邮件通知用户"
-                  description="AI 回复后是否向用户发送工单回复邮件。"
-                  isChildren
-                >
-                  {toggle('ai_service', 'ai_email_notify')}
-                </ConfigItem>
-
-                <ConfigItem
-                  title="参考历史工单条数"
-                  description="提取最近结单的真实历史问答注入给 AI 学习参考回复风格与排障方案（0 为不参考，推荐 3~5 条）。"
-                  isChildren
-                >
-                  <input
-                    type="number"
-                    className="form-control"
-                    placeholder="5"
-                    defaultValue={text(ai_service.ai_history_num ?? 5)}
-                    onChange={(e) => set('ai_service', 'ai_history_num')(integer(e.target.value))}
-                  />
-                </ConfigItem>
-
-                <ConfigItem
-                  title="企业知识背景 / 排障说明"
-                  description="站点的业务规则、退款政策、客户端使用注意事项、排障指引等，将作为私有知识注入给大模型。"
-                  isChildren
-                >
-                  {textarea('ai_service', 'ai_company_bg', '例如：本站支持 Shadowrocket / Clash 等客户端，节点超时请优先校准系统时间...', '5')}
-                </ConfigItem>
-
-                <ConfigItem
-                  title="自定义系统提示词 (System Prompt)"
-                  description="留空使用内置专业客服提示词。支持变量：{agent_name}, {app_name}, {user_email}, {plan_name}, {expired_at}, {current_time}, {company_background}"
-                  isChildren
-                >
-                  {textarea('ai_service', 'ai_system_prompt', '留空使用内置系统提示词...', '6')}
-                </ConfigItem>
-              </>
-            )}
           </div>
         </>
       ),
