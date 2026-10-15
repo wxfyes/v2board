@@ -1,0 +1,1 @@
+import{M as e,N as t,q as n}from"./element-plus-BuLFFBOp.js";function r(){let r=n(typeof window<`u`&&window.innerWidth<=768),i=()=>{r.value=window.innerWidth<=768};return t(()=>{window.addEventListener(`resize`,i)}),e(()=>{window.removeEventListener(`resize`,i)}),{isMobile:r}}export{r as t};

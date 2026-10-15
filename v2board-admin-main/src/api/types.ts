@@ -421,6 +421,8 @@ export interface ConnectionMapDetail {
   isp: string
   node: string
   updated_at: number
+  is_multi_location?: boolean
+  concurrent_provinces?: string[]
 }
 
 export interface ConnectionMapData {
@@ -428,6 +430,7 @@ export interface ConnectionMapData {
   total_active_ips: number
   covered_provinces: number
   overseas_or_lan: number
+  multi_location_users?: number
   provinces: ConnectionMapProvince[]
   regions: ConnectionMapRegion[]
   details: ConnectionMapDetail[]

@@ -1,1 +1,0 @@
-import{K as e,M as t,j as n}from"./element-plus-DQbUARzL.js";function r(){let r=e(typeof window<`u`&&window.innerWidth<=768),i=()=>{r.value=window.innerWidth<=768};return t(()=>{window.addEventListener(`resize`,i)}),n(()=>{window.removeEventListener(`resize`,i)}),{isMobile:r}}export{r as t};

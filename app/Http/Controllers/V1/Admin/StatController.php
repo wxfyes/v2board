@@ -1857,7 +1857,8 @@ class StatController extends Controller
 
             $provinceStats = []; // [省份 => ['name' => 省份, 'region' => '华南地区', 'value' => 连接数]]
             $regionStats = [];   // [大区 => 连接数]
-            $onlineDetails = []; // 节点/连接明细列表
+            $rawDetails = [];    // 暂存明细列表
+            $userProvincesMap = []; // [$uid => [$province => true]] 用户省份分布集合(用于跨省并发风控分析)
             $processedUserIds = [];
 
             // 1. 优先提取当前正在与节点保持长连接心跳的实时 IP
@@ -1914,6 +1915,7 @@ class StatController extends Controller
                                     ];
                                 }
                                 $provinceStats[$prov]['value']++;
+                                $userProvincesMap[$uid][$prov] = true;
                             }
 
                             if (!empty($reg)) {
@@ -1921,9 +1923,9 @@ class StatController extends Controller
                             }
                         }
 
-                        // 收集明细 (最多保留前 300 条明细，防止响应体过大)
-                        if (count($onlineDetails) < 300) {
-                            $onlineDetails[] = [
+                        // 收集明细 (安全上限设定为 1000 条，兼顾 100% 覆盖率与毫秒级零负担传输)
+                        if (count($rawDetails) < 1000) {
+                            $rawDetails[] = [
                                 'user_id' => $uid,
                                 'email' => $uInfo ? $uInfo->email : ('UID:' . $uid),
                                 'ip' => $rawIp,
@@ -1978,6 +1980,7 @@ class StatController extends Controller
                                 ];
                             }
                             $provinceStats[$prov]['value']++;
+                            $userProvincesMap[$uid][$prov] = true;
                         }
 
                         if (!empty($reg)) {
@@ -1985,8 +1988,8 @@ class StatController extends Controller
                         }
                     }
 
-                    if (count($onlineDetails) < 300) {
-                        $onlineDetails[] = [
+                    if (count($rawDetails) < 1000) {
+                        $rawDetails[] = [
                             'user_id' => $uid,
                             'email' => $uInfo->email,
                             'ip' => $fallbackIp,
@@ -2000,6 +2003,25 @@ class StatController extends Controller
                         ];
                     }
                 }
+            }
+
+            // 3. 多地并发风控识别：分析同一账号在当前窗口是否在 >= 2 个不同省份并发连接
+            $multiLocationUsers = 0;
+            $multiLocationUidMap = [];
+            foreach ($userProvincesMap as $uid => $provs) {
+                if (count($provs) >= 2) {
+                    $multiLocationUsers++;
+                    $multiLocationUidMap[$uid] = array_keys($provs);
+                }
+            }
+
+            $onlineDetails = [];
+            foreach ($rawDetails as $item) {
+                $uid = $item['user_id'];
+                $isMulti = isset($multiLocationUidMap[$uid]);
+                $item['is_multi_location'] = $isMulti;
+                $item['concurrent_provinces'] = $isMulti ? $multiLocationUidMap[$uid] : [];
+                $onlineDetails[] = $item;
             }
 
             // 计算省份连接排名与占比
@@ -2040,6 +2062,7 @@ class StatController extends Controller
                 'total_active_ips' => $totalActiveConnections,
                 'covered_provinces' => $coveredProvincesCount,
                 'overseas_or_lan' => $overseasOrLanCount,
+                'multi_location_users' => $multiLocationUsers,
                 'provinces' => $provinceList,
                 'regions' => $regionList,
                 'details' => $onlineDetails,

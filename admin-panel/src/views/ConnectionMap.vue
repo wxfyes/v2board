@@ -40,6 +40,26 @@
       </el-col>
     </el-row>
 
+    <!-- 异常跨省并发风控预警 Banner -->
+    <el-alert
+      v-if="(stats.multi_location_users || 0) > 0"
+      type="warning"
+      show-icon
+      class="mb-16 risk-alert"
+      :closable="false"
+    >
+      <template #title>
+        <div class="risk-alert-content">
+          <span>
+            <strong>多地并发风控预警：</strong>检测到当前有 <b class="text-danger">{{ stats.multi_location_users }}</b> 位用户正在从多个不同省份并发连接，疑似合租共享账号或凭证泄漏。
+          </span>
+          <el-button type="danger" link size="small" @click="activeTab = 'details'; onlyMultiLocation = true;">
+            立即查看涉事用户明细 →
+          </el-button>
+        </div>
+      </template>
+    </el-alert>
+
     <!-- 下方主区域：左侧地图 + 右侧统计排名 -->
     <el-row :gutter="16" class="main-content-row">
       <!-- 左侧地图看板 -->
@@ -55,14 +75,20 @@
             <div class="toolbar-right">
               <span class="map-tip">
                 <el-icon class="mr-4"><InfoFilled /></el-icon>
-                提示：滚轮可缩放，点击省份可筛选右侧列表
+                提示：点击省份连接数可穿透查看用户清单
               </span>
+              <el-select v-model="autoRefreshInterval" size="small" style="width: 110px;">
+                <el-option :value="0" label="自动刷新: 关" />
+                <el-option :value="30" label="每 30 秒" />
+                <el-option :value="60" label="每 60 秒" />
+                <el-option :value="120" label="每 2 分钟" />
+              </el-select>
               <el-button
                 size="small"
                 circle
                 icon="Refresh"
                 :loading="loading"
-                title="刷新数据"
+                title="立即刷新数据"
                 class="refresh-btn"
                 @click="fetchData(true)"
               />
@@ -120,15 +146,21 @@
                       </span>
                     </template>
                   </el-table-column>
-                  <el-table-column label="省份 / 地区" min-width="130">
+                  <el-table-column label="省份 / 地区" min-width="120">
                     <template #default="{ row }">
                       <span class="province-name">{{ row.name }}</span>
                       <span v-if="row.region" class="province-region">({{ row.region }})</span>
                     </template>
                   </el-table-column>
-                  <el-table-column label="连接数" width="86" align="center" sortable prop="value">
+                  <el-table-column label="连接数 (点击查看)" width="115" align="center" sortable prop="value">
                     <template #default="{ row }">
-                      <span class="count-capsule">{{ row.value }} 人</span>
+                      <span
+                        class="count-capsule clickable-capsule"
+                        title="点击穿透查看实时在线用户明细"
+                        @click.stop="openDrilldown(row.name)"
+                      >
+                        {{ row.value }} 人 <el-icon :size="10" style="margin-left: 2px;"><ArrowRight /></el-icon>
+                      </span>
                     </template>
                   </el-table-column>
                   <el-table-column label="占比" min-width="90" align="left">
@@ -186,7 +218,25 @@
                 </span>
               </template>
               <div class="table-container">
-                <el-table :data="filteredDetails" style="width: 100%" height="510" size="small">
+                <!-- 明细操作栏 -->
+                <div class="detail-toolbar">
+                  <div class="toolbar-filter">
+                    <span class="filter-label">仅看跨省并发:</span>
+                    <el-switch v-model="onlyMultiLocation" size="small" />
+                    <el-tag v-if="onlyMultiLocation" type="danger" size="small" closable @close="onlyMultiLocation = false">
+                      异常跨省 ({{ filteredDetails.length }})
+                    </el-tag>
+                  </div>
+                  <el-button
+                    size="small"
+                    icon="Download"
+                    @click="handleExportCsv(filteredDetails, `active_connections_${selectedProvince || 'all'}`)"
+                  >
+                    导出 CSV
+                  </el-button>
+                </div>
+
+                <el-table :data="filteredDetails" style="width: 100%" height="470" size="small">
                   <el-table-column label="客户端 IP" prop="ip" min-width="115">
                     <template #default="{ row }">
                       <span style="font-family: monospace; font-size: 12px; font-weight: 500;">{{ row.ip }}</span>
@@ -206,6 +256,24 @@
                       </div>
                     </template>
                   </el-table-column>
+                  <el-table-column label="风控状态" width="110" align="center">
+                    <template #default="{ row }">
+                      <el-tooltip
+                        v-if="row.is_multi_location"
+                        effect="dark"
+                        placement="top"
+                      >
+                        <template #content>
+                          <div><b>⚠️ 跨省多地并发异常</b></div>
+                          <div>同时在线省份：{{ (row.concurrent_provinces || []).join('、') }}</div>
+                        </template>
+                        <el-tag type="danger" size="small" style="cursor: pointer;">
+                          ⚠️ 跨省并发
+                        </el-tag>
+                      </el-tooltip>
+                      <el-tag v-else type="success" size="small">正常单省</el-tag>
+                    </template>
+                  </el-table-column>
                 </el-table>
               </div>
             </el-tab-pane>
@@ -213,6 +281,88 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 省份实时在线用户下钻穿透弹窗 -->
+    <el-dialog
+      v-model="drilldownVisible"
+      :title="'【' + drilldownProvince + '】实时在线用户清单'"
+      width="820px"
+      destroy-on-close
+      append-to-body
+    >
+      <div class="drilldown-dialog-body">
+        <div class="drilldown-summary-bar">
+          <div class="summary-left">
+            <el-tag type="danger" effect="plain">共 {{ provinceDetails.length }} 条连接</el-tag>
+            <span class="user-count-text">
+              独立用户：<b>{{ new Set(provinceDetails.map(d => d.user_id)).size }}</b> 位
+            </span>
+            <el-tag v-if="provinceMultiCount > 0" type="danger">
+              ⚠️ 跨省并发风控：{{ provinceMultiCount }} 位
+            </el-tag>
+          </div>
+          <div class="summary-right">
+            <el-input
+              v-model="drilldownSearch"
+              placeholder="搜索 邮箱 / IP / 城市 / 节点"
+              size="small"
+              clearable
+              style="width: 200px; margin-right: 8px;"
+            />
+            <el-button
+              size="small"
+              icon="Download"
+              @click="handleExportCsv(provinceDetails, `province_${drilldownProvince}`)"
+            >
+              导出
+            </el-button>
+          </div>
+        </div>
+
+        <el-table :data="filteredProvinceDetails" size="small" style="width: 100%" height="400">
+          <el-table-column label="用户 (UID / 邮箱)" min-width="160">
+            <template #default="{ row }">
+              <div class="email-row">
+                <span class="email-text">{{ row.email }}</span>
+                <el-button link size="small" icon="DocumentCopy" title="复制邮箱" @click="copyEmail(row.email)" />
+              </div>
+              <div class="uid-text">UID: {{ row.user_id }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column label="客户端 IP / 城市" min-width="140">
+            <template #default="{ row }">
+              <div style="font-family: monospace; font-weight: 500;">{{ row.ip }}</div>
+              <div style="font-size: 11px; color: #909399;">
+                {{ row.city || row.province }}{{ row.isp ? ` · ${row.isp}` : '' }}
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="连接节点" prop="node" min-width="120">
+            <template #default="{ row }">
+              <el-tag size="small" type="info">{{ row.node }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="风控状态" width="115" align="center">
+            <template #default="{ row }">
+              <el-tooltip
+                v-if="row.is_multi_location"
+                effect="dark"
+                placement="top"
+              >
+                <template #content>
+                  <div><b>⚠️ 跨省多地并发异常</b></div>
+                  <div>同时在线省份：{{ (row.concurrent_provinces || []).join('、') }}</div>
+                </template>
+                <el-tag type="danger" size="small" style="cursor: pointer;">
+                  ⚠️ 跨省并发
+                </el-tag>
+              </el-tooltip>
+              <el-tag v-else type="success" size="small">正常单省</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -221,7 +371,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import * as echarts from 'echarts';
 import api from '../api';
 import { ElMessage } from 'element-plus';
-import { InfoFilled, Refresh } from '@element-plus/icons-vue';
+import { InfoFilled, Refresh, ArrowRight, Download, DocumentCopy } from '@element-plus/icons-vue';
 
 // 响应式数据
 const loading = ref(false);
@@ -233,11 +383,22 @@ const mapScope = ref('china'); // 'china' | 'all'
 const activeTab = ref('provinces'); // 'provinces' | 'regions' | 'details'
 const selectedProvince = ref('');
 
+// 自动定时刷新 (0: 关, 30s, 60s, 120s)
+const autoRefreshInterval = ref(0);
+let autoRefreshTimer = null;
+
+// 风控筛选与省份下钻穿透弹窗
+const onlyMultiLocation = ref(false);
+const drilldownVisible = ref(false);
+const drilldownProvince = ref('');
+const drilldownSearch = ref('');
+
 const stats = ref({
   total_online_users: 0,
   total_active_ips: 0,
   covered_provinces: 0,
   overseas_or_lan: 0,
+  multi_location_users: 0,
   provinces: [],
   regions: [],
   details: [],
@@ -252,9 +413,96 @@ const filteredProvinces = computed(() => {
 
 // 计算属性：筛选后的明细
 const filteredDetails = computed(() => {
-  const list = stats.value.details || [];
-  if (!selectedProvince.value) return list;
-  return list.filter((d) => d.province === selectedProvince.value);
+  let list = stats.value.details || [];
+  if (selectedProvince.value) {
+    list = list.filter((d) => d.province === selectedProvince.value);
+  }
+  if (onlyMultiLocation.value) {
+    list = list.filter((d) => d.is_multi_location);
+  }
+  return list;
+});
+
+// 省份下钻明细
+const provinceDetails = computed(() => {
+  if (!drilldownProvince.value) return [];
+  return (stats.value.details || []).filter((d) => d.province === drilldownProvince.value);
+});
+
+const filteredProvinceDetails = computed(() => {
+  if (!drilldownSearch.value.trim()) return provinceDetails.value;
+  const kw = drilldownSearch.value.trim().toLowerCase();
+  return provinceDetails.value.filter(
+    (d) =>
+      d.email.toLowerCase().includes(kw) ||
+      d.ip.includes(kw) ||
+      (d.city && d.city.includes(kw)) ||
+      (d.isp && d.isp.includes(kw)) ||
+      (d.node && d.node.toLowerCase().includes(kw))
+  );
+});
+
+const provinceMultiCount = computed(() => {
+  return new Set(provinceDetails.value.filter((d) => d.is_multi_location).map((d) => d.user_id)).size;
+});
+
+// 打开省份下钻穿透弹窗
+const openDrilldown = (pName) => {
+  drilldownProvince.value = pName;
+  drilldownSearch.value = '';
+  drilldownVisible.value = true;
+};
+
+// 复制邮箱
+const copyEmail = (email) => {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(email);
+    ElMessage.success('邮箱已复制');
+  }
+};
+
+// 导出 CSV
+const handleExportCsv = (dataList, filename) => {
+  if (!dataList || !dataList.length) {
+    ElMessage.warning('当前无数据可导出');
+    return;
+  }
+  const headers = ['用户ID', '邮箱', '客户端IP', '省份', '城市', '运营商', '节点', '风控状态', '并发省份'];
+  const rows = dataList.map((d) => [
+    d.user_id,
+    `"${d.email.replace(/"/g, '""')}"`,
+    d.ip,
+    `"${d.province}"`,
+    `"${d.city || ''}"`,
+    `"${d.isp || ''}"`,
+    `"${d.node.replace(/"/g, '""')}"`,
+    d.is_multi_location ? '跨省多地并发' : '正常单省',
+    `"${(d.concurrent_provinces || []).join(';')}"`,
+  ]);
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a')
+  link.href = url;
+  link.setAttribute('download', `${filename}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  ElMessage.success('已导出 CSV 报表');
+};
+
+// 监听自动刷新设置
+watch(autoRefreshInterval, (val) => {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+  if (val > 0) {
+    autoRefreshTimer = setInterval(() => {
+      fetchData(false);
+    }, val * 1000);
+  }
 });
 
 // 加载后台数据
@@ -466,6 +714,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize);
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
   if (chartInstance) {
     chartInstance.dispose();
     chartInstance = null;
@@ -745,6 +997,84 @@ onBeforeUnmount(() => {
 
 :deep(.selected-table-row) {
   background-color: #fef0f0 !important;
+}
+
+.risk-alert {
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #ffe58f;
+}
+.risk-alert-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.clickable-capsule {
+  cursor: pointer;
+  border: 1px solid #b3d8ff;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+.clickable-capsule:hover {
+  background-color: #d9ecff;
+}
+.detail-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.toolbar-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-label {
+  font-size: 12px;
+  color: #606266;
+}
+.drilldown-dialog-body {
+  padding: 4px 0;
+}
+.drilldown-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.summary-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.summary-right {
+  display: flex;
+  align-items: center;
+}
+.user-count-text {
+  font-size: 13px;
+  color: #606266;
+}
+.email-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.email-text {
+  font-weight: 500;
+  color: #303133;
+}
+.uid-text {
+  font-size: 11px;
+  color: #909399;
 }
 
 @media screen and (max-width: 768px) {

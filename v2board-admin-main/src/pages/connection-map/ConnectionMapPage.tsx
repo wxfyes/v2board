@@ -1,6 +1,33 @@
-import { ReloadOutlined, InfoCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
+import {
+  ReloadOutlined,
+  InfoCircleOutlined,
+  CloseCircleOutlined,
+  RightOutlined,
+  WarningOutlined,
+  DownloadOutlined,
+  CopyOutlined,
+} from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Badge, Button, Card, Col, Progress, Radio, Row, Space, Table, Tabs, Tag, message } from 'antd'
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Col,
+  Input,
+  Modal,
+  Progress,
+  Radio,
+  Row,
+  Select,
+  Space,
+  Switch,
+  Table,
+  Tabs,
+  Tag,
+  Tooltip,
+  message,
+} from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import * as echarts from 'echarts/core'
 import { MapChart } from 'echarts/charts'
@@ -22,21 +49,39 @@ export default function ConnectionMapPage() {
   const [activeTab, setActiveTab] = useState<string>('provinces')
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null)
 
+  // 监控大屏自动定时刷新 (0: 关闭, 30: 30s, 60: 60s, 120: 2m)
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(0)
+
+  // 异地并发筛选与下钻明细状态
+  const [onlyMultiLocation, setOnlyMultiLocation] = useState<boolean>(false)
+  const [drilldownProvince, setDrilldownProvince] = useState<string | null>(null)
+  const [drilldownSearch, setDrilldownSearch] = useState<string>('')
+
   const chartRef = useRef<HTMLDivElement>(null)
   const chartInstanceRef = useRef<echarts.ECharts | null>(null)
 
-  // 获取统计数据 (React Query，30秒内不重复拉取)
+  // 获取统计数据 (React Query，20秒原子缓存)
   const query = useQuery({
     queryKey: ['stat', 'connection-map'],
     queryFn: () => unwrap(getConnectionMap()),
     staleTime: 20_000,
   })
 
+  // 自动刷新定时器
+  useEffect(() => {
+    if (autoRefreshInterval <= 0) return
+    const timer = setInterval(() => {
+      void query.refetch()
+    }, autoRefreshInterval * 1000)
+    return () => clearInterval(timer)
+  }, [autoRefreshInterval, query])
+
   const stats: ConnectionMapData = query.data ?? {
     total_online_users: 0,
     total_active_ips: 0,
     covered_provinces: 0,
     overseas_or_lan: 0,
+    multi_location_users: 0,
     provinces: [],
     regions: [],
     details: [],
@@ -209,9 +254,69 @@ export default function ConnectionMapPage() {
   }, [selectedProvince, stats.provinces])
 
   const filteredDetails = useMemo(() => {
-    if (!selectedProvince) return stats.details || []
-    return (stats.details || []).filter((d) => d.province === selectedProvince)
-  }, [selectedProvince, stats.details])
+    let list = stats.details || []
+    if (selectedProvince) {
+      list = list.filter((d) => d.province === selectedProvince)
+    }
+    if (onlyMultiLocation) {
+      list = list.filter((d) => d.is_multi_location)
+    }
+    return list
+  }, [selectedProvince, onlyMultiLocation, stats.details])
+
+  // 省份下钻明细
+  const provinceDetails = useMemo(() => {
+    if (!drilldownProvince) return []
+    return (stats.details || []).filter((d) => d.province === drilldownProvince)
+  }, [drilldownProvince, stats.details])
+
+  const filteredProvinceDetails = useMemo(() => {
+    if (!drilldownSearch.trim()) return provinceDetails
+    const kw = drilldownSearch.trim().toLowerCase()
+    return provinceDetails.filter(
+      (d) =>
+        d.email.toLowerCase().includes(kw) ||
+        d.ip.includes(kw) ||
+        (d.city && d.city.includes(kw)) ||
+        (d.isp && d.isp.includes(kw)) ||
+        (d.node && d.node.toLowerCase().includes(kw)),
+    )
+  }, [provinceDetails, drilldownSearch])
+
+  const provinceMultiCount = useMemo(() => {
+    return new Set(provinceDetails.filter((d) => d.is_multi_location).map((d) => d.user_id)).size
+  }, [provinceDetails])
+
+  // 导出 CSV 工具
+  const handleExportCsv = (dataList: ConnectionMapDetail[], filename: string) => {
+    if (!dataList.length) {
+      message.warning('当前无数据可导出')
+      return
+    }
+    const headers = ['用户ID', '邮箱', '客户端IP', '省份', '城市', '运营商', '节点', '风控状态', '并发省份']
+    const rows = dataList.map((d) => [
+      d.user_id,
+      `"${d.email.replace(/"/g, '""')}"`,
+      d.ip,
+      `"${d.province}"`,
+      `"${d.city || ''}"`,
+      `"${d.isp || ''}"`,
+      `"${d.node.replace(/"/g, '""')}"`,
+      d.is_multi_location ? '跨省多地并发' : '正常单省',
+      `"${(d.concurrent_provinces || []).join(';')}"`,
+    ])
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `${filename}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    message.success('已导出 CSV 报表')
+  }
 
   // 省份表格列配置
   const provinceColumns: ColumnsType<ConnectionMapProvince> = [
@@ -219,7 +324,7 @@ export default function ConnectionMapPage() {
       title: '排名',
       dataIndex: 'rank',
       key: 'rank',
-      width: 56,
+      width: 50,
       align: 'center',
       render: (rank: number) => {
         let bg = '#f0f0f0'
@@ -265,24 +370,36 @@ export default function ConnectionMapPage() {
       ),
     },
     {
-      title: '连接数',
+      title: '连接数 (点击查看)',
       dataIndex: 'value',
       key: 'value',
-      width: 90,
+      width: 110,
       align: 'center',
       sorter: (a, b) => a.value - b.value,
-      render: (val: number) => (
+      render: (val: number, r: ConnectionMapProvince) => (
         <span
+          onClick={(e) => {
+            e.stopPropagation()
+            setDrilldownProvince(r.name)
+            setDrilldownSearch('')
+          }}
           style={{
             padding: '2px 8px',
-            borderRadius: 10,
+            borderRadius: 12,
             background: '#e6f7ff',
             color: '#1890ff',
             fontWeight: 600,
             fontSize: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            cursor: 'pointer',
+            border: '1px solid #91d5ff',
+            transition: 'all 0.2s',
           }}
+          title={`点击穿透查看【${r.name}】实时在线用户明细`}
         >
-          {val} 人
+          {val} 人 <RightOutlined style={{ fontSize: 9 }} />
         </span>
       ),
     },
@@ -290,11 +407,11 @@ export default function ConnectionMapPage() {
       title: '占比',
       dataIndex: 'ratio',
       key: 'ratio',
-      width: 120,
+      width: 100,
       render: (ratio: number) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Progress percent={ratio} showInfo={false} strokeColor="#f5222d" size="small" style={{ margin: 0, flex: 1 }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#595959', width: 36, textAlign: 'right' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#595959', width: 34, textAlign: 'right' }}>
             {ratio}%
           </span>
         </div>
@@ -382,6 +499,31 @@ export default function ConnectionMapPage() {
         </div>
       ),
     },
+    {
+      title: '风控状态',
+      key: 'risk',
+      width: 110,
+      align: 'center',
+      render: (_, r) => {
+        if (r.is_multi_location) {
+          return (
+            <Tooltip
+              title={
+                <div>
+                  <div><b>⚠️ 跨省多地并发异常</b></div>
+                  <div>同时在线省份：{r.concurrent_provinces?.join('、')}</div>
+                </div>
+              }
+            >
+              <Tag color="error" style={{ cursor: 'pointer' }}>
+                <WarningOutlined /> 跨省并发
+              </Tag>
+            </Tooltip>
+          )
+        }
+        return <Tag color="success">正常单省</Tag>
+      },
+    },
   ]
 
   return (
@@ -435,6 +577,34 @@ export default function ConnectionMapPage() {
           </Col>
         </Row>
 
+        {/* 异常跨省并发风控预警 Banner */}
+        {Boolean(stats.multi_location_users && stats.multi_location_users > 0) && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16, borderRadius: 8, border: '1px solid #ffe58f' }}
+            message={
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <span>
+                  <strong>多地并发风控预警：</strong>检测到当前有 <b style={{ color: '#cf1322', fontSize: 15 }}>{stats.multi_location_users}</b> 位用户正在从多个不同省份并发连接，疑似合租共享账号或凭证泄漏。
+                </span>
+                <Button
+                  type="link"
+                  size="small"
+                  danger
+                  style={{ padding: 0, fontWeight: 500 }}
+                  onClick={() => {
+                    setActiveTab('details')
+                    setOnlyMultiLocation(true)
+                  }}
+                >
+                  立即查看涉事用户明细 →
+                </Button>
+              </div>
+            }
+          />
+        )}
+
         {/* 下方主区域：左侧地图 + 右侧列表 */}
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={14}>
@@ -459,15 +629,27 @@ export default function ConnectionMapPage() {
                   <Radio.Button value="all">全部 / 包含海外</Radio.Button>
                 </Radio.Group>
 
-                <Space size="middle">
+                <Space size="middle" wrap>
                   <span style={{ fontSize: 12, color: '#8c8c8c', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <InfoCircleOutlined /> {isMobile ? '提示：点击省份可筛选下方列表' : '提示：滚轮可缩放，点击省份可筛选右侧列表'}
                   </span>
+                  <Select
+                    size="small"
+                    value={autoRefreshInterval}
+                    onChange={setAutoRefreshInterval}
+                    style={{ width: 110 }}
+                    options={[
+                      { label: '自动刷新: 关', value: 0 },
+                      { label: '每 30 秒', value: 30 },
+                      { label: '每 60 秒', value: 60 },
+                      { label: '每 2 分钟', value: 120 },
+                    ]}
+                  />
                   <Button
                     icon={<ReloadOutlined spin={query.isFetching} />}
                     shape="circle"
                     size="small"
-                    title="刷新"
+                    title="立即刷新"
                     onClick={handleRefresh}
                   />
                 </Space>
@@ -560,14 +742,42 @@ export default function ConnectionMapPage() {
                       </span>
                     ),
                     children: (
-                      <Table
-                        columns={detailColumns}
-                        dataSource={filteredDetails}
-                        rowKey={(r, i) => `${r.ip}_${i}`}
-                        size="small"
-                        pagination={false}
-                        scroll={{ y: isMobile ? 320 : 490 }}
-                      />
+                      <div>
+                        {/* 筛选与导出工具条 */}
+                        <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                          <Space size="middle">
+                            <span style={{ fontSize: 12, color: '#595959', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              仅看跨省并发:
+                              <Switch
+                                size="small"
+                                checked={onlyMultiLocation}
+                                onChange={setOnlyMultiLocation}
+                              />
+                            </span>
+                            {onlyMultiLocation && (
+                              <Tag color="error" closable onClose={() => setOnlyMultiLocation(false)}>
+                                跨省异常 ({filteredDetails.length})
+                              </Tag>
+                            )}
+                          </Space>
+                          <Button
+                            icon={<DownloadOutlined />}
+                            size="small"
+                            onClick={() => handleExportCsv(filteredDetails, `active_connections_${selectedProvince || 'all'}`)}
+                          >
+                            导出 CSV
+                          </Button>
+                        </div>
+
+                        <Table
+                          columns={detailColumns}
+                          dataSource={filteredDetails}
+                          rowKey={(r, i) => `${r.ip}_${i}`}
+                          size="small"
+                          pagination={false}
+                          scroll={{ y: isMobile ? 320 : 450 }}
+                        />
+                      </div>
                     ),
                   },
                 ]}
@@ -575,6 +785,131 @@ export default function ConnectionMapPage() {
             </Card>
           </Col>
         </Row>
+
+        {/* 省份实时在线连接下钻穿透弹窗 */}
+        <Modal
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>
+                【{drilldownProvince}】实时在线连接明细
+              </span>
+              <Tag color="red">{provinceDetails.length} 条连接</Tag>
+            </div>
+          }
+          open={!!drilldownProvince}
+          onCancel={() => setDrilldownProvince(null)}
+          footer={null}
+          width={840}
+          destroyOnClose
+        >
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <Space size="middle">
+                <span style={{ fontSize: 13, color: '#595959' }}>
+                  独立用户数：<b style={{ color: '#262626' }}>{new Set(provinceDetails.map((d) => d.user_id)).size}</b> 位
+                </span>
+                {provinceMultiCount > 0 && (
+                  <Tag color="error">
+                    ⚠️ 跨省并发风控：{provinceMultiCount} 位
+                  </Tag>
+                )}
+              </Space>
+              <Space>
+                <Input.Search
+                  placeholder="搜索 邮箱 / IP / 城市 / 节点"
+                  allowClear
+                  size="small"
+                  style={{ width: 210 }}
+                  value={drilldownSearch}
+                  onChange={(e) => setDrilldownSearch(e.target.value)}
+                />
+                <Button
+                  icon={<DownloadOutlined />}
+                  size="small"
+                  onClick={() => handleExportCsv(provinceDetails, `province_${drilldownProvince}`)}
+                >
+                  导出
+                </Button>
+              </Space>
+            </div>
+
+            <Table
+              columns={[
+                {
+                  title: '用户 (UID / 邮箱)',
+                  key: 'user',
+                  render: (_, r) => (
+                    <div>
+                      <div style={{ fontWeight: 500, color: '#262626', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span>{r.email}</span>
+                        <Button
+                          type="text"
+                          icon={<CopyOutlined style={{ fontSize: 11, color: '#8c8c8c' }} />}
+                          size="small"
+                          style={{ width: 20, height: 20 }}
+                          onClick={() => {
+                            void navigator.clipboard.writeText(r.email)
+                            message.success('邮箱已复制')
+                          }}
+                          title="复制邮箱"
+                        />
+                      </div>
+                      <div style={{ fontSize: 11, color: '#8c8c8c' }}>UID: {r.user_id}</div>
+                    </div>
+                  ),
+                },
+                {
+                  title: '客户端 IP / 城市',
+                  key: 'ip',
+                  render: (_, r) => (
+                    <div>
+                      <div style={{ fontFamily: 'monospace', fontWeight: 500 }}>{r.ip}</div>
+                      <div style={{ fontSize: 11, color: '#595959' }}>
+                        {r.city || r.province} {r.isp ? `· ${r.isp}` : ''}
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  title: '连接节点',
+                  dataIndex: 'node',
+                  key: 'node',
+                  render: (node: string) => <Tag color="blue">{node}</Tag>,
+                },
+                {
+                  title: '风控状态',
+                  key: 'risk',
+                  width: 120,
+                  align: 'center',
+                  render: (_, r) => {
+                    if (r.is_multi_location) {
+                      return (
+                        <Tooltip
+                          title={
+                            <div>
+                              <div><b>⚠️ 跨省多地并发异常！</b></div>
+                              <div>该账号同时活跃省份：</div>
+                              <div style={{ color: '#ffccc7' }}>{r.concurrent_provinces?.join('、')}</div>
+                            </div>
+                          }
+                        >
+                          <Tag color="error" style={{ cursor: 'pointer' }}>
+                            <WarningOutlined /> 跨省并发
+                          </Tag>
+                        </Tooltip>
+                      )
+                    }
+                    return <Tag color="success">正常单省</Tag>
+                  },
+                },
+              ]}
+              dataSource={filteredProvinceDetails}
+              rowKey={(r, i) => `${r.ip}_${i}`}
+              size="small"
+              pagination={{ pageSize: 8, showTotal: (t) => `共 ${t} 条` }}
+            />
+          </div>
+        </Modal>
       </div>
     </AdminLayout>
   )
