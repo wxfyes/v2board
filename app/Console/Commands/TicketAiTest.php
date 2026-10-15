@@ -27,6 +27,25 @@ class TicketAiTest extends Command
 
         $maskedKey = empty($apiKey) ? '未配置 (空)' : (substr($apiKey, 0, 7) . '...' . substr($apiKey, -4));
 
+        // 检查队列守护进程
+        $isQueueRunning = false;
+        $queueProcessInfo = '未检测到运行进程 (⚠️ 无法自动回复)';
+        try {
+            $masters = app(\Laravel\Horizon\Contracts\MasterSupervisorRepository::class)->all();
+            if (!empty($masters)) {
+                $isQueueRunning = true;
+                $queueProcessInfo = 'Horizon 正常运行中';
+            }
+        } catch (\Throwable $e) {}
+
+        if (!$isQueueRunning && function_exists('shell_exec')) {
+            $ps = @shell_exec("ps aux | grep -E 'horizon|queue:work' | grep -v grep");
+            if (!empty(trim((string)$ps))) {
+                $isQueueRunning = true;
+                $queueProcessInfo = '检测到活跃队列 Worker';
+            }
+        }
+
         $this->table(
             ['配置项', '当前读取值', '状态'],
             [
@@ -35,8 +54,16 @@ class TicketAiTest extends Command
                 ['ai_model', $model ?: '未配置', $model ? '正常' : '❌ 缺失'],
                 ['ai_api_key', $maskedKey, $apiKey ? '正常' : '❌ 缺失'],
                 ['ai_wait_time', "{$waitTime} 分钟", $waitTime == 0 ? '立即秒回' : "需等待 {$waitTime} 分钟"],
+                ['队列服务 (Queue)', $queueProcessInfo, $isQueueRunning ? '✅ 运行中' : '❌ 未运行(关键)'],
             ]
         );
+
+        if (!$isQueueRunning) {
+            $this->warn("\n⚠️  [严重警示] 服务器当前没有检测到队列进程（Horizon 或 queue:work）！");
+            $this->line("   AI 自动回复高度依赖后台队列服务。如果队列未启动，用户在前台提单后任务只会排队无法自动执行。");
+            $this->line("   👉 启动方法：在宝塔面板 Supervisor 管理器中添加/重启运行命令：php " . base_path('artisan') . " horizon");
+            $this->line("   👉 或者终端临时测试运行：php artisan queue:work\n");
+        }
 
         if (empty($apiUrl) || empty($apiKey) || empty($model)) {
             $this->error("❌ 核心配置不完整，请先在后台【系统配置 -> AI客服】中填齐保存！");
