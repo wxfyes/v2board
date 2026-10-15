@@ -258,7 +258,7 @@
                       </div>
                     </template>
                   </el-table-column>
-                  <el-table-column label="风控状态" width="110" align="center">
+                  <el-table-column label="风控状态" width="120" align="center">
                     <template #default="{ row }">
                       <el-tooltip
                         v-if="row.is_multi_location"
@@ -266,8 +266,39 @@
                         placement="top"
                       >
                         <template #content>
-                          <div><b>⚠️ 跨省多地并发异常</b></div>
-                          <div>同时在线省份：{{ (row.concurrent_provinces || []).join('、') }}</div>
+                          <div style="max-width: 360px; padding: 2px;">
+                            <div style="font-weight: 600; color: #f56c6c; margin-bottom: 6px;">
+                              ⚠️ 跨省多地并发风控预警
+                            </div>
+                            <div style="font-size: 12px; color: #dcdfe6; margin-bottom: 6px;">
+                              检测到该账号在多个省份同时产生活跃连接：
+                            </div>
+                            <div v-if="row.concurrent_details && row.concurrent_details.length > 0" style="background: rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 10px; font-size: 12px;">
+                              <div
+                                v-for="(c, idx) in row.concurrent_details"
+                                :key="idx"
+                                :style="{
+                                  marginBottom: idx === row.concurrent_details.length - 1 ? '0' : '8px',
+                                  borderBottom: idx === row.concurrent_details.length - 1 ? 'none' : '1px dashed rgba(255,255,255,0.15)',
+                                  paddingBottom: idx === row.concurrent_details.length - 1 ? '0' : '6px'
+                                }"
+                              >
+                                <div style="font-weight: 600; color: #ff9999; display: flex; justify-content: space-between;">
+                                  <span>📍 {{ c.province }}{{ c.city ? ` · ${c.city}` : '' }}</span>
+                                  <span style="font-size: 11px; color: #c0c4cc; font-weight: normal;">{{ c.isp || '' }}</span>
+                                </div>
+                                <div style="font-family: monospace; color: #ffffff; font-size: 11px; margin-top: 2px; padding-left: 14px;">
+                                  IP: {{ c.ip }}
+                                </div>
+                              </div>
+                            </div>
+                            <div v-else style="color: #ffccc7; font-size: 12px;">
+                              {{ (row.concurrent_provinces || []).join('、') }}
+                            </div>
+                            <div style="font-size: 11px; color: #909399; margin-top: 8px;">
+                              💡 提示：该账号疑似存在合租、多设备跨区外借或凭证泄漏
+                            </div>
+                          </div>
                         </template>
                         <el-tag type="danger" size="small" style="cursor: pointer;">
                           ⚠️ 跨省并发
@@ -288,7 +319,8 @@
     <el-dialog
       v-model="drilldownVisible"
       :title="'【' + drilldownProvince + '】' + (stats.range_label || '实时在线') + '用户清单'"
-      width="840px"
+      width="960px"
+      style="max-width: 95vw;"
       destroy-on-close
       append-to-body
     >
@@ -309,49 +341,51 @@
               placeholder="搜索 邮箱 / IP / 城市 / 节点"
               size="small"
               clearable
-              style="width: 200px; margin-right: 8px;"
+              style="width: 210px; margin-right: 8px;"
             />
             <el-button
               size="small"
               icon="Download"
               @click="handleExportCsv(provinceDetails, `province_${drilldownProvince}`)"
             >
-              导出
+              导出 CSV
             </el-button>
           </div>
         </div>
 
         <el-table :data="filteredProvinceDetails" size="small" style="width: 100%" height="400">
-          <el-table-column label="用户 (UID / 邮箱)" min-width="160">
+          <el-table-column label="用户 (UID / 邮箱)" width="190">
             <template #default="{ row }">
               <div class="email-row">
-                <span class="email-text">{{ row.email }}</span>
+                <span class="email-text" style="word-break: break-all;">{{ row.email }}</span>
                 <el-button link size="small" icon="DocumentCopy" title="复制邮箱" @click="copyEmail(row.email)" />
               </div>
               <div class="uid-text">UID: {{ row.user_id }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="客户端 IP / 城市" min-width="140">
+          <el-table-column label="客户端 IP / 城市" width="200">
             <template #default="{ row }">
-              <div style="font-family: monospace; font-weight: 500;">{{ row.ip }}</div>
+              <div style="font-family: monospace; font-weight: 500; word-break: break-all;">{{ row.ip }}</div>
               <div style="font-size: 11px; color: #909399;">
                 {{ row.city || row.province }}{{ row.isp ? ` · ${row.isp}` : '' }}
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="连接节点" prop="node" min-width="120">
+          <el-table-column label="连接节点" prop="node" width="150">
             <template #default="{ row }">
-              <el-tag size="small" type="info">{{ row.node }}</el-tag>
+              <el-tag size="small" type="info" style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="row.node">
+                {{ row.node }}
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="最后活跃时间" min-width="150">
+          <el-table-column label="最后活跃时间" width="160">
             <template #default="{ row }">
-              <span style="font-size: 12px; color: #606266;">
+              <span style="font-size: 12px; color: #606266; white-space: nowrap;">
                 {{ row.last_active_at || (row.updated_at ? new Date(row.updated_at * 1000).toLocaleString('zh-CN', { hour12: false }) : '-') }}
               </span>
             </template>
           </el-table-column>
-          <el-table-column label="风控状态" width="115" align="center">
+          <el-table-column label="风控状态" width="120" align="center">
             <template #default="{ row }">
               <el-tooltip
                 v-if="row.is_multi_location"
@@ -359,8 +393,39 @@
                 placement="top"
               >
                 <template #content>
-                  <div><b>⚠️ 跨省多地并发异常</b></div>
-                  <div>同时在线省份：{{ (row.concurrent_provinces || []).join('、') }}</div>
+                  <div style="max-width: 360px; padding: 2px;">
+                    <div style="font-weight: 600; color: #f56c6c; margin-bottom: 6px;">
+                      ⚠️ 跨省多地并发风控预警
+                    </div>
+                    <div style="font-size: 12px; color: #dcdfe6; margin-bottom: 6px;">
+                      检测到该账号在多个省份同时产生活跃连接：
+                    </div>
+                    <div v-if="row.concurrent_details && row.concurrent_details.length > 0" style="background: rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 10px; font-size: 12px;">
+                      <div
+                        v-for="(c, idx) in row.concurrent_details"
+                        :key="idx"
+                        :style="{
+                          marginBottom: idx === row.concurrent_details.length - 1 ? '0' : '8px',
+                          borderBottom: idx === row.concurrent_details.length - 1 ? 'none' : '1px dashed rgba(255,255,255,0.15)',
+                          paddingBottom: idx === row.concurrent_details.length - 1 ? '0' : '6px'
+                        }"
+                      >
+                        <div style="font-weight: 600; color: #ff9999; display: flex; justify-content: space-between;">
+                          <span>📍 {{ c.province }}{{ c.city ? ` · ${c.city}` : '' }}</span>
+                          <span style="font-size: 11px; color: #c0c4cc; font-weight: normal;">{{ c.isp || '' }}</span>
+                        </div>
+                        <div style="font-family: monospace; color: #ffffff; font-size: 11px; margin-top: 2px; padding-left: 14px;">
+                          IP: {{ c.ip }}
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else style="color: #ffccc7; font-size: 12px;">
+                      {{ (row.concurrent_provinces || []).join('、') }}
+                    </div>
+                    <div style="font-size: 11px; color: #909399; margin-top: 8px;">
+                      💡 提示：该账号疑似存在合租、多设备跨区外借或凭证泄漏
+                    </div>
+                  </div>
                 </template>
                 <el-tag type="danger" size="small" style="cursor: pointer;">
                   ⚠️ 跨省并发

@@ -1874,6 +1874,7 @@ class StatController extends Controller
             $regionStats = [];   // [大区 => 连接数]
             $rawDetails = [];    // 暂存明细列表
             $userProvincesMap = []; // [$uid => [$province => true]] 用户省份分布集合(用于跨省并发风控分析)
+            $userProvinceDetailsMap = []; // [$uid => [$province => [省份IP证据明细]]]
             $processedUserIds = [];
 
             if ($timeRange === 'realtime') {
@@ -1947,6 +1948,15 @@ class StatController extends Controller
                                 }
                                 $provinceStats[$prov]['value']++;
                                 $userProvincesMap[$uid][$prov] = true;
+                                if (!isset($userProvinceDetailsMap[$uid][$prov])) {
+                                    $userProvinceDetailsMap[$uid][$prov] = [
+                                        'province' => $prov,
+                                        'city' => $geo['city'] ?: '',
+                                        'ip' => $rawIp,
+                                        'isp' => $geo['isp'] ?: '',
+                                        'time' => $nodeItem['lastupdateAt'] ?? time(),
+                                    ];
+                                }
                             }
 
                             if (!empty($reg)) {
@@ -2012,6 +2022,15 @@ class StatController extends Controller
                             }
                             $provinceStats[$prov]['value']++;
                             $userProvincesMap[$uid][$prov] = true;
+                            if (!isset($userProvinceDetailsMap[$uid][$prov])) {
+                                $userProvinceDetailsMap[$uid][$prov] = [
+                                    'province' => $prov,
+                                    'city' => $geo['city'] ?: '',
+                                    'ip' => $fallbackIp,
+                                    'isp' => $geo['isp'] ?: '',
+                                    'time' => (int)$uInfo->t,
+                                ];
+                            }
                         }
 
                         if (!empty($reg)) {
@@ -2127,6 +2146,15 @@ class StatController extends Controller
                             }
                             $provinceStats[$prov]['value']++;
                             $userProvincesMap[$uid][$prov] = true;
+                            if (!isset($userProvinceDetailsMap[$uid][$prov])) {
+                                $userProvinceDetailsMap[$uid][$prov] = [
+                                    'province' => $prov,
+                                    'city' => $geo['city'] ?: '',
+                                    'ip' => $rawIp,
+                                    'isp' => $geo['isp'] ?: '',
+                                    'time' => (int)$ipRecord['time'],
+                                ];
+                            }
                         }
 
                         if (!empty($reg)) {
@@ -2156,10 +2184,14 @@ class StatController extends Controller
         // 3. 多地并发风控识别：分析同一账号在当前窗口是否在 >= 2 个不同省份并发连接
         $multiLocationUsers = 0;
         $multiLocationUidMap = [];
+        $multiLocationDetailsMap = [];
         foreach ($userProvincesMap as $uid => $provs) {
             if (count($provs) >= 2) {
                 $multiLocationUsers++;
                 $multiLocationUidMap[$uid] = array_keys($provs);
+                $multiLocationDetailsMap[$uid] = isset($userProvinceDetailsMap[$uid])
+                    ? array_values($userProvinceDetailsMap[$uid])
+                    : [];
             }
         }
 
@@ -2169,6 +2201,7 @@ class StatController extends Controller
             $isMulti = isset($multiLocationUidMap[$uid]);
             $item['is_multi_location'] = $isMulti;
             $item['concurrent_provinces'] = $isMulti ? $multiLocationUidMap[$uid] : [];
+            $item['concurrent_details'] = $isMulti ? ($multiLocationDetailsMap[$uid] ?? []) : [];
             $onlineDetails[] = $item;
         }
 

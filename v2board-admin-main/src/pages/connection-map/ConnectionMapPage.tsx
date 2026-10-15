@@ -473,17 +473,80 @@ export default function ConnectionMapPage() {
     },
   ]
 
+  // 跨省并发风控证据卡片渲染器
+  const renderRiskTag = (r: ConnectionMapDetail) => {
+    if (!r.is_multi_location) {
+      return <Tag color="success">正常单省</Tag>
+    }
+
+    const hasDetails = Boolean(r.concurrent_details && r.concurrent_details.length > 0)
+
+    return (
+      <Tooltip
+        placement="topLeft"
+        overlayInnerStyle={{ maxWidth: 380, padding: '10px 14px', borderRadius: 8 }}
+        title={
+          <div>
+            <div style={{ fontWeight: 600, color: '#ff4d4f', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <WarningOutlined /> 跨省多地并发风控预警
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', marginBottom: 6 }}>
+              检测到该账号在多个省份同时产生活跃连接：
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 6, padding: '8px 10px', fontSize: 12 }}>
+              {hasDetails ? (
+                r.concurrent_details!.map((c, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      marginBottom: idx === r.concurrent_details!.length - 1 ? 0 : 8,
+                      borderBottom: idx === r.concurrent_details!.length - 1 ? 'none' : '1px dashed rgba(255,255,255,0.15)',
+                      paddingBottom: idx === r.concurrent_details!.length - 1 ? 0 : 6,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: '#ffa39e', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>📍 {c.province}{c.city ? ` · ${c.city}` : ''}</span>
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 400 }}>{c.isp || ''}</span>
+                    </div>
+                    <div style={{ fontFamily: 'monospace', color: '#fff', fontSize: 11, marginTop: 2, paddingLeft: 14 }}>
+                      IP: {c.ip}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ color: '#ffccc7' }}>
+                  {r.concurrent_provinces?.join('、')}
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 8 }}>
+              💡 提示：该账号疑似存在合租、多设备跨区外借或凭证泄漏
+            </div>
+          </div>
+        }
+      >
+        <Tag color="error" style={{ cursor: 'pointer', margin: 0 }}>
+          <WarningOutlined /> 跨省并发
+        </Tag>
+      </Tooltip>
+    )
+  }
+
   // 明细表格列
   const detailColumns: ColumnsType<ConnectionMapDetail> = [
     {
       title: '客户端 IP',
       dataIndex: 'ip',
       key: 'ip',
-      render: (ip: string) => <span style={{ fontFamily: 'monospace', fontWeight: 500 }}>{ip}</span>,
+      width: 190,
+      render: (ip: string) => (
+        <span style={{ fontFamily: 'monospace', fontWeight: 500, wordBreak: 'break-all' }}>{ip}</span>
+      ),
     },
     {
       title: '归属地',
       key: 'location',
+      width: 170,
       render: (_, r) => (
         <div>
           <div>{r.province}{r.city ? ` ${r.city}` : ''}</div>
@@ -494,46 +557,29 @@ export default function ConnectionMapPage() {
     {
       title: '节点 / 用户',
       key: 'node',
+      width: 200,
       render: (_, r) => (
         <div>
           <div style={{ fontSize: 12, fontWeight: 500, color: '#262626' }}>{r.node}</div>
-          <div style={{ fontSize: 11, color: '#8c8c8c' }}>{r.email}</div>
+          <div style={{ fontSize: 11, color: '#8c8c8c', wordBreak: 'break-all' }}>{r.email}</div>
         </div>
       ),
     },
     {
-      title: '最后活跃时间',
+      title: <span style={{ whiteSpace: 'nowrap' }}>最后活跃时间</span>,
       key: 'last_active_at',
-      width: 150,
+      width: 160,
       render: (_, r) => {
         const val = r.last_active_at || (r.updated_at ? new Date(r.updated_at * 1000).toLocaleString('zh-CN', { hour12: false }) : '-')
-        return <span style={{ fontSize: 12, color: '#595959' }}>{val}</span>
+        return <span style={{ fontSize: 12, color: '#595959', whiteSpace: 'nowrap' }}>{val}</span>
       },
     },
     {
-      title: '风控状态',
+      title: <span style={{ whiteSpace: 'nowrap' }}>风控状态</span>,
       key: 'risk',
-      width: 110,
+      width: 120,
       align: 'center',
-      render: (_, r) => {
-        if (r.is_multi_location) {
-          return (
-            <Tooltip
-              title={
-                <div>
-                  <div><b>⚠️ 跨省多地并发异常</b></div>
-                  <div>同时在线省份：{r.concurrent_provinces?.join('、')}</div>
-                </div>
-              }
-            >
-              <Tag color="error" style={{ cursor: 'pointer' }}>
-                <WarningOutlined /> 跨省并发
-              </Tag>
-            </Tooltip>
-          )
-        }
-        return <Tag color="success">正常单省</Tag>
-      },
+      render: (_, r) => renderRiskTag(r),
     },
   ]
 
@@ -809,7 +855,7 @@ export default function ConnectionMapPage() {
           title={
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 16, fontWeight: 600 }}>
-                【{drilldownProvince}】实时在线连接明细
+                【{drilldownProvince}】{stats.range_label || '实时在线'}连接明细
               </span>
               <Tag color="red">{provinceDetails.length} 条连接</Tag>
             </div>
@@ -817,7 +863,8 @@ export default function ConnectionMapPage() {
           open={!!drilldownProvince}
           onCancel={() => setDrilldownProvince(null)}
           footer={null}
-          width={840}
+          width={960}
+          style={{ maxWidth: '95vw', top: 30 }}
           destroyOnClose
         >
           <div style={{ marginTop: 12 }}>
@@ -837,7 +884,7 @@ export default function ConnectionMapPage() {
                   placeholder="搜索 邮箱 / IP / 城市 / 节点"
                   allowClear
                   size="small"
-                  style={{ width: 210 }}
+                  style={{ width: 220 }}
                   value={drilldownSearch}
                   onChange={(e) => setDrilldownSearch(e.target.value)}
                 />
@@ -846,7 +893,7 @@ export default function ConnectionMapPage() {
                   size="small"
                   onClick={() => handleExportCsv(provinceDetails, `province_${drilldownProvince}`)}
                 >
-                  导出
+                  导出 CSV
                 </Button>
               </Space>
             </div>
@@ -856,15 +903,16 @@ export default function ConnectionMapPage() {
                 {
                   title: '用户 (UID / 邮箱)',
                   key: 'user',
+                  width: 200,
                   render: (_, r) => (
                     <div>
                       <div style={{ fontWeight: 500, color: '#262626', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span>{r.email}</span>
+                        <span style={{ wordBreak: 'break-all' }}>{r.email}</span>
                         <Button
                           type="text"
                           icon={<CopyOutlined style={{ fontSize: 11, color: '#8c8c8c' }} />}
                           size="small"
-                          style={{ width: 20, height: 20 }}
+                          style={{ width: 20, height: 20, flexShrink: 0 }}
                           onClick={() => {
                             void navigator.clipboard.writeText(r.email)
                             message.success('邮箱已复制')
@@ -879,9 +927,10 @@ export default function ConnectionMapPage() {
                 {
                   title: '客户端 IP / 城市',
                   key: 'ip',
+                  width: 200,
                   render: (_, r) => (
                     <div>
-                      <div style={{ fontFamily: 'monospace', fontWeight: 500 }}>{r.ip}</div>
+                      <div style={{ fontFamily: 'monospace', fontWeight: 500, wordBreak: 'break-all' }}>{r.ip}</div>
                       <div style={{ fontSize: 11, color: '#595959' }}>
                         {r.city || r.province} {r.isp ? `· ${r.isp}` : ''}
                       </div>
@@ -892,47 +941,38 @@ export default function ConnectionMapPage() {
                   title: '连接节点',
                   dataIndex: 'node',
                   key: 'node',
-                  render: (node: string) => <Tag color="blue">{node}</Tag>,
+                  width: 150,
+                  render: (node: string) => (
+                    <Tag
+                      color="blue"
+                      style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      title={node}
+                    >
+                      {node}
+                    </Tag>
+                  ),
                 },
                 {
-                  title: '最后活跃时间',
+                  title: <span style={{ whiteSpace: 'nowrap' }}>最后活跃时间</span>,
                   key: 'last_active_at',
-                  width: 155,
+                  width: 160,
                   render: (_, r) => {
                     const val = r.last_active_at || (r.updated_at ? new Date(r.updated_at * 1000).toLocaleString('zh-CN', { hour12: false }) : '-')
-                    return <span style={{ fontSize: 12, color: '#595959' }}>{val}</span>
+                    return <span style={{ fontSize: 12, color: '#595959', whiteSpace: 'nowrap' }}>{val}</span>
                   },
                 },
                 {
-                  title: '风控状态',
+                  title: <span style={{ whiteSpace: 'nowrap' }}>风控状态</span>,
                   key: 'risk',
                   width: 120,
                   align: 'center',
-                  render: (_, r) => {
-                    if (r.is_multi_location) {
-                      return (
-                        <Tooltip
-                          title={
-                            <div>
-                              <div><b>⚠️ 跨省多地并发异常！</b></div>
-                              <div>该账号同时活跃省份：</div>
-                              <div style={{ color: '#ffccc7' }}>{r.concurrent_provinces?.join('、')}</div>
-                            </div>
-                          }
-                        >
-                          <Tag color="error" style={{ cursor: 'pointer' }}>
-                            <WarningOutlined /> 跨省并发
-                          </Tag>
-                        </Tooltip>
-                      )
-                    }
-                    return <Tag color="success">正常单省</Tag>
-                  },
+                  render: (_, r) => renderRiskTag(r),
                 },
               ]}
               dataSource={filteredProvinceDetails}
               rowKey={(r, i) => `${r.ip}_${i}`}
               size="small"
+              scroll={{ x: 840 }}
               pagination={{ pageSize: 8, showTotal: (t) => `共 ${t} 条` }}
             />
           </div>

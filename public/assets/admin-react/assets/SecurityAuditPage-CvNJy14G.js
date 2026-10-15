@@ -1,1 +1,0 @@
-import{n as e,t}from"./SecurityAuditPage-DTc_ztgQ.js";export{e as UserDetailModal,t as default};

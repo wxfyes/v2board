@@ -410,6 +410,14 @@ export interface ConnectionMapRegion {
   ratio: number
 }
 
+export interface ConcurrentDetail {
+  province: string
+  city?: string
+  ip: string
+  isp?: string
+  time?: number
+}
+
 export interface ConnectionMapDetail {
   user_id: number
   email: string
@@ -423,6 +431,7 @@ export interface ConnectionMapDetail {
   updated_at: number
   is_multi_location?: boolean
   concurrent_provinces?: string[]
+  concurrent_details?: ConcurrentDetail[]
   last_active_at?: string
 }
 
