@@ -93,6 +93,15 @@ export default function SystemConfigPage() {
       onChange={(e) => set(group, key)(e.target.value)}
     />
   )
+  const controlledInput = (group: ConfigGroup, key: string, placeholder: string, className = 'form-control') => (
+    <input
+      type="text"
+      className={className}
+      placeholder={placeholder}
+      value={(config[group][key] as string) ?? ''}
+      onChange={(e) => set(group, key)(e.target.value)}
+    />
+  )
   const textarea = (group: ConfigGroup, key: string, placeholder: string, rows: string, split = false) => (
     <textarea
       rows={Number(rows)}
@@ -742,7 +751,7 @@ export default function SystemConfigPage() {
                   description="兼容 OpenAI 协议的接口基地址，如 https://api.deepseek.com/v1 或官方端点。"
                   isChildren
                 >
-                  {input('ai_service', 'ai_api_url', 'https://api.openai.com/v1')}
+                  {controlledInput('ai_service', 'ai_api_url', 'https://api.openai.com/v1')}
                 </ConfigItem>
 
                 <ConfigItem
@@ -754,7 +763,7 @@ export default function SystemConfigPage() {
                     type="password"
                     className="form-control"
                     placeholder="请输入 API Key"
-                    defaultValue={text(ai_service.ai_api_key)}
+                    value={(ai_service.ai_api_key as string) ?? ''}
                     onChange={(e) => set('ai_service', 'ai_api_key')(e.target.value)}
                   />
                 </ConfigItem>
@@ -764,7 +773,7 @@ export default function SystemConfigPage() {
                   description="调用的模型 ID，如 glm-4-flash, gemini-1.5-flash, deepseek-chat, grok-2 等。"
                   isChildren
                 >
-                  {input('ai_service', 'ai_model', 'gpt-4o-mini')}
+                  {controlledInput('ai_service', 'ai_model', 'gpt-4o-mini')}
                 </ConfigItem>
 
                 <ConfigItem
