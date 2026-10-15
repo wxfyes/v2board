@@ -31,7 +31,7 @@ class TicketService {
         return $ticketMessage;
     }
 
-    public function replyByAdmin($ticketId, $message, $userId, bool $sendEmail = true):void
+    public function replyByAdmin($ticketId, $message, $userId, bool $sendEmail = true, bool $isAi = false):void
     {
         $ticket = Ticket::where('id', $ticketId)
             ->first();
@@ -59,6 +59,12 @@ class TicketService {
         DB::commit();
         if ($sendEmail) {
             $this->sendEmailNotify($ticket, $ticketMessage);
+        }
+
+        // 核心互斥机制：若是真实人工回复（来自管理后台或 Telegram 机器人），
+        // 自动为该工单加注人工接管锁，此后该工单的所有后续交互 AI 彻底永久退避，杜绝抢话打扰！
+        if (!$isAi) {
+            Cache::put('ticket_manual_takeover_' . $ticket->id, time(), 86400 * 30);
         }
     }
 

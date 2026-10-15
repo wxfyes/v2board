@@ -46,6 +46,14 @@ class TicketAiReplyJob implements ShouldQueue
             return;
         }
 
+        // 核心互斥机制：只要真实人工（后台管理员或 Telegram 机器人）介入过该工单，AI 永久彻底退避！
+        if (\Illuminate\Support\Facades\Cache::has('ticket_manual_takeover_' . $ticket->id)) {
+            $info = "[TicketAiReplyJob] 工单 #{$ticket->id} 已有人工客服接管跟进，AI 彻底退避不再抢答插嘴";
+            Log::info($info);
+            try { Log::channel('single')->info($info); } catch (\Throwable $e) {}
+            return;
+        }
+
         // 2. 检查工单最新一条消息
         $lastMsg = TicketMessage::where('ticket_id', $ticket->id)
             ->orderBy('id', 'desc')
@@ -97,7 +105,7 @@ class TicketAiReplyJob implements ShouldQueue
         }
         $sendEmail = (bool)config('v2board.ai_email_notify', 0);
         $ticketService = new TicketService();
-        $ticketService->replyByAdmin($ticket->id, $replyText, $aiUserId, $sendEmail);
+        $ticketService->replyByAdmin($ticket->id, $replyText, $aiUserId, $sendEmail, true);
 
         $successPayload = [
             'ticket_id' => $ticket->id,
