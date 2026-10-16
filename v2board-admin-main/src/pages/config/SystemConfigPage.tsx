@@ -622,7 +622,7 @@ export default function SystemConfigPage() {
 
                 <ConfigItem
                   title="自定义系统提示词 (System Prompt)"
-                  description="留空使用内置专业客服提示词。支持变量：{agent_name}, {app_name}, {user_email}, {plan_name}, {expired_at}, {current_time}, {company_background}"
+                  description="留空使用内置专业客服提示词。支持变量：{agent_name}, {app_name}, {user_email}, {plan_name}, {expired_at}, {node_summary}, {plan_summary}, {current_time}, {company_background}"
                   isChildren
                 >
                   {textarea('ai_service', 'ai_system_prompt', '留空使用内置系统提示词...', '6')}

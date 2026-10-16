@@ -73,6 +73,7 @@ class AiService
         $weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
         $weekday = $weekdays[(int)date('w')] ?? '';
         $nodeSummary = $this->getNodeSummary($user);
+        $planSummary = $this->getPlanSummary();
 
         $variables = [
             '{agent_name}' => config('v2board.ai_agent_name') ?: '官方智能客服',
@@ -82,6 +83,7 @@ class AiService
             '{current_date}' => date('Y-m-d'),
             '{weekday}' => $weekday,
             '{node_summary}' => $nodeSummary,
+            '{plan_summary}' => $planSummary,
             '{company_background}' => config('v2board.ai_company_bg', ''),
             '{user_email}' => $user->email,
             '{plan_name}' => $planName,
@@ -355,6 +357,44 @@ class AiService
     }
 
     /**
+     * 获取站点当前在售套餐的概览与价格信息
+     */
+    public function getPlanSummary(): string
+    {
+        try {
+            $currency = config('v2board.currency_symbol', '¥');
+            $plans = Plan::where('show', 1)->orderBy('sort', 'ASC')->get();
+            if ($plans->isEmpty()) {
+                return '暂无在售套餐。';
+            }
+
+            $lines = [];
+            foreach ($plans as $plan) {
+                $prices = [];
+                if ($plan->month_price) $prices[] = '月付 ' . $currency . ($plan->month_price / 100);
+                if ($plan->quarter_price) $prices[] = '季付 ' . $currency . ($plan->quarter_price / 100);
+                if ($plan->half_year_price) $prices[] = '半年付 ' . $currency . ($plan->half_year_price / 100);
+                if ($plan->year_price) $prices[] = '年付 ' . $currency . ($plan->year_price / 100);
+                if ($plan->two_year_price) $prices[] = '两年付 ' . $currency . ($plan->two_year_price / 100);
+                if ($plan->three_year_price) $prices[] = '三年付 ' . $currency . ($plan->three_year_price / 100);
+                if ($plan->onetime_price) $prices[] = '一次性 ' . $currency . ($plan->onetime_price / 100);
+                if ($plan->reset_price) $prices[] = '流量重置包 ' . $currency . ($plan->reset_price / 100);
+
+                $priceStr = !empty($prices) ? implode(' / ', $prices) : '免费 / 暂未定价';
+                $traffic = $plan->transfer_enable ? "{$plan->transfer_enable} GB 流量" : '不限流量';
+                $device = $plan->device_limit ? "，限制 {$plan->device_limit} 台设备" : '';
+
+                $lines[] = "- 【{$plan->name}】: {$traffic}{$device}（{$priceStr}）";
+            }
+
+            return implode("\n", $lines);
+        } catch (\Throwable $e) {
+            Log::warning('[AiService] 获取套餐摘要失败: ' . $e->getMessage());
+            return '详见站点商店套餐列表。';
+        }
+    }
+
+    /**
      * 获取预设的兜底系统提示词
      */
     protected function getDefaultSystemPrompt(): string
@@ -370,13 +410,18 @@ class AiService
 【当前站点节点资源概况】
 {node_summary}
 
+【当前在售套餐与价格列表】
+{plan_summary}
+
 【企业背景与知识说明】
 {company_background}
 
 【服务回复守则】
 1. 【仔细审题，精准识别意图】：
-   - 业务咨询类（如询问“都有哪些地区的节点”、“有哪些套餐”、“如何购买/续费”等）：直接根据上方【节点资源概况】与【企业知识说明】据实、详尽地回答，严禁将正常的业务咨询误判为网络故障排障！
+   - 节点咨询类（如询问“都有哪些地区的节点”、“支持什么地区”等）：直接根据上方【节点资源概况】据实、详尽地回答。
+   - 套餐咨询类（如询问“都有什么套餐”、“价格多少”、“多少流量/支持几台设备”等）：直接根据上方【当前在售套餐与价格列表】向用户详细列出具体套餐名称、流量与价格方案，并礼貌引导用户前往商店选购。
    - 故障报修类（如反馈“连不上”、“节点全红/超时”、“客户端报错”等）：才引导用户排查本地网络与客户端。
+   - 严禁将正常的业务/套餐/节点咨询误判为网络故障排障！
 2. 语言亲切、简短专业、重点突出，直接切入问题核心，严禁大段无意义寒暄。
 3. 若用户套餐已过期或无有效套餐，请礼貌提醒用户其套餐状态并引导前往商店选购。
 4. 若属于常见使用故障（如节点不可用、测速超时、订阅更新失败），优先建议用户：
