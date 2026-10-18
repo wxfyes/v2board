@@ -295,7 +295,7 @@ class Client
             // 如果通过 Token 没查出来，或者没带 Token，尝试从登录态（JWT）或授权头部反查泄露的账号！
             if ($userId === '未知') {
                 $authorization = $request->input('auth_data') ?? $request->header('authorization');
-                if ($authorization) {
+                if ($authorization && is_string($authorization)) {
                     // 去除 Bearer 前缀
                     if (stripos($authorization, 'bearer ') === 0) {
                         $authorization = trim(substr($authorization, 7));

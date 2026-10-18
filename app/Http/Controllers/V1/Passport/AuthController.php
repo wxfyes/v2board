@@ -233,7 +233,7 @@ class AuthController extends Controller
     public function getQuickLoginUrl(Request $request)
     {
         $authorization = $request->input('auth_data') ?? $request->header('authorization');
-        if (!$authorization) abort(403, '未登录或登陆已过期');
+        if (!$authorization || !is_string($authorization)) abort(403, '未登录或登陆已过期');
 
         $user = AuthService::decryptAuthData($authorization);
         if (!$user) abort(403, '未登录或登陆已过期');
