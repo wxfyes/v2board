@@ -26,6 +26,7 @@ const SubscribeLogs = () => import('../views/SubscribeLogs.vue');
 const LoginLogs = () => import('../views/LoginLogs.vue');
 const CheckinLogs = () => import('../views/CheckinLogs.vue');
 const ConnectionMap = () => import('../views/ConnectionMap.vue');
+const IntrusionSensing = () => import('../views/IntrusionSensing.vue');
 
 const routes = [
   {
@@ -176,6 +177,12 @@ const routes = [
         name: 'CheckinLogs',
         component: CheckinLogs,
         meta: { title: '每日签到记录', requiresAuth: true }
+      },
+      {
+        path: 'intrusion-sensing',
+        name: 'IntrusionSensing',
+        component: IntrusionSensing,
+        meta: { title: '入侵感知', requiresAuth: true }
       }
     ]
   }

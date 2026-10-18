@@ -213,6 +213,13 @@ class AdminRoute
             $router->get ('/stat/checkTraitorMatches', 'V1\\Admin\\TraitorController@fetch');
             // Checkin Logs
             $router->get ('/checkin/fetch', 'V1\\Admin\\CheckinController@fetch');
+            // Security / Intrusion Sensing (入侵感知与一键封禁)
+            $router->get ('/security/logs', 'V1\\Admin\\SecurityController@logs');
+            $router->get ('/security/stats', 'V1\\Admin\\SecurityController@stats');
+            $router->post('/security/ban', 'V1\\Admin\\SecurityController@ban');
+            $router->post('/security/unban', 'V1\\Admin\\SecurityController@unban');
+            $router->get ('/security/blacklist', 'V1\\Admin\\SecurityController@blacklist');
+            $router->post('/security/dropLogs', 'V1\\Admin\\SecurityController@dropLogs');
         });
     }
 }

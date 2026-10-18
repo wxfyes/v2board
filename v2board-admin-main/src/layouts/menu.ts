@@ -26,6 +26,7 @@ export const MENU: MenuEntry[] = [
   { type: 'item', title: '工单管理', href: '/ticket', icon: 'si-support' },
   { type: 'item', title: '知识库管理', href: '/knowledge', icon: 'si-bulb' },
   { type: 'item', title: '安全审计', href: '/security-audit', icon: 'si-lock' },
+  { type: 'item', title: '入侵感知', href: '/intrusion-sensing', icon: 'si-target' },
   { type: 'item', title: '内鬼名单', href: '/traitor', icon: 'si-shield' },
   { type: 'item', title: '订阅拉取记录', href: '/subscribe-logs', icon: 'si-list' },
   { type: 'item', title: '登录记录', href: '/login-logs', icon: 'si-login' },
