@@ -23,7 +23,8 @@ class UserRoute
             $router->get ('/getStat', 'V1\\User\\UserController@getStat');
             $router->get ('/checkLogin', 'V1\\User\\UserController@checkLogin');
             $router->post('/transfer', 'V1\\User\\UserController@transfer');
-            $router->post('/getQuickLoginUrl', 'V1\\User\\UserController@getQuickLoginUrl');
+            // 🛡️ 安全加固：注销废弃免密登录接口，杜绝任何黑客扫描与利用风险
+            // $router->post('/getQuickLoginUrl', 'V1\\User\\UserController@getQuickLoginUrl');
             $router->get ('/getActiveSession', 'V1\\User\\UserController@getActiveSession');
             $router->post('/removeActiveSession', 'V1\\User\\UserController@removeActiveSession');
             // Order
