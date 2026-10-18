@@ -139,7 +139,7 @@ class Epusdt
         }
 
         if (!isset($params['status']) || (int) $params['status'] !== 2) {
-            return false;
+            return 'failed';
         }
 
         return [
