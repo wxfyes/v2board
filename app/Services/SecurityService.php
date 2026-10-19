@@ -63,6 +63,7 @@ class SecurityService
     public static function banIp(string $ip, string $reason = '入侵感知手动封禁', string $operator = 'admin'): bool
     {
         try {
+            self::ensureTablesExist();
             $ip = trim($ip);
             if (!filter_var($ip, FILTER_VALIDATE_IP)) {
                 return false;
@@ -84,6 +85,7 @@ class SecurityService
 
             return true;
         } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('banIp error: ' . $e->getMessage());
             return false;
         }
     }
@@ -94,6 +96,7 @@ class SecurityService
     public static function unbanIp(string $ip): bool
     {
         try {
+            self::ensureTablesExist();
             $ip = trim($ip);
             IpBlacklist::where('ip', $ip)->delete();
             Cache::forget('banned_ip:' . $ip);
@@ -103,6 +106,7 @@ class SecurityService
 
             return true;
         } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('unbanIp error: ' . $e->getMessage());
             return false;
         }
     }

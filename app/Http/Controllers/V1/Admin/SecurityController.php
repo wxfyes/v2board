@@ -115,22 +115,32 @@ class SecurityController extends Controller
      */
     public function ban(Request $request)
     {
-        $request->validate([
-            'ip' => 'required|ip',
-            'reason' => 'nullable|string|max:255',
-        ]);
+        try {
+            $request->validate([
+                'ip' => 'required|ip',
+                'reason' => 'nullable|string|max:255',
+            ]);
 
-        $ip = trim($request->input('ip'));
-        $reason = $request->input('reason') ?: '入侵感知后台一键封禁';
-        $user = $request->user;
-        $operator = $user ? $user->email : 'admin';
+            $ip = trim($request->input('ip'));
+            $reason = $request->input('reason') ?: '入侵感知后台一键封禁';
+            
+            $operator = 'admin';
+            $user = $request->user;
+            if (is_array($user) && !empty($user['email'])) {
+                $operator = $user['email'];
+            } elseif (is_object($user) && !empty($user->email)) {
+                $operator = $user->email;
+            }
 
-        $success = SecurityService::banIp($ip, $reason, $operator);
-        if (!$success) {
-            abort(500, '封禁失败，请检查 IP 格式');
+            $success = SecurityService::banIp($ip, $reason, $operator);
+            if (!$success) {
+                return response(['message' => '封禁失败，请检查 IP 格式'], 422);
+            }
+
+            return response(['data' => true]);
+        } catch (\Throwable $e) {
+            return response(['message' => '封禁操作异常：' . $e->getMessage()], 500);
         }
-
-        return response(['data' => true]);
     }
 
     /**
@@ -138,14 +148,18 @@ class SecurityController extends Controller
      */
     public function unban(Request $request)
     {
-        $request->validate([
-            'ip' => 'required|ip',
-        ]);
+        try {
+            $request->validate([
+                'ip' => 'required|ip',
+            ]);
 
-        $ip = trim($request->input('ip'));
-        SecurityService::unbanIp($ip);
+            $ip = trim($request->input('ip'));
+            SecurityService::unbanIp($ip);
 
-        return response(['data' => true]);
+            return response(['data' => true]);
+        } catch (\Throwable $e) {
+            return response(['message' => '解封异常：' . $e->getMessage()], 500);
+        }
     }
 
     /**

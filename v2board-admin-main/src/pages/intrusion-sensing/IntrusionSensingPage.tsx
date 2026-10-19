@@ -124,10 +124,13 @@ export default function IntrusionSensingPage() {
 
   const handleBanIp = async (ip: string) => {
     try {
-      await post(adminPath('/security/ban'), {
+      const res: any = await post(adminPath('/security/ban'), {
         ip,
         reason: '入侵感知后台一键封禁',
       });
+      if (res?.code && res.code !== 200) {
+        return;
+      }
       message.success(`IP 【${ip}】 已成功封禁！`);
       fetchData();
       if (blacklistVisible) fetchBlacklist();
@@ -156,10 +159,13 @@ export default function IntrusionSensingPage() {
       return;
     }
     try {
-      await post(adminPath('/security/ban'), {
+      const res: any = await post(adminPath('/security/ban'), {
         ip: manualIp.trim(),
         reason: manualReason.trim() || '后台手动添加',
       });
+      if (res?.code && res.code !== 200) {
+        return;
+      }
       message.success('封禁成功');
       setManualIp('');
       setManualReason('');
@@ -172,7 +178,10 @@ export default function IntrusionSensingPage() {
 
   const handleUnbanIp = async (ip: string) => {
     try {
-      await post(adminPath('/security/unban'), { ip });
+      const res: any = await post(adminPath('/security/unban'), { ip });
+      if (res?.code && res.code !== 200) {
+        return;
+      }
       message.success(`IP 【${ip}】 已成功解除封禁`);
       fetchBlacklist();
       fetchData();
