@@ -39,14 +39,13 @@ dns:
     - https://cloudflare-dns.com/dns-query
     - https://dns.google/dns-query
   fallback:
-    - https://dewnsyou.qqjd.top:2096/dns-query
     - tls://1.1.1.1
     - tls://8.8.8.8
     - 8.8.8.8
   proxy-server-nameserver:
+    - https://dewnsyou.qqjd.top:2096/dns-query
     - 223.5.5.5
     - 119.29.29.29
-    - https://dewnsyou.qqjd.top:2096/dns-query
     - https://dns.alidns.com/dns-query
     - https://doh.pub/dns-query
     - 8.8.8.8
