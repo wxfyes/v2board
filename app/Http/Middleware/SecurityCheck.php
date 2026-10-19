@@ -73,12 +73,16 @@ class SecurityCheck
             if ($isMaliciousProbe) {
                 $duration = (int)round((microtime(true) - $startTime) * 1000);
                 SecurityService::log($request, $statusCode, $ruleName, $duration);
-            } elseif ($statusCode === 404 && (
-                preg_match('/\.(php|jsp|asp|aspx|sh|bash)$/i', $uri) ||
-                (strpos($uri, '/api/v1/') === false && !str_starts_with($uri, '/assets/'))
-            )) {
+            } elseif ($statusCode === 404) {
                 $duration = (int)round((microtime(true) - $startTime) * 1000);
-                SecurityService::log($request, 404, '恶意探针扫描', $duration);
+                if (strpos($uri, 'favicon.ico') !== false) {
+                    SecurityService::log($request, 404, '空间测绘指纹探测 (Favicon)', $duration);
+                } elseif (
+                    preg_match('/\.(php|jsp|asp|aspx|sh|bash)$/i', $uri) ||
+                    (strpos($uri, '/api/v1/') === false && !str_starts_with($uri, '/assets/'))
+                ) {
+                    SecurityService::log($request, 404, '恶意探针扫描', $duration);
+                }
             }
         } catch (\Throwable $e) {
             // 静默熔断
