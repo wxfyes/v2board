@@ -20,7 +20,7 @@ class SecurityService
 
             // 过滤节点常规通信心跳与订阅白名单，杜绝日志膨胀
             if (
-                strpos($uri, '/api/v1/server/UniProxy') !== false ||
+                strpos($uri, '/api/v1/server/') !== false ||
                 strpos($uri, '/api/v1/client/subscribe') !== false
             ) {
                 return;

@@ -20,7 +20,7 @@ class SecurityCheck
     {
         $uri = $request->getRequestUri();
 
-        // 0. 核心铁律：节点服务器通信直接秒级放行，绝对不进行任何校验或拦截，保障节点永不掉线！
+        // 0. 核心白名单：所有节点服务器通信、订阅直接秒级放行，绝对不进行任何拦截，保障节点永不掉线！
         if (
             strpos($uri, '/api/v1/server/') !== false ||
             strpos($uri, '/api/v1/client/subscribe') !== false
@@ -30,17 +30,18 @@ class SecurityCheck
 
         $startTime = microtime(true);
         $isMaliciousProbe = false;
-        $ruleName = '异常探测';
+        $ruleName = '';
 
         try {
             $ip = IpHelper::getRealIp($request);
 
-            // 1. IP 黑名单校验（Redis 毫秒级极速命中，安全熔断）
+            // 1. IP 黑名单校验（仅拦截被管理员手动一键封禁的恶意 IP）
             if (SecurityService::isBanned($ip)) {
+                SecurityService::log($request, 403, '黑名单IP拦截', 0);
                 abort(403, '您的 IP 已被管理员封禁 (IP Blocked)');
             }
 
-            // 2. 检查是否有针对 auth_data 的非法探测特征
+            // 2. 深度识别真实攻击特征（杜绝将 MOMclash 等客户端正常业务请求误判）
             if (
                 strpos($uri, 'auth_data%5B') !== false ||
                 strpos($uri, 'auth_data[') !== false ||
@@ -48,6 +49,12 @@ class SecurityCheck
             ) {
                 $isMaliciousProbe = true;
                 $ruleName = '类型混淆与越权探测';
+            } elseif (
+                preg_match('/\.(env|git|svn|bak|sql|tar|gz|zip|cfg|ini)(\?|$)/i', $uri) ||
+                preg_match('/(phpinfo|actuator|wp-login|shell|webshell|cgi-bin)/i', $uri)
+            ) {
+                $isMaliciousProbe = true;
+                $ruleName = '敏感文件与漏洞扫描';
             }
         } catch (\Throwable $e) {
             // 熔断旁路：如果判断过程中有任何异常，绝不阻塞用户请求，直接放行
@@ -58,12 +65,20 @@ class SecurityCheck
 
         $response = $next($request);
 
-        // 3. 拦截事件与高危探测自动收录至【入侵感知】
+        // 3. 安全事件精准收录（保护正常客户端正常业务，如 token 过期导致的 403 绝不记录）
         try {
             $statusCode = method_exists($response, 'getStatusCode') ? $response->getStatusCode() : 200;
-            if ($isMaliciousProbe || $statusCode === 403 || ($statusCode === 404 && strpos($uri, '/api/v1/') !== false)) {
+
+            // 仅在明确命中黑客攻击特征、或扫描非法探测路径时收录
+            if ($isMaliciousProbe) {
                 $duration = (int)round((microtime(true) - $startTime) * 1000);
                 SecurityService::log($request, $statusCode, $ruleName, $duration);
+            } elseif ($statusCode === 404 && (
+                preg_match('/\.(php|jsp|asp|aspx|sh|bash)$/i', $uri) ||
+                (strpos($uri, '/api/v1/') === false && !str_starts_with($uri, '/assets/'))
+            )) {
+                $duration = (int)round((microtime(true) - $startTime) * 1000);
+                SecurityService::log($request, 404, '恶意探针扫描', $duration);
             }
         } catch (\Throwable $e) {
             // 静默熔断
