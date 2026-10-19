@@ -112,23 +112,31 @@ class SecurityService
      */
     public static function isBanned(string $ip): bool
     {
-        if (empty($ip) || $ip === '127.0.0.1' || $ip === '::1') {
+        try {
+            if (empty($ip) || $ip === '127.0.0.1' || $ip === '::1') {
+                return false;
+            }
+
+            $cacheKey = 'banned_ip:' . $ip;
+            if (Cache::has($cacheKey)) {
+                return true;
+            }
+
+            // 如果缓存未命中，查一次数据库并回填缓存
+            $exists = IpBlacklist::where('ip', $ip)->exists();
+            if ($exists) {
+                Cache::put($cacheKey, 1, 86400 * 30);
+                return true;
+            }
+
+            return false;
+        } catch (\Throwable $e) {
+            // 如果表不存在，静默触发自愈建表，并安全返回 false
+            if (strpos($e->getMessage(), "Table") !== false && strpos($e->getMessage(), "doesn't exist") !== false) {
+                self::ensureTablesExist();
+            }
             return false;
         }
-
-        $cacheKey = 'banned_ip:' . $ip;
-        if (Cache::has($cacheKey)) {
-            return true;
-        }
-
-        // 如果缓存未命中，查一次数据库并回填缓存
-        $exists = IpBlacklist::where('ip', $ip)->exists();
-        if ($exists) {
-            Cache::put($cacheKey, 1, 86400 * 30);
-            return true;
-        }
-
-        return false;
     }
 
     /**
