@@ -668,3 +668,34 @@ CREATE TABLE `user_socials` (
   KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+DROP TABLE IF EXISTS `v2_security_logs`;
+CREATE TABLE `v2_security_logs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `ip` varchar(45) NOT NULL,
+  `location` varchar(100) DEFAULT NULL,
+  `method` varchar(10) NOT NULL DEFAULT 'GET',
+  `url` text NOT NULL,
+  `user_agent` text DEFAULT NULL,
+  `status_code` int(11) NOT NULL DEFAULT '403',
+  `rule_name` varchar(100) DEFAULT NULL,
+  `duration` int(11) NOT NULL DEFAULT '0',
+  `created_at` int(11) NOT NULL,
+  `updated_at` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_security_ip` (`ip`),
+  KEY `idx_security_status_code` (`status_code`),
+  KEY `idx_security_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DROP TABLE IF EXISTS `v2_ip_blacklist`;
+CREATE TABLE `v2_ip_blacklist` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `ip` varchar(45) NOT NULL,
+  `reason` varchar(255) DEFAULT NULL,
+  `operator` varchar(100) DEFAULT NULL,
+  `created_at` int(11) NOT NULL,
+  `updated_at` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_blacklist_ip` (`ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+

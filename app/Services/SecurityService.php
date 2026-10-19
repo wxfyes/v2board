@@ -44,8 +44,16 @@ class SecurityService
                 'rule_name' => $ruleName,
                 'duration' => $duration > 0 ? $duration : rand(12, 35),
             ]);
+
+            // 自动滚动修剪：每 50 次写入有 2% 概率触发一次轻量瘦身，保证日志永远在 7 天内且总数不超过 10000 条
+            if (mt_rand(1, 50) === 1) {
+                self::pruneOldLogs();
+            }
         } catch (\Throwable $e) {
-            // 熔断保护：静默失败，绝不影响外层响应
+            // 如果是因为表不存在引起的异常，自动触发自愈建表
+            if (strpos($e->getMessage(), "Table") !== false && strpos($e->getMessage(), "doesn't exist") !== false) {
+                self::ensureTablesExist();
+            }
         }
     }
 
@@ -154,6 +162,66 @@ class SecurityService
                     }));
                     file_put_contents($path, implode("\n", $newLines) . "\n");
                 }
+            }
+        } catch (\Throwable $e) {
+            // 静默容错
+        }
+    }
+
+    /**
+     * 自动滚动修剪旧日志（双重安全锁：7天过期 + 10,000 条硬上限，绝不膨胀）
+     */
+    public static function pruneOldLogs()
+    {
+        try {
+            // 1. 删除 7 天前的记录
+            $expireTime = time() - (86400 * 7);
+            SecurityLog::where('created_at', '<', $expireTime)->delete();
+
+            // 2. 容量硬上限保护：如果总条数超过 10,000 条，仅保留最新的 5,000 条
+            $count = SecurityLog::count();
+            if ($count > 10000) {
+                $cutoffId = SecurityLog::orderBy('id', 'desc')->skip(5000)->value('id');
+                if ($cutoffId) {
+                    SecurityLog::where('id', '<=', $cutoffId)->delete();
+                }
+            }
+        } catch (\Throwable $e) {
+            // 静默容错
+        }
+    }
+
+    /**
+     * 自愈建表（新装或升级时如果表不存在自动补齐，零报错）
+     */
+    public static function ensureTablesExist()
+    {
+        try {
+            if (!\Illuminate\Support\Facades\Schema::hasTable('v2_security_logs')) {
+                \Illuminate\Support\Facades\Schema::create('v2_security_logs', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->bigIncrements('id');
+                    $table->string('ip', 45)->index();
+                    $table->string('location', 100)->nullable();
+                    $table->string('method', 10)->default('GET');
+                    $table->text('url');
+                    $table->text('user_agent')->nullable();
+                    $table->integer('status_code')->default(403)->index();
+                    $table->string('rule_name', 100)->nullable();
+                    $table->integer('duration')->default(0);
+                    $table->integer('created_at')->index();
+                    $table->integer('updated_at');
+                });
+            }
+
+            if (!\Illuminate\Support\Facades\Schema::hasTable('v2_ip_blacklist')) {
+                \Illuminate\Support\Facades\Schema::create('v2_ip_blacklist', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->bigIncrements('id');
+                    $table->string('ip', 45)->unique();
+                    $table->string('reason', 255)->nullable();
+                    $table->string('operator', 100)->nullable();
+                    $table->integer('created_at');
+                    $table->integer('updated_at');
+                });
             }
         } catch (\Throwable $e) {
             // 静默容错

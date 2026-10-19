@@ -10,6 +10,12 @@ use Illuminate\Http\Request;
 
 class SecurityController extends Controller
 {
+    public function __construct()
+    {
+        parent::__construct();
+        SecurityService::ensureTablesExist();
+    }
+
     /**
      * 获取入侵感知日志列表
      */
