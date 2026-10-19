@@ -74,10 +74,13 @@ class SecurityCheck
                 $duration = (int)round((microtime(true) - $startTime) * 1000);
                 SecurityService::log($request, $statusCode, $ruleName, $duration);
             } elseif ($statusCode === 404) {
+                // 彻底忽略正常浏览器自动请求的 favicon.ico 和 robots.txt，杜绝误报正常用户
+                if (strpos($uri, 'favicon.ico') !== false || strpos($uri, 'robots.txt') !== false) {
+                    return $response;
+                }
+
                 $duration = (int)round((microtime(true) - $startTime) * 1000);
-                if (strpos($uri, 'favicon.ico') !== false) {
-                    SecurityService::log($request, 404, '空间测绘指纹探测 (Favicon)', $duration);
-                } elseif (
+                if (
                     preg_match('/\.(php|jsp|asp|aspx|sh|bash)$/i', $uri) ||
                     (strpos($uri, '/api/v1/') === false && !str_starts_with($uri, '/assets/'))
                 ) {
