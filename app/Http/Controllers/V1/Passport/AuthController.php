@@ -191,6 +191,11 @@ class AuthController extends Controller
 
         $this->logLogin($request, $user->id, $user->email, '成功(正常登录)');
 
+        // 🛡️ 核心特权审计：只要管理员/员工账号登录成功 (200 OK)，精准收录大屏，其他 200 绝不收录以防数据库膨胀！
+        if ((int)$user->is_admin === 1 || (int)$user->is_staff === 1) {
+            \App\Services\SecurityService::log($request, 200, '特权管理登录', 0);
+        }
+
         $authService = new AuthService($user);
         return response([
             'data' => $authService->generateAuthData($request)
@@ -223,6 +228,11 @@ class AuthController extends Controller
                 abort(500, __('Your account has been suspended'));
             }
             Cache::forget($key);
+
+            if ((int)$user->is_admin === 1 || (int)$user->is_staff === 1) {
+                \App\Services\SecurityService::log($request, 200, '特权管理登录', 0);
+            }
+
             $authService = new AuthService($user);
             return response([
                 'data' => $authService->generateAuthData($request)

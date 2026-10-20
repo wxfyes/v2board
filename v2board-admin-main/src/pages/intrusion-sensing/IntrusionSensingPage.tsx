@@ -46,6 +46,7 @@ export default function IntrusionSensingPage() {
   // 筛选参数
   const [searchIp, setSearchIp] = useState('');
   const [statusCode, setStatusCode] = useState<number | undefined>(undefined);
+  const [ruleName, setRuleName] = useState<string | undefined>(undefined);
   const [keyword, setKeyword] = useState('');
 
   // 统计数据
@@ -81,6 +82,7 @@ export default function IntrusionSensingPage() {
         page_size: ps,
         ip: searchIp,
         status_code: statusCode,
+        rule_name: ruleName,
         keyword: keyword,
       });
       const data = res?.data?.data || res?.data || [];
@@ -112,6 +114,7 @@ export default function IntrusionSensingPage() {
   const handleReset = () => {
     setSearchIp('');
     setStatusCode(undefined);
+    setRuleName(undefined);
     setKeyword('');
     setPage(1);
     fetchData(1, pageSize);
@@ -226,11 +229,16 @@ export default function IntrusionSensingPage() {
       dataIndex: 'rule_name',
       key: 'rule_name',
       width: 170,
-      render: (name: string) => (
-        <Tag color={name && name.includes('越权') ? 'error' : 'warning'}>
-          {name || '异常探测'}
-        </Tag>
-      ),
+      render: (name: string) => {
+        let color = 'warning';
+        if (name && (name.includes('登录') || name.includes('特权'))) color = 'green';
+        else if (name && (name.includes('越权') || name.includes('黑名单'))) color = 'error';
+        return (
+          <Tag color={color}>
+            {name || '异常探测'}
+          </Tag>
+        );
+      },
     },
     {
       title: '攻击请求 URL',
@@ -251,7 +259,7 @@ export default function IntrusionSensingPage() {
       width: 90,
       align: 'center' as const,
       render: (code: number) => (
-        <Tag color={code === 403 ? 'red' : (code === 404 ? 'orange' : 'purple')}>
+        <Tag color={code === 200 ? 'green' : (code === 403 ? 'red' : (code === 404 ? 'orange' : 'purple'))}>
           {code}
         </Tag>
       ),
@@ -372,9 +380,23 @@ export default function IntrusionSensingPage() {
               style={{ width: 130 }}
               allowClear
             >
+              <Option value={200}>200 OK</Option>
               <Option value={403}>403 Forbidden</Option>
               <Option value={404}>404 Not Found</Option>
               <Option value={500}>500 Error</Option>
+            </Select>
+            <Select
+              placeholder="事件类型"
+              value={ruleName}
+              onChange={setRuleName}
+              style={{ width: 170 }}
+              allowClear
+            >
+              <Option value="特权管理登录">特权管理登录</Option>
+              <Option value="类型混淆与越权探测">类型混淆与越权探测</Option>
+              <Option value="恶意探针扫描">恶意探针扫描</Option>
+              <Option value="敏感文件与漏洞扫描">敏感文件与漏洞扫描</Option>
+              <Option value="黑名单IP拦截">黑名单IP拦截</Option>
             </Select>
             <Input
               placeholder="搜索关键词 / URL / 规则"

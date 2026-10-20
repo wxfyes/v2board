@@ -69,8 +69,8 @@ class SecurityCheck
         try {
             $statusCode = method_exists($response, 'getStatusCode') ? $response->getStatusCode() : 200;
 
-            // 仅在明确命中黑客攻击特征、或扫描非法探测路径时收录
-            if ($isMaliciousProbe) {
+            // 仅在明确命中黑客攻击特征、或扫描非法探测路径时收录 (200 成功响应由特权登录等专门上报，此处绝不上报 200 防止暴库)
+            if ($isMaliciousProbe && $statusCode !== 200) {
                 $duration = (int)round((microtime(true) - $startTime) * 1000);
                 SecurityService::log($request, $statusCode, $ruleName, $duration);
             } elseif ($statusCode === 404) {

@@ -35,6 +35,10 @@ class SecurityController extends Controller
                 $builder->where('status_code', (int)$request->input('status_code'));
             }
 
+            if ($request->filled('rule_name')) {
+                $builder->where('rule_name', trim($request->input('rule_name')));
+            }
+
             if ($request->filled('keyword')) {
                 $keyword = trim($request->input('keyword'));
                 $builder->where(function ($query) use ($keyword) {

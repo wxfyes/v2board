@@ -50,9 +50,17 @@
       <div class="filter-container">
         <el-input v-model="listQuery.ip" placeholder="搜索攻击者 IP" style="width: 180px; margin-right: 10px; margin-bottom: 8px;" clearable @keyup.enter="handleFilter" />
         <el-select v-model="listQuery.status_code" placeholder="拦截状态码" clearable style="width: 130px; margin-right: 10px; margin-bottom: 8px;">
+          <el-option label="200 OK" :value="200" />
           <el-option label="403 Forbidden" :value="403" />
           <el-option label="404 Not Found" :value="404" />
           <el-option label="500 Error" :value="500" />
+        </el-select>
+        <el-select v-model="listQuery.rule_name" placeholder="事件类型" clearable style="width: 170px; margin-right: 10px; margin-bottom: 8px;">
+          <el-option label="特权管理登录" value="特权管理登录" />
+          <el-option label="类型混淆与越权探测" value="类型混淆与越权探测" />
+          <el-option label="恶意探针扫描" value="恶意探针扫描" />
+          <el-option label="敏感文件与漏洞扫描" value="敏感文件与漏洞扫描" />
+          <el-option label="黑名单IP拦截" value="黑名单IP拦截" />
         </el-select>
         <el-input v-model="listQuery.keyword" placeholder="搜索关键词 / URL / 规则" style="width: 220px; margin-right: 10px; margin-bottom: 8px;" clearable @keyup.enter="handleFilter" />
         <el-button type="primary" icon="Search" style="margin-bottom: 8px;" @click="handleFilter">查询</el-button>
@@ -78,7 +86,7 @@
 
         <el-table-column label="事件类型" width="160" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.rule_name && row.rule_name.includes('越权') ? 'danger' : 'warning'" size="small">
+            <el-tag :type="row.rule_name && (row.rule_name.includes('登录') || row.rule_name.includes('特权')) ? 'success' : (row.rule_name && row.rule_name.includes('越权') ? 'danger' : 'warning')" size="small">
               {{ row.rule_name || '异常探测' }}
             </el-tag>
           </template>
@@ -95,7 +103,7 @@
 
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status_code === 403 ? 'danger' : (row.status_code === 404 ? 'warning' : 'info')" effect="dark" size="small">
+            <el-tag :type="row.status_code === 200 ? 'success' : (row.status_code === 403 ? 'danger' : (row.status_code === 404 ? 'warning' : 'info'))" effect="dark" size="small">
               {{ row.status_code }}
             </el-tag>
           </template>
@@ -291,6 +299,7 @@ const listQuery = reactive({
   page_size: 15,
   ip: '',
   status_code: null,
+  rule_name: '',
   keyword: '',
 });
 
@@ -322,6 +331,7 @@ const fetchData = async () => {
         page_size: listQuery.page_size,
         ip: listQuery.ip,
         status_code: listQuery.status_code,
+        rule_name: listQuery.rule_name,
         keyword: listQuery.keyword,
       },
     });
@@ -349,6 +359,7 @@ const resetFilter = () => {
   listQuery.page = 1;
   listQuery.ip = '';
   listQuery.status_code = null;
+  listQuery.rule_name = '';
   listQuery.keyword = '';
   fetchData();
 };
