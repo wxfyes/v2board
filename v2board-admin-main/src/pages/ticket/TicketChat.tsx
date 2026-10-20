@@ -19,7 +19,12 @@ const parseMessageContent = (text: string) => {
   while ((match = regex.exec(text)) !== null) {
     const textBefore = text.substring(lastIndex, match.index)
     if (textBefore) parts.push({ type: 'text', content: textBefore })
-    parts.push({ type: 'image', url: match[2], alt: match[1] })
+    const rawUrl = (match[2] || '').trim()
+    if (/^(https?:\/\/|\/)/i.test(rawUrl)) {
+      parts.push({ type: 'image', url: rawUrl, alt: match[1] })
+    } else {
+      parts.push({ type: 'text', content: match[0] })
+    }
     lastIndex = match.index + match[0].length
   }
   if (lastIndex < text.length) {

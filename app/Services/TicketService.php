@@ -12,11 +12,12 @@ use Illuminate\Support\Facades\DB;
 class TicketService {
     public function reply($ticket, $message, $userId)
     {
+        $cleanMessage = $this->sanitizeMessage((string)$message);
         DB::beginTransaction();
         $ticketMessage = TicketMessage::create([
             'user_id' => $userId,
             'ticket_id' => $ticket->id,
-            'message' => $message
+            'message' => $cleanMessage
         ]);
         if ($userId !== $ticket->user_id) {
             $ticket->reply_status = 1;
@@ -33,6 +34,7 @@ class TicketService {
 
     public function replyByAdmin($ticketId, $message, $userId, bool $sendEmail = true, bool $isAi = false):void
     {
+        $cleanMessage = $this->sanitizeMessage((string)$message);
         $ticket = Ticket::where('id', $ticketId)
             ->first();
         if (!$ticket) {
@@ -47,7 +49,7 @@ class TicketService {
         $ticketMessage = TicketMessage::create([
             'user_id' => $msgUserId,
             'ticket_id' => $ticket->id,
-            'message' => $message
+            'message' => $cleanMessage
         ]);
         $ticket->status = 0;
         $ticket->reply_status = 1; // 管理员已回复，工单状态置为等待用户回复
@@ -87,4 +89,17 @@ class TicketService {
             ]);
         }
     }
+
+    /**
+     * 工单消息安全净化
+     */
+    private function sanitizeMessage(string $content): string
+    {
+        $safe = str_replace(['<', '>'], ['&lt;', '&gt;'], $content);
+        $safe = preg_replace('/javascript\s*:/i', 'blocked_js:', $safe);
+        $safe = preg_replace('/vbscript\s*:/i', 'blocked_vbs:', $safe);
+        $safe = preg_replace('/data\s*:\s*text\/html/i', 'blocked_data:', $safe);
+        return trim($safe);
+    }
 }
+

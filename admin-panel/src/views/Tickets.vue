@@ -145,6 +145,7 @@
                             fit="contain"
                             class="chat-render-img"
                             preview-teleported
+                            referrerpolicy="no-referrer"
                           />
                         </div>
                       </template>
@@ -484,7 +485,7 @@ const handlePaste = async (event) => {
   }
 };
 
-// 解析消息中的 Markdown 图片
+// 解析消息中的 Markdown 图片 (严格限制 http/https 协议，杜绝 javascript/data 等伪协议渗透)
 const parseMessageContent = (text) => {
   if (!text) return [];
   const regex = /!\[(.*?)\]\((.*?)\)/g;
@@ -497,7 +498,12 @@ const parseMessageContent = (text) => {
     if (textBefore) {
       parts.push({ type: 'text', content: textBefore });
     }
-    parts.push({ type: 'image', alt: match[1], url: match[2] });
+    const rawUrl = (match[2] || '').trim();
+    if (/^(https?:\/\/|\/)/i.test(rawUrl)) {
+      parts.push({ type: 'image', alt: match[1], url: rawUrl });
+    } else {
+      parts.push({ type: 'text', content: match[0] });
+    }
     lastIndex = regex.lastIndex;
   }
   

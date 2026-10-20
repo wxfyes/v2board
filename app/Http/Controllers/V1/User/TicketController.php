@@ -86,17 +86,24 @@ class TicketController extends Controller
                     throw new \Exception(__('未知的工单状态'));
             }
 
-            $ticketData = $request->only(['subject', 'level']) + ['user_id' => $request->user['id']];
+            $cleanSubject = $this->sanitizeTicketContent(strip_tags((string)$request->input('subject')));
+            $cleanMessage = $this->sanitizeTicketContent((string)$request->input('message'));
+
+            $ticketData = [
+                'user_id' => $request->user['id'],
+                'subject' => $cleanSubject,
+                'level' => $request->input('level')
+            ];
             $ticket = Ticket::create($ticketData);
 
             TicketMessage::create([
                 'user_id' => $request->user['id'],
                 'ticket_id' => $ticket->id,
-                'message' => $request->input('message')
+                'message' => $cleanMessage
             ]);
 
             DB::commit();
-            $this->sendNotify($ticket, $request->input('message'),$request->user['id']);
+            $this->sendNotify($ticket, $cleanMessage, $request->user['id']);
 
             // 挂载 AI 智能客服回复延迟任务
             if (config('v2board.ai_reply_enable', 0)) {
@@ -138,16 +145,17 @@ class TicketController extends Controller
             abort(500, __('Please wait for the technical enginneer to reply'));
         }
         $ticketService = new TicketService();
+        $cleanMessage = $this->sanitizeTicketContent((string)$request->input('message'));
         if (
 			!$ticketService->reply(
 				$ticket,
-				$request->input('message'),
+				$cleanMessage,
 				$request->user['id']
 			)
 		) {
             abort(500, __('Ticket reply failed'));
         }
-        $this->sendNotify($ticket, $request->input('message'), $request->user['id']);
+        $this->sendNotify($ticket, $cleanMessage, $request->user['id']);
 
         // 挂载 AI 智能客服回复延迟任务
         if (config('v2board.ai_reply_enable', 0)) {
@@ -299,4 +307,19 @@ class TicketController extends Controller
         }
         return $text;
     }
+
+    /**
+     * 工单内容安全净化 (彻底清除 HTML 尖括号与危险伪协议，100% 完整保留 Markdown 截图与多行文本)
+     */
+    private function sanitizeTicketContent(string $content): string
+    {
+        // 1. 将所有 HTML 尖括号严格实体化为 &lt; 和 &gt;，彻底根除任何浏览器 DOM 标签执行可能
+        $safe = str_replace(['<', '>'], ['&lt;', '&gt;'], $content);
+        // 2. 清除危险伪协议 (防止伪装成 Markdown 超链接或图片伪协议)
+        $safe = preg_replace('/javascript\s*:/i', 'blocked_js:', $safe);
+        $safe = preg_replace('/vbscript\s*:/i', 'blocked_vbs:', $safe);
+        $safe = preg_replace('/data\s*:\s*text\/html/i', 'blocked_data:', $safe);
+        return trim($safe);
+    }
 }
+
