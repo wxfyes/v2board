@@ -194,6 +194,7 @@ class AuthController extends Controller
         // 🛡️ 核心特权审计：只要管理员/员工账号登录成功 (200 OK)，精准收录大屏，其他 200 绝不收录以防数据库膨胀！
         if ((int)$user->is_admin === 1 || (int)$user->is_staff === 1) {
             \App\Services\SecurityService::log($request, 200, '特权管理登录', 0);
+            \App\Services\SecurityService::whitelistAdminIp(IpHelper::getRealIp($request));
         }
 
         $authService = new AuthService($user);
@@ -231,6 +232,7 @@ class AuthController extends Controller
 
             if ((int)$user->is_admin === 1 || (int)$user->is_staff === 1) {
                 \App\Services\SecurityService::log($request, 200, '特权管理登录', 0);
+                \App\Services\SecurityService::whitelistAdminIp(IpHelper::getRealIp($request));
             }
 
             $authService = new AuthService($user);

@@ -58,9 +58,107 @@ class SecurityService
     }
 
     /**
+     * 将管理员登录 IP 加入免死白名单（30天有效）
+     */
+    public static function whitelistAdminIp(string $ip): void
+    {
+        if (empty($ip) || !filter_var($ip, FILTER_VALIDATE_IP)) {
+            return;
+        }
+        Cache::put('admin_whitelist_ip:' . $ip, 1, 86400 * 30);
+    }
+
+    /**
+     * 将节点服务器 IP 动态加入免死白名单（节点心跳自动同步，7天有效）
+     */
+    public static function whitelistNodeIp(string $ip): void
+    {
+        if (empty($ip) || !filter_var($ip, FILTER_VALIDATE_IP)) {
+            return;
+        }
+        Cache::put('server_node_whitelist_ip:' . $ip, 1, 86400 * 7);
+    }
+
+    /**
+     * 校验当前 IP 是否在免死白名单中（管理员 IP、节点服务器 IP、本地回环）
+     */
+    public static function isWhitelisted(string $ip): bool
+    {
+        if (empty($ip) || $ip === '127.0.0.1' || $ip === '::1') {
+            return true;
+        }
+
+        // 1. 管理员登录过的免死白名单
+        if (Cache::has('admin_whitelist_ip:' . $ip)) {
+            return true;
+        }
+
+        // 2. 节点服务器通信动态白名单
+        if (Cache::has('server_node_whitelist_ip:' . $ip)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 记录违规探测并在达到滑动窗口阈值时触发自动封禁
+     * @param string $ip 攻击者 IP
+     * @param string $riskLevel 'high_risk' (高危恶意探针) 或 'probe_404' (普通404盲扫)
+     * @param string $ruleName 规则名称
+     * @param string $url 触发的请求 URL
+     */
+    public static function recordViolation(string $ip, string $riskLevel, string $ruleName, string $url = ''): void
+    {
+        try {
+            // 核心生命线：免死白名单中的 IP（节点公共出口、管理员 IP）绝对不执行自动封禁！
+            if (self::isWhitelisted($ip) || self::isBanned($ip)) {
+                return;
+            }
+
+            $windowSeconds = 60; // 60 秒滑动窗口
+            $cacheKey = "sec_violation:{$riskLevel}:" . $ip;
+
+            // 基于 Redis 的原子自增计数
+            $count = Cache::increment($cacheKey);
+            if ($count === 1) {
+                Cache::put($cacheKey, 1, $windowSeconds);
+            }
+
+            // 触发自动封禁的阈值判定
+            $threshold = ($riskLevel === 'high_risk') ? 3 : 10;
+            if ($count >= $threshold) {
+                $reason = $riskLevel === 'high_risk'
+                    ? "60秒内连续{$count}次敏感探测[{$ruleName}]，自动临时封禁2小时"
+                    : "60秒内累计{$count}次404高频盲扫，自动临时封禁2小时";
+
+                // 自动执行封禁：封禁2小时 (7200秒)
+                self::banIp($ip, $reason, '[系统自动防御]', 7200);
+
+                // 立即在大屏写入一条醒目的阻断日志
+                SecurityLog::create([
+                    'ip' => $ip,
+                    'location' => IpHelper::ipLocation($ip) ?: '未知地区',
+                    'method' => 'AUTO_BAN',
+                    'url' => mb_substr($url, 0, 1000) ?: '触发自动防御阈值',
+                    'user_agent' => 'SecurityDefenseEngine',
+                    'status_code' => 403,
+                    'rule_name' => '黑名单IP拦截',
+                    'duration' => 0,
+                ]);
+
+                // 清除违规计数，避免重复触发
+                Cache::forget($cacheKey);
+            }
+        } catch (\Throwable $e) {
+            // 静默熔断，绝不影响主流程
+        }
+    }
+
+    /**
      * 一键封禁 IP
      */
-    public static function banIp(string $ip, string $reason = '入侵感知手动封禁', string $operator = 'admin'): bool
+    public static function banIp(string $ip, string $reason = '入侵感知手动封禁', string $operator = 'admin', int $banDuration = 0): bool
     {
         try {
             self::ensureTablesExist();
@@ -77,8 +175,9 @@ class SecurityService
                 ]
             );
 
-            // 注入 Redis 极速黑名单缓存，365天有效
-            Cache::put('banned_ip:' . $ip, 1, 86400 * 365);
+            // 如果指定了临时封禁时长（如自动防御 7200 秒），则存入对应 TTL，否则存 365 天
+            $ttl = $banDuration > 0 ? $banDuration : (86400 * 365);
+            Cache::put('banned_ip:' . $ip, 1, $ttl);
 
             // 联动本地 WAF 规则库（如果存在，无缝双保）
             self::syncWafBlacklist($ip, 'add');
@@ -126,9 +225,16 @@ class SecurityService
                 return true;
             }
 
-            // 如果缓存未命中，查一次数据库并回填缓存
-            $exists = IpBlacklist::where('ip', $ip)->exists();
-            if ($exists) {
+            // 如果缓存未命中，查一次数据库并自愈检查临时封禁
+            $record = IpBlacklist::where('ip', $ip)->first();
+            if ($record) {
+                // 如果是系统自动防御封禁，且已超过 2 小时（7200秒），自动物理清理并解封
+                if ($record->operator === '[系统自动防御]' && (time() - $record->created_at > 7200)) {
+                    $record->delete();
+                    self::syncWafBlacklist($ip, 'remove');
+                    return false;
+                }
+
                 Cache::put($cacheKey, 1, 86400 * 30);
                 return true;
             }

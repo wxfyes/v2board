@@ -25,6 +25,15 @@ class SecurityCheck
             strpos($uri, '/api/v1/server/') !== false ||
             strpos($uri, '/api/v1/client/subscribe') !== false
         ) {
+            // 节点服务器向面板推送通信时，动态学习并记录节点公网出口 IP 到免死白名单
+            if (strpos($uri, '/api/v1/server/') !== false) {
+                try {
+                    $nodeIp = IpHelper::getRealIp($request);
+                    if (!empty($nodeIp)) {
+                        SecurityService::whitelistNodeIp($nodeIp);
+                    }
+                } catch (\Throwable $e) {}
+            }
             return $next($request);
         }
 
@@ -35,10 +44,10 @@ class SecurityCheck
         try {
             $ip = IpHelper::getRealIp($request);
 
-            // 1. IP 黑名单校验（仅拦截被管理员手动一键封禁的恶意 IP）
+            // 1. IP 黑名单校验（仅拦截被管理员手动一键封禁、或系统自动封禁的恶意 IP）
             if (SecurityService::isBanned($ip)) {
                 SecurityService::log($request, 403, '黑名单IP拦截', 0);
-                abort(403, '您的 IP 已被管理员封禁 (IP Blocked)');
+                abort(403, '您的 IP 已被安全系统封禁 (IP Blocked)');
             }
 
             // 2. 深度识别真实攻击特征（杜绝将 MOMclash 等客户端正常业务请求误判）
@@ -73,6 +82,8 @@ class SecurityCheck
             if ($isMaliciousProbe && $statusCode !== 200) {
                 $duration = (int)round((microtime(true) - $startTime) * 1000);
                 SecurityService::log($request, $statusCode, $ruleName, $duration);
+                // 触发高危探测滑动窗口违规判定（60秒内连续3次自动封禁，免死白名单自动豁免）
+                SecurityService::recordViolation($ip, 'high_risk', $ruleName, $request->fullUrl());
             } elseif ($statusCode === 404) {
                 // 彻底忽略正常浏览器自动请求的 favicon.ico 和 robots.txt，杜绝误报正常用户
                 if (strpos($uri, 'favicon.ico') !== false || strpos($uri, 'robots.txt') !== false) {
@@ -85,6 +96,8 @@ class SecurityCheck
                     (strpos($uri, '/api/v1/') === false && !str_starts_with($uri, '/assets/'))
                 ) {
                     SecurityService::log($request, 404, '恶意探针扫描', $duration);
+                    // 触发普通404盲扫滑动窗口违规判定（60秒内累计10次自动封禁，免死白名单自动豁免）
+                    SecurityService::recordViolation($ip, 'probe_404', '恶意探针扫描', $request->fullUrl());
                 }
             }
         } catch (\Throwable $e) {
