@@ -4,41 +4,46 @@ namespace App\Logging;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Monolog\Handler\AbstractProcessingHandler;
-use Monolog\Logger;
+use Monolog\LogRecord;
 use App\Models\Log as LogModel;
 
 class MysqlLoggerHandler extends AbstractProcessingHandler
 {
-    public function __construct($level = Logger::DEBUG, bool $bubble = true)
+    public function __construct($level = null, bool $bubble = true)
     {
+        $level = $level ?? (\class_exists(\Monolog\Level::class) ? \Monolog\Level::Debug : 100);
         parent::__construct($level, $bubble);
     }
 
-    protected function write(array $record): void
+    protected function write(LogRecord|array $record): void
     {
-        try{
-            if(isset($record['context']['exception']) && is_object($record['context']['exception'])){
-                $record['context']['exception'] = (array)$record['context']['exception'];
+        try {
+            $data = $record instanceof LogRecord ? $record->toArray() : $record;
+            if (isset($data['context']['exception']) && is_object($data['context']['exception'])) {
+                $data['context']['exception'] = (array)$data['context']['exception'];
             }
-            $record['request_data'] = request()->all() ??[];
+            $data['request_data'] = request()->all() ?? [];
+            $levelName = $record instanceof LogRecord ? $record->level->getName() : ($data['level_name'] ?? 'DEBUG');
+            $createdAt = isset($data['datetime']) ? strtotime((string)$data['datetime']) : time();
+
             $log = [
-                'title' => $record['message'],
-                'level' => $record['level_name'],
-                'host' => $record['request_host'] ?? request()->getSchemeAndHttpHost(),
-                'uri' => $record['request_uri'] ?? request()->getRequestUri(),
-                'method' => $record['request_method'] ?? request()->getMethod(),
+                'title' => $data['message'] ?? '',
+                'level' => $levelName,
+                'host' => $data['request_host'] ?? request()->getSchemeAndHttpHost(),
+                'uri' => $data['request_uri'] ?? request()->getRequestUri(),
+                'method' => $data['request_method'] ?? request()->getMethod(),
                 'ip' => request()->getClientIp(),
-                'data' => json_encode($record['request_data']) ,
-                'context' => isset($record['context']) ? json_encode($record['context']) : '',
-                'created_at' => strtotime($record['datetime']),
-                'updated_at' => strtotime($record['datetime']),
+                'data' => json_encode($data['request_data']),
+                'context' => isset($data['context']) ? json_encode($data['context']) : '',
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
             ];
 
             LogModel::insert(
                 $log
             );
-        }catch (\Exception $e){
-            Log::channel('daily')->error($e->getMessage().$e->getFile().$e->getTraceAsString());
+        } catch (\Exception $e) {
+            Log::channel('daily')->error($e->getMessage() . $e->getFile() . $e->getTraceAsString());
         }
     }
 }
