@@ -53,6 +53,27 @@ Route::get('/' . config('v2board.secure_path', config('v2board.frontend_admin_pa
     ]);
 });
 
+Route::get('/monitor/api/stats', function () {
+    try {
+        $masters = app(\Laravel\Horizon\Contracts\MasterSupervisorRepository::class)->all();
+        $status = !empty($masters) ? 'active' : 'inactive';
+        $failedJobs = app(\Laravel\Horizon\Contracts\JobRepository::class)->countRecentlyFailed();
+        $recentJobs = app(\Laravel\Horizon\Contracts\JobRepository::class)->countRecent();
+    } catch (\Throwable $e) {
+        $status = 'inactive';
+        $failedJobs = 0;
+        $recentJobs = 0;
+    }
+    return response()->json([
+        'status' => $status,
+        'failedJobs' => $failedJobs,
+        'recentJobs' => $recentJobs,
+        'wait' => [0],
+        'processes' => 1,
+    ]);
+});
+
 if (!empty(config('v2board.subscribe_path'))) {
     Route::get(config('v2board.subscribe_path'), 'V1\\Client\\ClientController@subscribe')->middleware(['client', 'subscribe.risk']);
-}
+}
+
