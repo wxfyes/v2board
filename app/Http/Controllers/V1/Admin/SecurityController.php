@@ -172,6 +172,8 @@ class SecurityController extends Controller
     public function blacklist(Request $request)
     {
         try {
+            // 主动自愈：清理已超过 2 小时的自动临时封禁记录
+            SecurityService::pruneExpiredBlacklist();
             $items = IpBlacklist::orderBy('id', 'desc')->get();
             return response(['data' => $items]);
         } catch (\Throwable $e) {

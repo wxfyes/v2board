@@ -41,21 +41,33 @@ class SecurityCheck
         $isMaliciousProbe = false;
         $ruleName = '';
 
+        // 辨识是否为 MOMclash 商业客户端官方流量（UA 包含 TianQueApp 或携带 X-Device-Id 特征）
+        $ua = (string)$request->userAgent();
+        $isClient = (
+            strpos($ua, 'TianQueApp') !== false ||
+            strpos($ua, 'com.tianque.app') !== false ||
+            $request->hasHeader('X-Device-Id') ||
+            strpos((string)$request->header('X-Requested-With'), 'tianque') !== false
+        );
+
         try {
             $ip = IpHelper::getRealIp($request);
 
-            // 1. IP 黑名单校验（仅拦截被管理员手动一键封禁、或系统自动封禁的恶意 IP）
+            // 1. IP 黑名单校验
             if (SecurityService::isBanned($ip)) {
-                SecurityService::log($request, 403, '黑名单IP拦截', 0);
-                abort(403, '您的 IP 已被安全系统封禁 (IP Blocked)');
+                // 特权保护：如果该请求来自官方 MOMclash 商业客户端，且调用的仅为常规合法业务，
+                // 且该 IP 并非管理员手动永久封禁（仅为自动防御误中），直接予以业务放行，杜绝误杀真实付费用户！
+                $isPermBanned = \App\Models\IpBlacklist::where('ip', $ip)->where('operator', '!=', '[系统自动防御]')->exists();
+                if ($isClient && !$isPermBanned && !$this->hasExploitPayload($uri)) {
+                    // 放行客户端正常业务流量
+                } else {
+                    SecurityService::log($request, 403, '黑名单IP拦截', 0);
+                    abort(403, '您的 IP 已被安全系统封禁 (IP Blocked)');
+                }
             }
 
-            // 2. 深度识别真实攻击特征（杜绝将 MOMclash 等客户端正常业务请求误判）
-            if (
-                strpos($uri, 'auth_data%5B') !== false ||
-                strpos($uri, 'auth_data[') !== false ||
-                strpos($uri, 'getUserInfoById') !== false
-            ) {
+            // 2. 深度识别真实攻击特征（仅针对明确注入特征）
+            if ($this->hasExploitPayload($uri)) {
                 $isMaliciousProbe = true;
                 $ruleName = '类型混淆与越权探测';
             } elseif (
@@ -74,11 +86,11 @@ class SecurityCheck
 
         $response = $next($request);
 
-        // 3. 安全事件精准收录（保护正常客户端正常业务，如 token 过期导致的 403 绝不记录）
+        // 3. 安全事件精准收录
         try {
             $statusCode = method_exists($response, 'getStatusCode') ? $response->getStatusCode() : 200;
 
-            // 仅在明确命中黑客攻击特征、或扫描非法探测路径时收录 (200 成功响应由特权登录等专门上报，此处绝不上报 200 防止暴库)
+            // 仅在明确命中黑客攻击特征、或扫描非法探测路径时收录
             if ($isMaliciousProbe && $statusCode !== 200) {
                 $duration = (int)round((microtime(true) - $startTime) * 1000);
                 SecurityService::log($request, $statusCode, $ruleName, $duration);
@@ -87,6 +99,11 @@ class SecurityCheck
             } elseif ($statusCode === 404) {
                 // 彻底忽略正常浏览器自动请求的 favicon.ico 和 robots.txt，杜绝误报正常用户
                 if (strpos($uri, 'favicon.ico') !== false || strpos($uri, 'robots.txt') !== false) {
+                    return $response;
+                }
+
+                // 核心保护：官方 MOMclash 客户端正常业务请求（如节点切换、版本探测）导致的 404 绝不计入盲扫封禁！
+                if ($isClient) {
                     return $response;
                 }
 
@@ -105,5 +122,12 @@ class SecurityCheck
         }
 
         return $response;
+    }
+
+    private function hasExploitPayload(string $uri): bool
+    {
+        return strpos($uri, 'auth_data%5B') !== false ||
+               strpos($uri, 'auth_data[') !== false ||
+               strpos($uri, 'getUserInfoById') !== false;
     }
 }

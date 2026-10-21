@@ -229,8 +229,10 @@ class SecurityService
             $record = IpBlacklist::where('ip', $ip)->first();
             if ($record) {
                 // 如果是系统自动防御封禁，且已超过 2 小时（7200秒），自动物理清理并解封
-                if ($record->operator === '[系统自动防御]' && (time() - $record->created_at > 7200)) {
+                $createdAt = is_numeric($record->created_at) ? (int)$record->created_at : strtotime((string)$record->created_at);
+                if ($record->operator === '[系统自动防御]' && ($createdAt > 0 && (time() - $createdAt > 7200))) {
                     $record->delete();
+                    Cache::forget($cacheKey);
                     self::syncWafBlacklist($ip, 'remove');
                     return false;
                 }
@@ -246,6 +248,28 @@ class SecurityService
                 self::ensureTablesExist();
             }
             return false;
+        }
+    }
+
+    /**
+     * 自动物理清理已过期的临时黑名单（超过 2 小时）
+     */
+    public static function pruneExpiredBlacklist(): void
+    {
+        try {
+            self::ensureTablesExist();
+            $expireThreshold = time() - 7200;
+            $records = IpBlacklist::where('operator', '[系统自动防御]')->get();
+            foreach ($records as $item) {
+                $createdAt = is_numeric($item->created_at) ? (int)$item->created_at : strtotime((string)$item->created_at);
+                if ($createdAt > 0 && $createdAt < $expireThreshold) {
+                    Cache::forget('banned_ip:' . $item->ip);
+                    self::syncWafBlacklist($item->ip, 'remove');
+                    $item->delete();
+                }
+            }
+        } catch (\Throwable $e) {
+            // 静默熔断
         }
     }
 
