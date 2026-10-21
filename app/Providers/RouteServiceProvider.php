@@ -28,9 +28,7 @@ class RouteServiceProvider extends ServiceProvider
             resolve(\Illuminate\Routing\UrlGenerator::class)->forceScheme('https');
         }
 
-        $this->routes(function () {
-            $this->map();
-        });
+        $this->map();
 
         parent::boot();
     }
@@ -76,7 +74,7 @@ class RouteServiceProvider extends ServiceProvider
             'middleware' => 'api',
             'namespace' => $this->namespace
         ], function ($router) {
-            foreach (glob(app_path('Http//Routes//V1') . '/*.php') as $file) {
+            foreach (glob(app_path('Http/Routes/V1') . '/*.php') as $file) {
                 $this->app->make('App\\Http\\Routes\\V1\\' . basename($file, '.php'))->map($router);
             }
         });
@@ -87,7 +85,7 @@ class RouteServiceProvider extends ServiceProvider
             'middleware' => 'api',
             'namespace' => $this->namespace
         ], function ($router) {
-            foreach (glob(app_path('Http//Routes//V2') . '/*.php') as $file) {
+            foreach (glob(app_path('Http/Routes/V2') . '/*.php') as $file) {
                 $this->app->make('App\\Http\\Routes\\V2\\' . basename($file, '.php'))->map($router);
             }
         });
