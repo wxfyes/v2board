@@ -52,4 +52,10 @@ $app->singleton(
 |
 */
 
+if (file_exists(__DIR__ . '/providers.php')) {
+    foreach (require __DIR__ . '/providers.php' as $provider) {
+        $app->register($provider);
+    }
+}
+
 return $app;
