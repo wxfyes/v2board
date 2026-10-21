@@ -20,6 +20,10 @@ class UniProxyController extends Controller
 
     public function __construct(Request $request)
     {
+        if (app()->runningInConsole()) {
+            return;
+        }
+
         $token = $request->input('token');
         if (empty($token)) {
             abort(500, 'token is null');

@@ -21,6 +21,10 @@ class TrojanTidalabController extends Controller
     CONST TROJAN_CONFIG = '{"run_type":"server","local_addr":"0.0.0.0","local_port":443,"remote_addr":"www.taobao.com","remote_port":80,"password":[],"ssl":{"cert":"server.crt","key":"server.key","sni":"domain.com"},"api":{"enabled":true,"api_addr":"127.0.0.1","api_port":10000}}';
     public function __construct(Request $request)
     {
+        if (app()->runningInConsole()) {
+            return;
+        }
+
         $token = $request->input('token');
         if (empty($token)) {
             abort(500, 'token is null');
