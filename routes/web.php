@@ -56,7 +56,7 @@ Route::get('/' . config('v2board.secure_path', config('v2board.frontend_admin_pa
 Route::get('/monitor/api/stats', function () {
     try {
         $masters = app(\Laravel\Horizon\Contracts\MasterSupervisorRepository::class)->all();
-        $status = !empty($masters) ? 'active' : 'inactive';
+        $status = !empty($masters) ? 'running' : 'inactive';
         $failedJobs = app(\Laravel\Horizon\Contracts\JobRepository::class)->countRecentlyFailed();
         $recentJobs = app(\Laravel\Horizon\Contracts\JobRepository::class)->countRecent();
     } catch (\Throwable $e) {
