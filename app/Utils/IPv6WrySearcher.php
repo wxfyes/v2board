@@ -35,7 +35,7 @@ class IPv6WrySearcher
         $this->size = $this->readInt(8, 8);
     }
 
-    public static function setDbPath(string $db_path = null): string
+    public static function setDbPath(?string $db_path = null): string
     {
         if (self::$instance !== null && $db_path !== null && $db_path !== self::$db_path) {
             throw new RuntimeException('Database path cannot change after instance.');
@@ -155,7 +155,7 @@ class IPv6WrySearcher
         return $loc;
     }
 
-    private function binarySearch(int $key, int $lo = 0, int $hi = null): int
+    private function binarySearch(int $key, int $lo = 0, ?int $hi = null): int
     {
         $hi = $hi ?? $this->size - 1;
 
