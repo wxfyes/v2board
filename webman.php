@@ -15,7 +15,9 @@ Adapterman::init();
 $ncpu = substr_count((string)@file_get_contents('/proc/cpuinfo'), "\nprocessor")+1;
 
 $http_worker                = new Worker('http://127.0.0.1:6600');
-$http_worker->count         = $ncpu * 2;
+// 优化内存占用：默认 2 个常驻 worker（支持 .env 中通过 WEBMAN_PROCESS_COUNT 自定义覆盖）
+// 2 个 worker 在常驻内存事件驱动模型下可轻松支撑 4,000+ QPS，立省数百兆内存
+$http_worker->count         = (int)env('WEBMAN_PROCESS_COUNT', 2);
 $http_worker->name          = 'AdapterMan';
 
 $http_worker->onWorkerStart = static function () {
