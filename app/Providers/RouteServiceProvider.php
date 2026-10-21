@@ -28,6 +28,10 @@ class RouteServiceProvider extends ServiceProvider
             resolve(\Illuminate\Routing\UrlGenerator::class)->forceScheme('https');
         }
 
+        $this->routes(function () {
+            $this->map();
+        });
+
         parent::boot();
     }
 
