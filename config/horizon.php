@@ -1,10 +1,6 @@
 <?php
 
 use Illuminate\Support\Str;
-use Linfo\Linfo;
-
-$lInfo = new Linfo();
-$parser = $lInfo->getParser();
 
 return [
 
@@ -155,7 +151,7 @@ return [
     |
     */
 
-    'memory_limit' => 32,
+    'memory_limit' => 64,
 
     /*
     |--------------------------------------------------------------------------
@@ -174,20 +170,17 @@ return [
                 'connection' => 'redis',
                 'queue' => [
                     'order_handle',
+                    'send_email',
+                    'send_telegram',
                     'traffic_fetch',
                     'stat',
-                    'send_email',
-                    'send_email_mass',
-                    'send_telegram',
                     'ai_ticket',
+                    'send_email_mass',
                     'default',
                 ],
                 'balance' => 'auto',
                 'minProcesses' => 1,
-                'maxProcesses' => min(
-                    (int)ceil($parser->getRam()['total'] / 1024 / 1024 / 1024 * 6),
-                    (int)env('HORIZON_MAX_PROCESSES', 128)
-                ),
+                'maxProcesses' => (int)env('HORIZON_MAX_PROCESSES', 5),
                 'tries' => 1,
                 'balanceCooldown' => 3,
             ],
