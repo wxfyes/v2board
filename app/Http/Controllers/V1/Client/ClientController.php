@@ -11,6 +11,7 @@ use App\Services\ServerService;
 use App\Services\UserService;
 use App\Utils\Helper;
 use App\Utils\IpHelper;
+use App\Utils\TraitorDefense;
 use Illuminate\Http\Request;
 
 class ClientController extends Controller
@@ -69,17 +70,14 @@ class ClientController extends Controller
         $realIp = $this->getRealIp($request);
 
         // --- 🛡️ 订阅 IP 黑名单拦截 (支持 CIDR 网段) ---
-        $configPath = storage_path('tianque_config.json');
-        if (file_exists($configPath)) {
-            $tianqueConfig = json_decode(@file_get_contents($configPath), true);
-            if (is_array($tianqueConfig) && isset($tianqueConfig['banned_ips']) && is_array($tianqueConfig['banned_ips'])) {
-                foreach ($tianqueConfig['banned_ips'] as $bannedRule) {
-                    if ($this->ipInRange($realIp, $bannedRule)) {
-                        \Log::warning('Subscribe block by IP rule: ' . $realIp . ' matched ' . $bannedRule);
-                        return response([
-                            'message' => 'Your IP has been banned'
-                        ], 403);
-                    }
+        $tianqueConfig = TraitorDefense::getTianqueConfig();
+        if (!empty($tianqueConfig['banned_ips']) && is_array($tianqueConfig['banned_ips'])) {
+            foreach ($tianqueConfig['banned_ips'] as $bannedRule) {
+                if ($this->ipInRange($realIp, $bannedRule)) {
+                    \Log::warning('Subscribe block by IP rule: ' . $realIp . ' matched ' . $bannedRule);
+                    return response([
+                        'message' => 'Your IP has been banned'
+                    ], 403);
                 }
             }
         }
@@ -190,29 +188,14 @@ class ClientController extends Controller
             $isBannedBait = false;
 
             // --- 🛡️ 订阅安全拦截：动态载入天阙配置 ---
-            $configPath = storage_path('tianque_config.json');
-            $honeypotUsers = [];
-            $bannedStrategy = 'bait';
-            $bannedRedirectUrl = '';
-            $subconverterEnable = true;
-            $subconverterUrl = 'https://api.wcc.best/sub';
-            $bannedTrafficEnable = true;
-            $bannedTrafficMin = 100;
-            $bannedTrafficMax = 300;
-
-            if (file_exists($configPath)) {
-                $tianqueConfig = json_decode(@file_get_contents($configPath), true);
-                if (is_array($tianqueConfig)) {
-                    $honeypotUsers = $tianqueConfig['honeypot_users'] ?? [];
-                    $bannedStrategy = $tianqueConfig['banned_strategy'] ?? 'bait';
-                    $bannedRedirectUrl = $tianqueConfig['banned_redirect_url'] ?? '';
-                    $subconverterEnable = isset($tianqueConfig['subconverter_enable']) ? (bool)$tianqueConfig['subconverter_enable'] : true;
-                    $subconverterUrl = $tianqueConfig['subconverter_url'] ?? 'https://api.wcc.best/sub';
-                    $bannedTrafficEnable = isset($tianqueConfig['banned_traffic_enable']) ? (bool)$tianqueConfig['banned_traffic_enable'] : true;
-                    $bannedTrafficMin = isset($tianqueConfig['banned_traffic_min']) ? (int)$tianqueConfig['banned_traffic_min'] : 100;
-                    $bannedTrafficMax = isset($tianqueConfig['banned_traffic_max']) ? (int)$tianqueConfig['banned_traffic_max'] : 300;
-                }
-            } 
+            $honeypotUsers = $tianqueConfig['honeypot_users'] ?? [];
+            $bannedStrategy = $tianqueConfig['banned_strategy'] ?? 'bait';
+            $bannedRedirectUrl = $tianqueConfig['banned_redirect_url'] ?? '';
+            $subconverterEnable = isset($tianqueConfig['subconverter_enable']) ? (bool)$tianqueConfig['subconverter_enable'] : true;
+            $subconverterUrl = $tianqueConfig['subconverter_url'] ?? 'https://api.wcc.best/sub';
+            $bannedTrafficEnable = isset($tianqueConfig['banned_traffic_enable']) ? (bool)$tianqueConfig['banned_traffic_enable'] : true;
+            $bannedTrafficMin = isset($tianqueConfig['banned_traffic_min']) ? (int)$tianqueConfig['banned_traffic_min'] : 100;
+            $bannedTrafficMax = isset($tianqueConfig['banned_traffic_max']) ? (int)$tianqueConfig['banned_traffic_max'] : 300;
 
             // 🛡️ 终极免死金牌：管理员及安全白名单用户享有最高优先级豁免，永不下发假节点，永不进蜜罐
             $isWhitelisted = \App\Utils\TraitorDefense::isWhitelistedUser($user);
@@ -268,7 +251,7 @@ class ClientController extends Controller
 
                 // 判断是否需要忽略此 IP 记录 (如本站节点 IP)
                 $shouldRecord = true;
-                if (is_array($tianqueConfig) && isset($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
+                if (!empty($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
                     foreach ($tianqueConfig['ignore_ips'] as $ignoreRule) {
                         if ($this->ipInRange($realIp, $ignoreRule)) {
                             $shouldRecord = false;
@@ -655,7 +638,7 @@ class ClientController extends Controller
 
                 // 判断是否需要忽略此 IP 记录 (复用上方已读取的配置，无需读盘)
                 $shouldRecord = true;
-                if (is_array($tianqueConfig) && isset($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
+                if (!empty($tianqueConfig['ignore_ips']) && is_array($tianqueConfig['ignore_ips'])) {
                     foreach ($tianqueConfig['ignore_ips'] as $ignoreRule) {
                         if ($this->ipInRange($realIp, $ignoreRule)) {
                             $shouldRecord = false;
@@ -800,8 +783,14 @@ class ClientController extends Controller
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
             ]);
         } catch (\Throwable $e) {
+            @file_put_contents(storage_path('logs/subscribe_error.log'), '[' . date('Y-m-d H:i:s') . '] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString() . "\n\n", FILE_APPEND);
+            try {
+                \Illuminate\Support\Facades\Log::error('Subscribe Error: ' . $e->getMessage(), ['exception' => $e]);
+            } catch (\Throwable $logEx) {}
             return response([
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ], 500);
         }

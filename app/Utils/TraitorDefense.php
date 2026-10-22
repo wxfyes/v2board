@@ -5,6 +5,8 @@ namespace App\Utils;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class TraitorDefense
 {
@@ -21,6 +23,17 @@ class TraitorDefense
         return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
             $traitorListPath = storage_path('traitor_list.json');
             if (!file_exists($traitorListPath)) {
+                $dbData = self::getBackupFromDb('traitor_list');
+                if (!empty($dbData) && is_array($dbData)) {
+                    @file_put_contents(
+                        $traitorListPath,
+                        json_encode($dbData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                        LOCK_EX
+                    );
+                    $emails = array_values(array_unique(array_filter(array_map('strtolower', $dbData['emails'] ?? []))));
+                    $ips = array_values(array_unique(array_filter($dbData['ips'] ?? [])));
+                    return ['emails' => $emails, 'ips' => $ips];
+                }
                 return ['emails' => [], 'ips' => []];
             }
 
@@ -240,11 +253,7 @@ class TraitorDefense
             return;
         }
 
-        $configPath = storage_path('tianque_config.json');
-        $config = [];
-        if (file_exists($configPath)) {
-            $config = json_decode(@file_get_contents($configPath), true) ?: [];
-        }
+        $config = self::getTianqueConfig();
 
         if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
             $config['honeypot_users'] = [];
@@ -284,11 +293,7 @@ class TraitorDefense
         ];
 
         // 加排他锁写入配置，防止并发写入损坏 JSON
-        $writeResult = @file_put_contents(
-            $configPath,
-            json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-            LOCK_EX
-        );
+        $writeResult = self::saveTianqueConfig($config);
         
         if ($writeResult !== false) {
             // 只有成功写入文件后，才清空 session 和发报警
@@ -367,6 +372,176 @@ class TraitorDefense
         } catch (\Throwable $e) {
             // 静默处理，后台失败不影响任何正常业务
         }
+    }
+
+    /**
+     * 确保安全配置持久化备份表存在（静默自愈建表，0 依赖，免敲 migrate 命令）
+     */
+    public static function ensureBackupTableExists(): bool
+    {
+        try {
+            if (!Schema::hasTable('v2_security_configs')) {
+                DB::statement("
+                    CREATE TABLE IF NOT EXISTS `v2_security_configs` (
+                        `id` int(11) NOT NULL AUTO_INCREMENT,
+                        `key` varchar(64) NOT NULL,
+                        `value` longtext NULL,
+                        `updated_at` int(11) NOT NULL DEFAULT 0,
+                        PRIMARY KEY (`id`),
+                        UNIQUE KEY `idx_security_key` (`key`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                ");
+            }
+            return true;
+        } catch (\Throwable $e) {
+            Log::channel('risk')->error('[安全系统] 自愈建表检测失败: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 从数据库安全备份表读取数据
+     */
+    public static function getBackupFromDb(string $key): ?array
+    {
+        try {
+            self::ensureBackupTableExists();
+            $record = DB::table('v2_security_configs')->where('key', $key)->first();
+            if ($record && !empty($record->value)) {
+                $data = json_decode($record->value, true);
+                if (is_array($data)) {
+                    return $data;
+                }
+            }
+        } catch (\Throwable $e) {
+            // 静默容错
+        }
+        return null;
+    }
+
+    /**
+     * 保存备份到数据库安全备份表
+     */
+    public static function saveBackupToDb(string $key, array $data): bool
+    {
+        try {
+            self::ensureBackupTableExists();
+            return DB::table('v2_security_configs')->updateOrInsert(
+                ['key' => $key],
+                [
+                    'value' => json_encode($data, JSON_UNESCAPED_UNICODE),
+                    'updated_at' => time()
+                ]
+            );
+        } catch (\Throwable $e) {
+            Log::channel('risk')->error("[安全系统] 同步写入数据库备份失败 ({$key}): " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 获取天阙防御与审计配置（三级自愈体系：本地优先 -> 数据库灾后复原 -> 默认纯净模板）
+     */
+    public static function getTianqueConfig(): array
+    {
+        $configPath = storage_path('tianque_config.json');
+
+        // 第一级：本地文件存在（高并发拉订阅 0 数据库压力，极速读取）
+        if (file_exists($configPath)) {
+            $content = @file_get_contents($configPath);
+            $config = json_decode($content, true);
+            if (is_array($config)) {
+                return $config;
+            }
+        }
+
+        // 第二级：本地文件缺失（如老站损毁换机），尝试从数据库安全备份表拉取并满血复原
+        $dbConfig = self::getBackupFromDb('tianque_config');
+        if (!empty($dbConfig)) {
+            @file_put_contents(
+                $configPath,
+                json_encode($dbConfig, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                LOCK_EX
+            );
+            return $dbConfig;
+        }
+
+        // 第三级：全新安装纯净新站，生成初始标准骨架，并同步写盘和入库作为底座
+        $defaultConfig = [
+            'ip_limit' => 10,
+            'audit_ua_enabled' => true,
+            'audit_ua_keywords' => [
+                'curl', 'wget', 'python', 'python-requests', 'go-http', 'go-http-client',
+                'urllib', 'httpclient', 'postman', 'aria2', 'ClashMetaForAndroid/733',
+                'clash-verge/v2.3.1', 'clash'
+            ],
+            'banned_strategy' => 'bait',
+            'banned_redirect_url' => '',
+            'subconverter_enable' => true,
+            'subconverter_url' => 'https://api.wcc.best/sub',
+            'banned_keywords' => '',
+            'replace_keyword_to' => '精品线路',
+            'banned_traffic_enable' => false,
+            'banned_traffic_min' => 100,
+            'banned_traffic_max' => 300,
+            'honeypot_users' => [],
+            'honeypot_times' => (object)[],
+            'flagged_users' => (object)[],
+            'whitelist_users' => [],
+            'banned_ips' => [],
+            'ignore_ips' => [],
+            'jump_servers' => []
+        ];
+
+        @file_put_contents(
+            $configPath,
+            json_encode($defaultConfig, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            LOCK_EX
+        );
+
+        $parsed = json_decode(json_encode($defaultConfig), true);
+        self::saveBackupToDb('tianque_config', $parsed);
+
+        return $parsed;
+    }
+
+    /**
+     * 保存天阙配置（双轨写入：本地加排他锁原子落盘 + 数据库备份持久化）
+     */
+    public static function saveTianqueConfig(array $config): bool
+    {
+        $configPath = storage_path('tianque_config.json');
+        $writeResult = @file_put_contents(
+            $configPath,
+            json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            LOCK_EX
+        );
+
+        // 同步存入数据库保险箱，老站灾备永不丢失
+        self::saveBackupToDb('tianque_config', $config);
+
+        return $writeResult !== false;
+    }
+
+    /**
+     * 保存内鬼黑名单数据（双轨写入：本地文件 + 数据库保险箱 + 刷新 Redis 缓存）
+     */
+    public static function saveTraitorData(array $data): bool
+    {
+        $traitorListPath = storage_path('traitor_list.json');
+        $writeResult = @file_put_contents(
+            $traitorListPath,
+            json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            LOCK_EX
+        );
+
+        // 同步存入数据库保险箱
+        self::saveBackupToDb('traitor_list', $data);
+
+        // 刷新 Redis 内存缓存
+        self::clearCache();
+
+        return $writeResult !== false;
     }
 }
 

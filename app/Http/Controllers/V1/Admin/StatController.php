@@ -19,6 +19,7 @@ use App\Models\StatServer;
 use App\Models\StatUser;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Utils\TraitorDefense;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -650,15 +651,10 @@ class StatController extends Controller
     public function ignoreAnomaly(Request $request)
     {
         $userId = (string)$request->input('id');
-        $configPath = storage_path('tianque_config.json');
-        if (!file_exists($configPath)) {
-            abort(500, '配置文件不存在');
-        }
-
-        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        $config = TraitorDefense::getTianqueConfig();
         if (isset($config['flagged_users'][$userId])) {
             unset($config['flagged_users'][$userId]);
-            @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            TraitorDefense::saveTianqueConfig($config);
         }
 
         return response([
@@ -668,14 +664,9 @@ class StatController extends Controller
 
     public function clearAllAnomalies(Request $request)
     {
-        $configPath = storage_path('tianque_config.json');
-        if (!file_exists($configPath)) {
-            abort(500, '配置文件不存在');
-        }
-
-        $config = json_decode(@file_get_contents($configPath), true) ?: [];
-        $config['flagged_users'] = [];
-        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        $config = TraitorDefense::getTianqueConfig();
+        $config['flagged_users'] = (object)[];
+        TraitorDefense::saveTianqueConfig($config);
 
         return response([
             'data' => true
@@ -741,18 +732,13 @@ class StatController extends Controller
     public function removeWhitelistUser(Request $request)
     {
         $identity = trim($request->input('identity'));
-        $configPath = storage_path('tianque_config.json');
-        if (!file_exists($configPath)) {
-            abort(500, '配置文件不存在');
-        }
-
-        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        $config = TraitorDefense::getTianqueConfig();
         if (isset($config['whitelist_users']) && is_array($config['whitelist_users'])) {
             $key = array_search($identity, $config['whitelist_users']);
             if ($key !== false) {
                 unset($config['whitelist_users'][$key]);
                 $config['whitelist_users'] = array_values($config['whitelist_users']);
-                @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                TraitorDefense::saveTianqueConfig($config);
             }
         }
 
@@ -825,18 +811,13 @@ class StatController extends Controller
     public function removeBanIp(Request $request)
     {
         $ip = trim($request->input('ip'));
-        $configPath = storage_path('tianque_config.json');
-        if (!file_exists($configPath)) {
-            abort(500, '配置文件不存在');
-        }
-
-        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        $config = TraitorDefense::getTianqueConfig();
         if (isset($config['banned_ips']) && is_array($config['banned_ips'])) {
             $key = array_search($ip, $config['banned_ips']);
             if ($key !== false) {
                 unset($config['banned_ips'][$key]);
                 $config['banned_ips'] = array_values($config['banned_ips']);
-                @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                TraitorDefense::saveTianqueConfig($config);
             }
         }
 
@@ -1275,18 +1256,13 @@ class StatController extends Controller
     public function removeIgnoreIp(Request $request)
     {
         $ip = trim($request->input('ip'));
-        $configPath = storage_path('tianque_config.json');
-        if (!file_exists($configPath)) {
-            abort(500, '配置文件不存在');
-        }
-
-        $config = json_decode(@file_get_contents($configPath), true) ?: [];
+        $config = TraitorDefense::getTianqueConfig();
         if (isset($config['ignore_ips']) && is_array($config['ignore_ips'])) {
             $key = array_search($ip, $config['ignore_ips']);
             if ($key !== false) {
                 unset($config['ignore_ips'][$key]);
                 $config['ignore_ips'] = array_values($config['ignore_ips']);
-                @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+                TraitorDefense::saveTianqueConfig($config);
             }
         }
 
