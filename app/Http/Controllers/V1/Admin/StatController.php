@@ -678,11 +678,7 @@ class StatController extends Controller
         $userId = $request->input('id');
         $identity = trim($request->input('identity'));
 
-        $configPath = storage_path('tianque_config.json');
-        $config = [];
-        if (file_exists($configPath)) {
-            $config = json_decode(@file_get_contents($configPath), true) ?: [];
-        }
+        $config = TraitorDefense::getTianqueConfig();
 
         if (!isset($config['whitelist_users']) || !is_array($config['whitelist_users'])) {
             $config['whitelist_users'] = [];
@@ -722,7 +718,7 @@ class StatController extends Controller
             }
         }
 
-        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        TraitorDefense::saveTianqueConfig($config);
 
         return response([
             'data' => true
@@ -749,11 +745,7 @@ class StatController extends Controller
 
     public function saveSubscriptionAuditSettings(Request $request)
     {
-        $configPath = storage_path('tianque_config.json');
-        $config = [];
-        if (file_exists($configPath)) {
-            $config = json_decode(@file_get_contents($configPath), true) ?: [];
-        }
+        $config = TraitorDefense::getTianqueConfig();
 
         $config['ip_limit'] = (int)$request->input('ip_limit', 10);
         $config['audit_ua_enabled'] = (bool)$request->input('audit_ua_enabled', true);
@@ -773,7 +765,7 @@ class StatController extends Controller
         $config['banned_traffic_min'] = (int)$request->input('banned_traffic_min', 100);
         $config['banned_traffic_max'] = (int)$request->input('banned_traffic_max', 300);
 
-        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        TraitorDefense::saveTianqueConfig($config);
 
         return response([
             'data' => true
@@ -787,11 +779,7 @@ class StatController extends Controller
             abort(500, 'IP不能为空');
         }
 
-        $configPath = storage_path('tianque_config.json');
-        $config = [];
-        if (file_exists($configPath)) {
-            $config = json_decode(@file_get_contents($configPath), true) ?: [];
-        }
+        $config = TraitorDefense::getTianqueConfig();
 
         if (!isset($config['banned_ips']) || !is_array($config['banned_ips'])) {
             $config['banned_ips'] = [];
@@ -801,7 +789,7 @@ class StatController extends Controller
             $config['banned_ips'][] = $ip;
         }
 
-        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        TraitorDefense::saveTianqueConfig($config);
 
         return response([
             'data' => true
@@ -1232,12 +1220,8 @@ class StatController extends Controller
             abort(500, 'IP不能为空');
         }
 
-        $configPath = storage_path('tianque_config.json');
-        if (!file_exists($configPath)) {
-            @file_put_contents($configPath, json_encode([]));
-        }
+        $config = TraitorDefense::getTianqueConfig();
 
-        $config = json_decode(@file_get_contents($configPath), true) ?: [];
         if (!isset($config['ignore_ips']) || !is_array($config['ignore_ips'])) {
             $config['ignore_ips'] = [];
         }
@@ -1246,7 +1230,7 @@ class StatController extends Controller
             $config['ignore_ips'][] = $ip;
         }
 
-        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        TraitorDefense::saveTianqueConfig($config);
 
         return response([
             'data' => true
@@ -1720,11 +1704,7 @@ class StatController extends Controller
             ]);
         }
 
-        $configPath = storage_path('tianque_config.json');
-        $config = [];
-        if (file_exists($configPath)) {
-            $config = json_decode(@file_get_contents($configPath), true) ?: [];
-        }
+        $config = TraitorDefense::getTianqueConfig();
         if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
             $config['honeypot_users'] = [];
         }
@@ -1744,8 +1724,7 @@ class StatController extends Controller
             }
         }
 
-        @file_put_contents($configPath, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-        @chmod($configPath, 0755);
+        TraitorDefense::saveTianqueConfig($config);
 
         return response([
             'status' => 'success',
