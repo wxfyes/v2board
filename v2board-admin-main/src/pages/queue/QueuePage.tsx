@@ -7,6 +7,7 @@ import { AdminLayout } from '@/layouts/AdminLayout'
 import { useQueueMonitorStore } from '@/stores/queueMonitor'
 
 const QUEUE_NAME: Record<string, string> = {
+  ai_ticket: 'AI工单队列',
   order_handle: '订单队列',
   send_email: '邮件队列',
   send_email_mass: '邮件群发队列',
@@ -16,7 +17,7 @@ const QUEUE_NAME: Record<string, string> = {
 }
 
 const columns: TableColumnsType<QueueWorkload> = [
-  { title: '队列名称', dataIndex: 'name', key: 'name', render: (name: string) => QUEUE_NAME[name] },
+  { title: '队列名称', dataIndex: 'name', key: 'name', render: (name: string) => QUEUE_NAME[name] || name },
   { title: '作业量', dataIndex: 'processes', key: 'processes' },
   { title: '任务量', dataIndex: 'length', key: 'length' },
   { title: '占用时间', dataIndex: 'wait', key: 'wait', align: 'right', render: (wait: number) => `${wait}s` },
