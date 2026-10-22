@@ -13,6 +13,11 @@ class TraitorController extends Controller
     {
         $traitorListPath = storage_path('traitor_list.json');
         if (!file_exists($traitorListPath)) {
+            // 尝试通过 TraitorDefense 从数据库自愈恢复
+            \App\Utils\TraitorDefense::getTraitorData();
+        }
+
+        if (!file_exists($traitorListPath)) {
             return response([
                 'data' => [
                     'emails' => '',
@@ -50,19 +55,14 @@ class TraitorController extends Controller
         $emailsArray = array_filter(array_map('trim', explode("\n", strtolower($emails))));
         $ipsArray = array_filter(array_map('trim', explode("\n", $ips)));
 
-        $traitorListPath = storage_path('traitor_list.json');
-        
         $data = [
             'emails' => array_values(array_unique($emailsArray)),
             'ips' => array_values(array_unique($ipsArray))
         ];
 
-        if (!@file_put_contents($traitorListPath, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX)) {
+        if (!\App\Utils\TraitorDefense::saveTraitorData($data)) {
             abort(500, '保存失败，请检查 storage 目录权限');
         }
-
-        // 主动刷新 Redis 内存缓存，确保立即生效
-        \App\Utils\TraitorDefense::clearCache();
 
         return response([
             'data' => true
