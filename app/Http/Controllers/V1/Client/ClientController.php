@@ -800,8 +800,14 @@ class ClientController extends Controller
                 'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0'
             ]);
         } catch (\Throwable $e) {
+            @file_put_contents(storage_path('logs/subscribe_error.log'), '[' . date('Y-m-d H:i:s') . '] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString() . "\n\n", FILE_APPEND);
+            try {
+                \Illuminate\Support\Facades\Log::error('Subscribe Error: ' . $e->getMessage(), ['exception' => $e]);
+            } catch (\Throwable $logEx) {}
             return response([
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ], 500);
         }
