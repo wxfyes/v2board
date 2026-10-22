@@ -105,6 +105,15 @@ class V2boardInstall extends Command
 
             $defaultSecurePath = hash('crc32b', config('app.key'));
             $this->info("访问 http(s)://你的站点/{$defaultSecurePath} 进入管理面板，你可以在用户中心修改你的密码。");
+
+            $hasOpcache = extension_loaded('Zend OPcache');
+            $cliEnabled = (bool)ini_get('opcache.enable_cli');
+            $jitBuffer = ini_get('opcache.jit_buffer_size') ?: '未配置';
+            if ($hasOpcache && $cliEnabled) {
+                $this->info("🚀 性能加速引擎：Zend OPcache (CLI) 已激活，JIT 内存: {$jitBuffer}");
+            } else {
+                $this->warn("⚠️  性能加速提示：Zend OPcache (CLI) 尚未开启，若使用 Webman 建议开启以获得极致性能！");
+            }
         } catch (\Exception $e) {
             $this->error($e->getMessage());
         }
