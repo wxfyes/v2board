@@ -907,3 +907,42 @@ CREATE TABLE IF NOT EXISTS `v2_user_checkin_log` (
   UNIQUE KEY `uniq_user_date` (`user_id`, `checkin_date`),
   KEY `idx_user_month` (`user_id`, `month`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `v2_security_logs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `ip` varchar(45) NOT NULL,
+  `location` varchar(100) DEFAULT NULL,
+  `method` varchar(10) NOT NULL DEFAULT 'GET',
+  `url` text NOT NULL,
+  `user_agent` text DEFAULT NULL,
+  `status_code` int(11) NOT NULL DEFAULT '403',
+  `rule_name` varchar(100) DEFAULT NULL,
+  `duration` int(11) NOT NULL DEFAULT '0',
+  `created_at` int(11) NOT NULL,
+  `updated_at` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_security_ip` (`ip`),
+  KEY `idx_security_status_code` (`status_code`),
+  KEY `idx_security_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `v2_ip_blacklist` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `ip` varchar(45) NOT NULL,
+  `reason` varchar(255) DEFAULT NULL,
+  `operator` varchar(100) DEFAULT NULL,
+  `created_at` int(11) NOT NULL,
+  `updated_at` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_blacklist_ip` (`ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `v2_security_configs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `key` varchar(64) NOT NULL,
+  `value` longtext DEFAULT NULL,
+  `updated_at` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_security_key` (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

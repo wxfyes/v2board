@@ -699,3 +699,14 @@ CREATE TABLE `v2_ip_blacklist` (
   UNIQUE KEY `uniq_blacklist_ip` (`ip`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+DROP TABLE IF EXISTS `v2_security_configs`;
+CREATE TABLE `v2_security_configs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `key` varchar(64) NOT NULL,
+  `value` longtext DEFAULT NULL,
+  `updated_at` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_security_key` (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
