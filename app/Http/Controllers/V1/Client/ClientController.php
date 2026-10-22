@@ -11,6 +11,7 @@ use App\Services\ServerService;
 use App\Services\UserService;
 use App\Utils\Helper;
 use App\Utils\IpHelper;
+use App\Utils\TraitorDefense;
 use Illuminate\Http\Request;
 
 class ClientController extends Controller
@@ -69,8 +70,7 @@ class ClientController extends Controller
         $realIp = $this->getRealIp($request);
 
         // --- 🛡️ 订阅 IP 黑名单拦截 (支持 CIDR 网段) ---
-        $configPath = storage_path('tianque_config.json');
-        $tianqueConfig = file_exists($configPath) ? (json_decode(@file_get_contents($configPath), true) ?: []) : [];
+        $tianqueConfig = TraitorDefense::getTianqueConfig();
         if (!empty($tianqueConfig['banned_ips']) && is_array($tianqueConfig['banned_ips'])) {
             foreach ($tianqueConfig['banned_ips'] as $bannedRule) {
                 if ($this->ipInRange($realIp, $bannedRule)) {

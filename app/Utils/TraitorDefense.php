@@ -240,11 +240,7 @@ class TraitorDefense
             return;
         }
 
-        $configPath = storage_path('tianque_config.json');
-        $config = [];
-        if (file_exists($configPath)) {
-            $config = json_decode(@file_get_contents($configPath), true) ?: [];
-        }
+        $config = self::getTianqueConfig();
 
         if (!isset($config['honeypot_users']) || !is_array($config['honeypot_users'])) {
             $config['honeypot_users'] = [];
@@ -284,11 +280,7 @@ class TraitorDefense
         ];
 
         // 加排他锁写入配置，防止并发写入损坏 JSON
-        $writeResult = @file_put_contents(
-            $configPath,
-            json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
-            LOCK_EX
-        );
+        $writeResult = self::saveTianqueConfig($config);
         
         if ($writeResult !== false) {
             // 只有成功写入文件后，才清空 session 和发报警
@@ -367,6 +359,64 @@ class TraitorDefense
         } catch (\Throwable $e) {
             // 静默处理，后台失败不影响任何正常业务
         }
+    }
+
+    /**
+     * 获取天阙防御与审计配置（若文件不存在，则全自动创建标准纯净骨架，具备零依赖自愈能力）
+     */
+    public static function getTianqueConfig(): array
+    {
+        $configPath = storage_path('tianque_config.json');
+        if (!file_exists($configPath)) {
+            $defaultConfig = [
+                'ip_limit' => 10,
+                'audit_ua_enabled' => true,
+                'audit_ua_keywords' => [
+                    'curl', 'wget', 'python', 'python-requests', 'go-http', 'go-http-client',
+                    'urllib', 'httpclient', 'postman', 'aria2', 'ClashMetaForAndroid/733',
+                     'clash'
+                ],
+                'banned_strategy' => 'bait',
+                'banned_redirect_url' => '',
+                'subconverter_enable' => true
+                'subconverter_url' => 'https://api.wcc.best/sub',
+                'banned_keywords' => '',
+                'replace_keyword_to' => '精品线路',
+                'banned_traffic_enable' => false,
+                'banned_traffic_min' => 100,
+                'banned_traffic_max' => 300,
+                'honeypot_users' => [],
+                'honeypot_times' => (object)[],
+                'flagged_users' => (object)[],
+                'whitelist_users' => [],
+                'banned_ips' => [],
+                'ignore_ips' => [],
+                'jump_servers' => []
+            ];
+            @file_put_contents(
+                $configPath,
+                json_encode($defaultConfig, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                LOCK_EX
+            );
+            return json_decode(json_encode($defaultConfig), true);
+        }
+
+        $content = @file_get_contents($configPath);
+        $config = json_decode($content, true);
+        return is_array($config) ? $config : [];
+    }
+
+    /**
+     * 保存天阙配置（加排他锁原子写入）
+     */
+    public static function saveTianqueConfig(array $config): bool
+    {
+        $configPath = storage_path('tianque_config.json');
+        return @file_put_contents(
+            $configPath,
+            json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            LOCK_EX
+        ) !== false;
     }
 }
 
