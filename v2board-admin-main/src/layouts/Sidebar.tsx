@@ -48,7 +48,7 @@ export function Sidebar() {
           )}
         </ul>
       </div>
-      <div className="v2board-copyright">{title} v1.7.5</div>
+      <div className="v2board-copyright">{title} v1.8.0</div>
     </nav>
   )
 }
