@@ -283,7 +283,8 @@ class UserController extends Controller
         }
 
         try {
-            $user->update($params);
+            $params['updated_at'] = time();
+            \DB::table('v2_user')->where('id', $user->id)->update($params);
         } catch (\Throwable $e) {
             \Log::error('User update error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             abort(500, '保存失败: ' . $e->getMessage());
