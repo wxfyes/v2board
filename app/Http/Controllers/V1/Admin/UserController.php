@@ -284,8 +284,9 @@ class UserController extends Controller
 
         try {
             $user->update($params);
-        } catch (\Exception $e) {
-            abort(500, '保存失败');
+        } catch (\Throwable $e) {
+            \Log::error('User update error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            abort(500, '保存失败: ' . $e->getMessage());
         }
         return response([
             'data' => true
