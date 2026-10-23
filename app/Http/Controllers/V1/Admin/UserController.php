@@ -277,7 +277,7 @@ class UserController extends Controller
             $params['invite_user_id'] = null;
         }
 
-        if (isset($params['banned']) && (int)$params['banned'] === 1) {
+        if (isset($params['password']) || (isset($params['banned']) && (int)$params['banned'] === 1)) {
             $authService = new AuthService($user);
             $authService->removeAllSession();
         }
