@@ -24,6 +24,7 @@ const Cards = () => import('../views/Cards.vue');
 const Traitors = () => import('../views/Traitors.vue');
 const SubscribeLogs = () => import('../views/SubscribeLogs.vue');
 const LoginLogs = () => import('../views/LoginLogs.vue');
+const VisitorLogs = () => import('../views/VisitorLogs.vue');
 const CheckinLogs = () => import('../views/CheckinLogs.vue');
 const ConnectionMap = () => import('../views/ConnectionMap.vue');
 const IntrusionSensing = () => import('../views/IntrusionSensing.vue');
@@ -171,6 +172,12 @@ const routes = [
         name: 'LoginLogs',
         component: LoginLogs,
         meta: { title: '登录日志', requiresAuth: true }
+      },
+      {
+        path: 'visitor-logs',
+        name: 'VisitorLogs',
+        component: VisitorLogs,
+        meta: { title: '访客记录', requiresAuth: true }
       },
       {
         path: 'checkin-logs',

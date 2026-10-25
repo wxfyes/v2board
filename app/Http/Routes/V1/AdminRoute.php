@@ -196,6 +196,8 @@ class AdminRoute
             $router->get ('/system/getSubscribeLog', 'V1\\Admin\\SystemController@getSubscribeLog');
             $router->get ('/system/getTopSubscribeUsers', 'V1\\Admin\\SystemController@getTopSubscribeUsers');
             $router->get ('/system/getLoginLog', 'V1\\Admin\\SystemController@getLoginLog');
+            $router->get ('/system/getVisitorLog', 'V1\\Admin\\SystemController@getVisitorLog');
+            $router->post('/system/clearVisitorLog', 'V1\\Admin\\SystemController@clearVisitorLog');
             // Theme
             $router->get ('/theme/getThemes', 'V1\\Admin\\ThemeController@getThemes');
             $router->post('/theme/saveThemeConfig', 'V1\\Admin\\ThemeController@saveThemeConfig');

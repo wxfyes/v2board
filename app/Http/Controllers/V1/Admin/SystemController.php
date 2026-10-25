@@ -248,4 +248,68 @@ class SystemController extends Controller
             'total' => $total
         ]);
     }
+
+    public function getVisitorLog(\Illuminate\Http\Request $request) {
+        \App\Services\VisitorService::ensureTable();
+        $current = $request->input('current') ? (int)$request->input('current') : 1;
+        $pageSize = $request->input('page_size') >= 10 ? (int)$request->input('page_size') : 20;
+
+        $builder = \Illuminate\Support\Facades\DB::table('v2_visitor_log')->orderBy('updated_at', 'DESC');
+
+        if ($request->input('ip')) {
+            $builder->where('ip', 'like', '%' . $request->input('ip') . '%');
+        }
+        if ($request->input('location')) {
+            $loc = $request->input('location');
+            $builder->where(function($q) use ($loc) {
+                $q->where('country', 'like', "%{$loc}%")
+                  ->orWhere('province', 'like', "%{$loc}%")
+                  ->orWhere('city', 'like', "%{$loc}%")
+                  ->orWhere('location', 'like', "%{$loc}%");
+            });
+        }
+        if ($request->input('browser')) {
+            $builder->where('browser', 'like', '%' . $request->input('browser') . '%');
+        }
+        if ($request->input('os')) {
+            $builder->where('os', 'like', '%' . $request->input('os') . '%');
+        }
+        if ($request->input('device')) {
+            $builder->where('device', $request->input('device'));
+        }
+
+        $total = $builder->count();
+        $res = $builder->forPage($current, $pageSize)->get();
+
+        $blacklistedIps = [];
+        if (\Illuminate\Support\Facades\Schema::hasTable('v2_ip_blacklist')) {
+            $blacklistedIps = \Illuminate\Support\Facades\DB::table('v2_ip_blacklist')
+                ->whereIn('ip', $res->pluck('ip')->toArray())
+                ->pluck('ip')
+                ->flip()
+                ->toArray();
+        }
+
+        foreach ($res as $log) {
+            $log->is_banned = isset($blacklistedIps[$log->ip]) ? 1 : 0;
+            if (empty($log->flag)) {
+                $log->flag = \App\Services\VisitorService::detectFlag($log->country ?? '', $log->country_code ?? '');
+            }
+            if (empty($log->city)) {
+                $log->city = $log->province ?: ($log->country ?: '未知');
+            }
+        }
+
+        return response([
+            'data' => $res,
+            'total' => $total
+        ]);
+    }
+
+    public function clearVisitorLog(\Illuminate\Http\Request $request) {
+        if (\Illuminate\Support\Facades\Schema::hasTable('v2_visitor_log')) {
+            \Illuminate\Support\Facades\DB::table('v2_visitor_log')->truncate();
+        }
+        return response(['data' => true]);
+    }
 }
