@@ -11,39 +11,115 @@ use Illuminate\Support\Facades\Schema;
 
 class VisitorService
 {
+    private static $searcherInstance = null;
+
     /**
-     * 国旗 Emoji 映射字典
+     * 获取高精度离线 IP 库 Searcher 实例
      */
-    private const COUNTRY_FLAGS = [
-        '中国' => '🇨🇳', 'CN' => '🇨🇳',
-        '香港' => '🇭🇰', 'HK' => '🇭🇰',
-        '台湾' => '🇹🇼', 'TW' => '🇹🇼',
-        '澳门' => '🇲🇴', 'MO' => '🇲🇴',
-        '朝鲜' => '🇰🇵', 'KP' => '🇰🇵',
-        '韩国' => '🇰🇷', 'KR' => '🇰🇷',
-        '日本' => '🇯🇵', 'JP' => '🇯🇵',
-        '美国' => '🇺🇸', 'US' => '🇺🇸',
-        '英国' => '🇬🇧', 'GB' => '🇬🇧', 'UK' => '🇬🇧',
-        '德国' => '🇩🇪', 'DE' => '🇩🇪',
-        '法国' => '🇫🇷', 'FR' => '🇫🇷',
-        '俄罗斯' => '🇷🇺', 'RU' => '🇷🇺',
-        '加拿大' => '🇨🇦', 'CA' => '🇨🇦',
-        '澳大利亚' => '🇦🇺', 'AU' => '🇦🇺',
-        '新加坡' => '🇸🇬', 'SG' => '🇸🇬',
-        '马来西亚' => '🇲🇾', 'MY' => '🇲🇾',
-        '泰国' => '🇹🇭', 'TH' => '🇹🇭',
-        '越南' => '🇻🇳', 'VN' => '🇻🇳',
-        '菲律宾' => '🇵🇭', 'PH' => '🇵🇭',
-        '印度' => '🇮🇳', 'IN' => '🇮🇳',
-        '荷兰' => '🇳🇱', 'NL' => '🇳🇱',
-        '意大利' => '🇮🇹', 'IT' => '🇮🇹',
-        '西班牙' => '🇪🇸', 'ES' => '🇪🇸',
-        '巴西' => '🇧🇷', 'BR' => '🇧🇷',
-        '阿联酋' => '🇦🇪', 'AE' => '🇦🇪',
-        '土耳其' => '🇹🇷', 'TR' => '🇹🇷',
-        '印度尼西亚' => '🇮🇩', 'ID' => '🇮🇩',
-        '局域网' => '🏠', '内网' => '🏠'
-    ];
+    private static function getSearcher()
+    {
+        if (self::$searcherInstance !== null) {
+            return self::$searcherInstance;
+        }
+
+        try {
+            $candidatePaths = [
+                __DIR__ . '/../Utils/ip2region.xdb',
+                __DIR__ . '/../Utils/ip2region_v4.xdb',
+                base_path('app/Utils/ip2region.xdb'),
+            ];
+
+            $xdbPath = null;
+            foreach ($candidatePaths as $p) {
+                if (file_exists($p)) {
+                    $xdbPath = $p;
+                    break;
+                }
+            }
+
+            if (!$xdbPath) {
+                return null;
+            }
+
+            if (!class_exists('\App\Utils\Ip2RegionSearcher')) {
+                require_once __DIR__ . '/../Utils/Ip2RegionSearcher.php';
+            }
+
+            $vIndex = \App\Utils\Util::loadVectorIndexFromFile($xdbPath);
+            $header = \App\Utils\Util::loadHeaderFromFile($xdbPath);
+            $version = \App\Utils\Util::versionFromHeader($header);
+            self::$searcherInstance = \App\Utils\Ip2RegionSearcher::newWithVectorIndex($version, $xdbPath, $vIndex);
+            return self::$searcherInstance;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * 解析 IP 归属地与国家代码
+     */
+    public static function parseIpLocation(string $ip): array
+    {
+        try {
+            if (empty($ip) || $ip === '127.0.0.1' || !filter_var($ip, FILTER_VALIDATE_IP)) {
+                return ['country' => '局域网', 'country_code' => 'LAN', 'city' => '内网', 'province' => ''];
+            }
+
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+                return ['country' => '局域网', 'country_code' => 'LAN', 'city' => '局域网', 'province' => ''];
+            }
+
+            $searcher = self::getSearcher();
+            if ($searcher) {
+                $raw = $searcher->search($ip);
+                if ($raw) {
+                    $parts = explode('|', $raw);
+                    $c0 = isset($parts[0]) && $parts[0] !== '0' ? trim($parts[0]) : '';
+                    $c1 = isset($parts[1]) && $parts[1] !== '0' ? trim($parts[1]) : '';
+                    $c2 = isset($parts[2]) && $parts[2] !== '0' ? trim($parts[2]) : '';
+                    $c3 = isset($parts[3]) && $parts[3] !== '0' ? trim($parts[3]) : '';
+                    $c4 = isset($parts[4]) && $parts[4] !== '0' ? trim($parts[4]) : '';
+
+                    // 提取 ISO 国家代码 (大写)
+                    $countryCode = '';
+                    if (!empty($c4) && strlen($c4) <= 4) {
+                        $countryCode = strtoupper($c4);
+                    } elseif ($c0 === '中国' || str_contains($c0, '中国')) {
+                        $countryCode = 'CN';
+                    } elseif (stripos($c0, 'United States') !== false || $c0 === 'USA' || $c0 === 'US') {
+                        $countryCode = 'US';
+                    } elseif (stripos($c0, 'Korea') !== false || $c0 === 'KR') {
+                        $countryCode = 'KR';
+                    } elseif (stripos($c0, 'North Korea') !== false || $c0 === 'KP') {
+                        $countryCode = 'KP';
+                    } elseif (stripos($c0, 'Japan') !== false || $c0 === 'JP') {
+                        $countryCode = 'JP';
+                    }
+
+                    // 规范化城市名称（对齐图一）
+                    $city = '';
+                    if ($countryCode === 'CN') {
+                        $city = $c2 ?: $c1;
+                        // 移除结尾的 "市"，保持与图一一致的 "上海"、"广州"、"佛山"、"石家庄"、"杭州" 等
+                        $city = preg_replace('/市$/u', '', $city);
+                    } else {
+                        // 海外 IP：优先城市，若为 0 则显示州/省或 ISP/国家名
+                        $city = $c2 ?: ($c1 ?: ($c3 ?: $c0));
+                    }
+
+                    return [
+                        'country' => $c0 ?: '未知',
+                        'country_code' => $countryCode ?: 'UN',
+                        'province' => $c1,
+                        'city' => $city ?: '未知',
+                        'location' => trim(($c0 ?: '') . ' ' . ($c1 ?: '') . ' ' . ($city ?: '')),
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        return ['country' => '未知', 'country_code' => 'UN', 'city' => '未知', 'province' => '', 'location' => '未知'];
+    }
 
     /**
      * 自动捕获并记录前台访客（内存防抖 + 单 IP 聚合）
@@ -63,14 +139,14 @@ class VisitorService
                 return;
             }
 
-            // 1. 内存防抖（15 秒内同 IP 的连续请求不重复写库，避免并发或爬虫击穿）
+            // 1. 内存防抖（15 秒内同 IP 的连续请求不重复写库）
             $throttleKey = 'visitor_throttle_' . md5($ip);
             if (Cache::has($throttleKey)) {
                 return;
             }
             Cache::put($throttleKey, 1, 15);
 
-            // 2. 检查数据表是否存在（带自愈兜底）
+            // 2. 检查数据表是否存在
             self::ensureTable();
 
             // 3. 解析 UA 环境
@@ -78,42 +154,38 @@ class VisitorService
             $clientInfo = self::parseUserAgent($ua);
 
             // 4. 解析 IP 地理位置
-            $geo = IpHelper::parseGeo($ip);
-            $country = $geo['country'] ?? '未知';
-            $province = $geo['province'] ?? '';
-            $city = $geo['city'] ?? '';
-            $flag = self::detectFlag($country, $geo['country_code'] ?? '');
-
-            // 位置格式化：如果有城市优先显示国旗+城市；否则显示国旗+国家
-            $displayLoc = !empty($city) ? $city : (!empty($province) ? $province : $country);
-            $fullLocation = trim(($country ?: '') . ' ' . ($province ?: '') . ' ' . ($city ?: ''));
+            $geo = self::parseIpLocation($ip);
 
             $now = time();
             $nowUrl = substr($url ?: ($request->path() ?: '/'), 0, 255);
 
-            // 5. 采用单 IP 优雅聚合更新 (原子 UPSERT)
-            // 如果不存在则插入 (visit_count=1)；如果已存在则自增 (+1) 并更新最后访问时间与环境特征
+            // 5. 采用单 IP 优雅聚合更新 (原子自增)
             $affected = DB::table('v2_visitor_log')
                 ->where('ip', $ip)
                 ->increment('visit_count', 1, [
-                    'updated_at' => $now,
-                    'last_url' => $nowUrl,
+                    'country' => $geo['country'],
+                    'country_code' => $geo['country_code'],
+                    'province' => $geo['province'],
+                    'city' => $geo['city'],
+                    'location' => $geo['location'],
                     'browser' => $clientInfo['browser'],
                     'os' => $clientInfo['os'],
                     'device' => $clientInfo['device'],
                     'ua' => substr($ua, 0, 500),
+                    'last_url' => $nowUrl,
+                    'updated_at' => $now,
                 ]);
 
             if ($affected === 0) {
                 DB::table('v2_visitor_log')->insertOrIgnore([
                     'ip' => $ip,
                     'visit_count' => 1,
-                    'country' => $country,
-                    'country_code' => $geo['country_code'] ?? '',
-                    'flag' => $flag,
-                    'province' => $province,
-                    'city' => $displayLoc,
-                    'location' => $fullLocation ?: $country,
+                    'country' => $geo['country'],
+                    'country_code' => $geo['country_code'],
+                    'flag' => $geo['country_code'],
+                    'province' => $geo['province'],
+                    'city' => $geo['city'],
+                    'location' => $geo['location'],
                     'browser' => $clientInfo['browser'],
                     'os' => $clientInfo['os'],
                     'device' => $clientInfo['device'],
@@ -124,7 +196,6 @@ class VisitorService
                 ]);
             }
         } catch (\Throwable $e) {
-            // 静默安全兜底，严禁访客日志影响前台正常业务
             Log::warning('VisitorService::logVisit failed: ' . $e->getMessage());
         }
     }
@@ -163,24 +234,6 @@ class VisitorService
     }
 
     /**
-     * 精准匹配国家国旗 Emoji
-     */
-    public static function detectFlag(string $country, string $countryCode = ''): string
-    {
-        if (!empty($countryCode) && isset(self::COUNTRY_FLAGS[strtoupper($countryCode)])) {
-            return self::COUNTRY_FLAGS[strtoupper($countryCode)];
-        }
-
-        foreach (self::COUNTRY_FLAGS as $key => $flag) {
-            if ($key !== '' && str_contains($country, $key)) {
-                return $flag;
-            }
-        }
-
-        return '🌐';
-    }
-
-    /**
      * 轻量级 User-Agent 客户端特征解析引擎
      */
     public static function parseUserAgent(string $ua): array
@@ -193,7 +246,6 @@ class VisitorService
             ];
         }
 
-        // 1. 识别操作系统
         $os = 'Unknown';
         if (preg_match('/Windows NT 10/i', $ua)) {
             $os = 'Windows';
@@ -211,7 +263,6 @@ class VisitorService
             $os = 'Linux';
         }
 
-        // 2. 识别设备类型 (Desktop, Mobile, Tablet)
         $device = 'Desktop';
         if (preg_match('/iPad|Tablet|PlayBook/i', $ua)) {
             $device = 'Tablet';
@@ -221,7 +272,6 @@ class VisitorService
             $device = 'Bot';
         }
 
-        // 3. 识别浏览器
         $browser = 'Chrome';
         if (preg_match('/MicroMessenger/i', $ua)) {
             $browser = 'WeChat';

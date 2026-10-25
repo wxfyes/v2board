@@ -73,7 +73,7 @@
           </div>
 
           <div class="card-row">
-            <span class="flag-icon">{{ item.flag || '🇨🇳' }}</span>
+            <span v-html="renderFlagIcon(item.country_code, item.country)"></span>
             <span class="loc-text">{{ item.city || item.province || item.country || '未知' }}</span>
           </div>
 
@@ -141,10 +141,10 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="位置" min-width="140">
+        <el-table-column label="位置" min-width="160">
           <template #default="{ row }">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="font-size: 16px;">{{ row.flag || '🇨🇳' }}</span>
+            <div style="display: flex; align-items: center;">
+              <span v-html="renderFlagIcon(row.country_code, row.country)"></span>
               <span>{{ row.city || row.province || row.country || '未知' }}</span>
             </div>
           </template>
@@ -341,6 +341,137 @@ const formatTime = (timestamp) => {
   const d = new Date(timestamp * 1000);
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
+// 渲染长方形标准国旗矢量素材 (SVG)
+const renderFlagIcon = (code = '', country = '') => {
+  const c = (code || '').toUpperCase();
+  const name = country || '';
+
+  // 1. 中国五星红旗 (CN)
+  if (c === 'CN' || name.includes('中国')) {
+    return `<svg width="22" height="15" viewBox="0 0 900 600" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <path fill="#de2910" d="M0 0h900v600H0z"/>
+      <polygon fill="#ffde00" points="150,50 179,141 255,86 197,166 273,221 179,221 150,300 121,221 27,221 103,166 45,86 121,141"/>
+      <polygon fill="#ffde00" points="300,50 310,79 335,62 316,88 341,105 311,105 301,130 292,105 262,105 287,88 268,62 293,79"/>
+      <polygon fill="#ffde00" points="360,100 370,129 395,112 376,138 401,155 371,155 361,180 352,155 322,155 347,138 328,112 353,129"/>
+      <polygon fill="#ffde00" points="360,200 370,229 395,212 376,238 401,255 371,255 361,280 352,255 322,255 347,238 328,212 353,229"/>
+      <polygon fill="#ffde00" points="300,250 310,279 335,262 316,288 341,305 311,305 301,330 292,305 262,305 287,288 268,262 293,279"/>
+    </svg>`;
+  }
+
+  // 2. 朝鲜国旗 (KP)
+  if (c === 'KP' || name.includes('朝鲜') || name.includes('North Korea')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 36" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="36" fill="#024FA2"/>
+      <rect y="6" width="72" height="24" fill="#fff"/>
+      <rect y="8" width="72" height="20" fill="#ED1C27"/>
+      <circle cx="24" cy="18" r="8" fill="#fff"/>
+      <polygon points="24,10.5 26.2,15 31,15.5 27.5,19 28.5,23.8 24,21.5 19.5,23.8 20.5,19 17,15.5 21.8,15" fill="#ED1C27"/>
+    </svg>`;
+  }
+
+  // 3. 美国星条旗 (US)
+  if (c === 'US' || name.includes('United States') || name.includes('美国')) {
+    return `<svg width="22" height="15" viewBox="0 0 741 390" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="741" height="390" fill="#B22234"/>
+      <path d="M0,45H741M0,105H741M0,165H741M0,225H741M0,285H741M0,345H741" stroke="#fff" stroke-width="30"/>
+      <rect width="296" height="210" fill="#3C3B6E"/>
+      <circle cx="50" cy="50" r="14" fill="#fff"/>
+      <circle cx="150" cy="50" r="14" fill="#fff"/>
+      <circle cx="250" cy="50" r="14" fill="#fff"/>
+      <circle cx="100" cy="105" r="14" fill="#fff"/>
+      <circle cx="200" cy="105" r="14" fill="#fff"/>
+      <circle cx="50" cy="160" r="14" fill="#fff"/>
+      <circle cx="150" cy="160" r="14" fill="#fff"/>
+      <circle cx="250" cy="160" r="14" fill="#fff"/>
+    </svg>`;
+  }
+
+  // 4. 韩国太极旗 (KR)
+  if (c === 'KR' || name.includes('Korea') || name.includes('韩国')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="48" fill="#fff"/>
+      <path d="M36,12 A12,12 0 0,0 36,36 A6,6 0 0,0 36,24 A6,6 0 0,1 36,12" fill="#C60C30"/>
+      <path d="M36,12 A12,12 0 0,1 36,36 A6,6 0 0,1 36,24 A6,6 0 0,0 36,12" fill="#003478"/>
+      <rect x="12" y="14" width="3" height="8" fill="#000"/>
+      <rect x="17" y="14" width="3" height="8" fill="#000"/>
+      <rect x="52" y="26" width="3" height="8" fill="#000"/>
+      <rect x="57" y="26" width="3" height="8" fill="#000"/>
+    </svg>`;
+  }
+
+  // 5. 中国香港旗 (HK)
+  if (c === 'HK' || name.includes('香港')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="48" fill="#DE2910"/>
+      <circle cx="36" cy="24" r="8" fill="#fff"/>
+      <circle cx="36" cy="24" r="5" fill="#DE2910"/>
+    </svg>`;
+  }
+
+  // 6. 中国台湾旗 (TW)
+  if (c === 'TW' || name.includes('台湾')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="48" fill="#FE0000"/>
+      <rect width="36" height="24" fill="#000095"/>
+      <circle cx="18" cy="12" r="7" fill="#fff"/>
+      <circle cx="18" cy="12" r="5" fill="#000095"/>
+    </svg>`;
+  }
+
+  // 7. 日本国旗 (JP)
+  if (c === 'JP' || name.includes('日本')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="48" fill="#fff"/>
+      <circle cx="36" cy="24" r="11" fill="#BC002D"/>
+    </svg>`;
+  }
+
+  // 8. 英国米字旗 (GB)
+  if (c === 'GB' || c === 'UK' || name.includes('英国')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 36" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="36" fill="#012169"/>
+      <path d="M0,0 L72,36 M72,0 L0,36" stroke="#fff" stroke-width="6"/>
+      <path d="M0,0 L72,36 M72,0 L0,36" stroke="#C8102E" stroke-width="2"/>
+      <path d="M36,0 V36 M0,18 H72" stroke="#fff" stroke-width="10"/>
+      <path d="M36,0 V36 M0,18 H72" stroke="#C8102E" stroke-width="6"/>
+    </svg>`;
+  }
+
+  // 9. 德国国旗 (DE)
+  if (c === 'DE' || name.includes('德国')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 45" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="15" fill="#000"/>
+      <rect y="15" width="72" height="15" fill="#DD0000"/>
+      <rect y="30" width="72" height="15" fill="#FFCE00"/>
+    </svg>`;
+  }
+
+  // 10. 俄罗斯国旗 (RU)
+  if (c === 'RU' || name.includes('俄罗斯')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 45" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="15" fill="#fff"/>
+      <rect y="15" width="72" height="15" fill="#0039A6"/>
+      <rect y="30" width="72" height="15" fill="#D52B1E"/>
+    </svg>`;
+  }
+
+  // 11. 新加坡国旗 (SG)
+  if (c === 'SG' || name.includes('新加坡')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="24" fill="#ED2939"/>
+      <rect y="24" width="72" height="24" fill="#fff"/>
+    </svg>`;
+  }
+
+  // 兜底通用国际蓝色旗帜
+  return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+    <rect width="72" height="48" fill="#1890ff"/>
+    <circle cx="36" cy="24" r="14" fill="none" stroke="#fff" stroke-width="2.5"/>
+    <ellipse cx="36" cy="24" rx="7" ry="14" fill="none" stroke="#fff" stroke-width="2"/>
+    <line x1="22" y1="24" x2="50" y2="24" stroke="#fff" stroke-width="2"/>
+  </svg>`;
 };
 
 // 渲染浏览器彩色 SVG

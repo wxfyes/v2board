@@ -292,11 +292,18 @@ class SystemController extends Controller
 
         foreach ($res as $log) {
             $log->is_banned = isset($blacklistedIps[$log->ip]) ? 1 : 0;
-            if (empty($log->flag)) {
-                $log->flag = \App\Services\VisitorService::detectFlag($log->country ?? '', $log->country_code ?? '');
-            }
-            if (empty($log->city)) {
-                $log->city = $log->province ?: ($log->country ?: '未知');
+            if (empty($log->country_code) || str_contains((string)$log->city, 'CN') || empty($log->country) || $log->country === '未知') {
+                $geo = \App\Services\VisitorService::parseIpLocation($log->ip);
+                if ($geo['country_code'] !== 'UN') {
+                    $log->country = $geo['country'];
+                    $log->country_code = $geo['country_code'];
+                    $log->city = $geo['city'];
+                    \Illuminate\Support\Facades\DB::table('v2_visitor_log')->where('id', $log->id)->update([
+                        'country' => $geo['country'],
+                        'country_code' => $geo['country_code'],
+                        'city' => $geo['city'],
+                    ]);
+                }
             }
         }
 
