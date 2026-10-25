@@ -709,4 +709,45 @@ CREATE TABLE `v2_security_configs` (
   UNIQUE KEY `idx_security_key` (`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+DROP TABLE IF EXISTS `v2_user_login_log`;
+CREATE TABLE `v2_user_login_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `email` varchar(128) DEFAULT NULL,
+  `ip` varchar(255) DEFAULT NULL,
+  `type` varchar(64) DEFAULT NULL,
+  `ua` text DEFAULT NULL,
+  `created_at` int(11) DEFAULT NULL,
+  `updated_at` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_login_user_id` (`user_id`),
+  KEY `idx_user_login_ip` (`ip`),
+  KEY `idx_user_login_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DROP TABLE IF EXISTS `v2_visitor_log`;
+CREATE TABLE `v2_visitor_log` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `ip` varchar(45) NOT NULL COMMENT '访客IP',
+  `visit_count` int(11) NOT NULL DEFAULT '1' COMMENT '访问频次',
+  `country` varchar(64) DEFAULT NULL COMMENT '国家',
+  `country_code` varchar(10) DEFAULT NULL COMMENT '国家代码(ISO)',
+  `flag` varchar(16) DEFAULT NULL COMMENT '国旗Emoji',
+  `province` varchar(64) DEFAULT NULL COMMENT '省份',
+  `city` varchar(64) DEFAULT NULL COMMENT '城市/地区',
+  `location` varchar(128) DEFAULT NULL COMMENT '完整位置',
+  `browser` varchar(64) DEFAULT NULL COMMENT '浏览器',
+  `os` varchar(64) DEFAULT NULL COMMENT '操作系统',
+  `device` varchar(32) DEFAULT NULL COMMENT '设备类型',
+  `ua` text DEFAULT NULL COMMENT 'User-Agent',
+  `last_url` varchar(255) DEFAULT NULL COMMENT '最后访问URL',
+  `created_at` int(11) NOT NULL,
+  `updated_at` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_visitor_ip` (`ip`),
+  KEY `idx_visitor_updated_at` (`updated_at`),
+  KEY `idx_visitor_count` (`visit_count`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='网站访客访问记录';
+
+
 

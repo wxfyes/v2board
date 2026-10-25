@@ -12,6 +12,7 @@ class CommController extends Controller
     public function config()
     {
         Helper::blockCrawlers();
+        \App\Services\VisitorService::logVisit(request(), '/');
         return response([
             'data' => [
                 'tos_url' => config('v2board.tos_url'),

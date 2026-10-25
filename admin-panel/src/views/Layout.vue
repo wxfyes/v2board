@@ -111,6 +111,10 @@
             <el-icon><Tickets /></el-icon>
             <span>登录记录</span>
           </el-menu-item>
+          <el-menu-item index="/visitor-logs">
+            <el-icon><View /></el-icon>
+            <span>访客记录</span>
+          </el-menu-item>
           <el-menu-item index="/checkin-logs">
             <el-icon><Calendar /></el-icon>
             <span>每日签到记录</span>
@@ -305,6 +309,10 @@
           <el-menu-item index="/login-logs">
             <el-icon><Tickets /></el-icon>
             <span>登录记录</span>
+          </el-menu-item>
+          <el-menu-item index="/visitor-logs">
+            <el-icon><View /></el-icon>
+            <span>访客记录</span>
           </el-menu-item>
           <el-menu-item index="/checkin-logs">
             <el-icon><Calendar /></el-icon>
