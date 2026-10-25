@@ -8,10 +8,8 @@ import {
   Table,
   Tag,
   Tooltip,
-  Modal,
   message,
   Space,
-  Typography,
   Pagination,
   Empty,
   Popconfirm
@@ -20,9 +18,6 @@ import {
   SearchOutlined,
   ReloadOutlined,
   DeleteOutlined,
-  CopyOutlined,
-  StopOutlined,
-  CheckCircleOutlined
 } from '@ant-design/icons';
 import { get, post } from '@/api/request';
 import { adminPath } from '@/app/settings';
@@ -31,9 +26,164 @@ import { AdminLayout } from '@/layouts/AdminLayout';
 import { useMobile } from '@/hooks/useMobile';
 import copy from 'copy-to-clipboard';
 
-const { Text } = Typography;
+// 真实高清国旗矢量素材组件（规避 Windows 系统不支持 Emoji 旗帜的缺陷）
+export const FlagIcon: React.FC<{ code?: string; country?: string }> = ({ code = '', country = '' }) => {
+  const c = (code || '').toUpperCase();
+  const name = country || '';
 
-// 彩色/经典浏览器与操作系统 SVG 图标组件
+  // 1. 中国五星红旗 (CN)
+  if (c === 'CN' || name.includes('中国')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 900 600" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <path fill="#de2910" d="M0 0h900v600H0z" />
+        <polygon fill="#ffde00" points="150,50 179,141 255,86 197,166 273,221 179,221 150,300 121,221 27,221 103,166 45,86 121,141" />
+        <polygon fill="#ffde00" points="300,50 310,79 335,62 316,88 341,105 311,105 301,130 292,105 262,105 287,88 268,62 293,79" />
+        <polygon fill="#ffde00" points="360,100 370,129 395,112 376,138 401,155 371,155 361,180 352,155 322,155 347,138 328,112 353,129" />
+        <polygon fill="#ffde00" points="360,200 370,229 395,212 376,238 401,255 371,255 361,280 352,255 322,255 347,238 328,212 353,229" />
+        <polygon fill="#ffde00" points="300,250 310,279 335,262 316,288 341,305 311,305 301,330 292,305 262,305 287,288 268,262 293,279" />
+      </svg>
+    );
+  }
+
+  // 2. 朝鲜国旗 (KP)
+  if (c === 'KP' || name.includes('朝鲜') || name.includes('North Korea')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 72 36" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="72" height="36" fill="#024FA2" />
+        <rect y="6" width="72" height="24" fill="#fff" />
+        <rect y="8" width="72" height="20" fill="#ED1C27" />
+        <circle cx="24" cy="18" r="8" fill="#fff" />
+        <polygon points="24,10.5 26.2,15 31,15.5 27.5,19 28.5,23.8 24,21.5 19.5,23.8 20.5,19 17,15.5 21.8,15" fill="#ED1C27" />
+      </svg>
+    );
+  }
+
+  // 3. 美国星条旗 (US)
+  if (c === 'US' || name.includes('United States') || name.includes('美国')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 741 390" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="741" height="390" fill="#B22234" />
+        <path d="M0,45H741M0,105H741M0,165H741M0,225H741M0,285H741M0,345H741" stroke="#fff" strokeWidth="30" />
+        <rect width="296" height="210" fill="#3C3B6E" />
+        <circle cx="50" cy="50" r="14" fill="#fff" />
+        <circle cx="150" cy="50" r="14" fill="#fff" />
+        <circle cx="250" cy="50" r="14" fill="#fff" />
+        <circle cx="100" cy="105" r="14" fill="#fff" />
+        <circle cx="200" cy="105" r="14" fill="#fff" />
+        <circle cx="50" cy="160" r="14" fill="#fff" />
+        <circle cx="150" cy="160" r="14" fill="#fff" />
+        <circle cx="250" cy="160" r="14" fill="#fff" />
+      </svg>
+    );
+  }
+
+  // 4. 韩国太极旗 (KR)
+  if (c === 'KR' || name.includes('Korea') || name.includes('韩国')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 72 48" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="72" height="48" fill="#fff" />
+        <path d="M36,12 A12,12 0 0,0 36,36 A6,6 0 0,0 36,24 A6,6 0 0,1 36,12" fill="#C60C30" />
+        <path d="M36,12 A12,12 0 0,1 36,36 A6,6 0 0,1 36,24 A6,6 0 0,0 36,12" fill="#003478" />
+        <rect x="12" y="14" width="3" height="8" fill="#000" />
+        <rect x="17" y="14" width="3" height="8" fill="#000" />
+        <rect x="52" y="26" width="3" height="8" fill="#000" />
+        <rect x="57" y="26" width="3" height="8" fill="#000" />
+      </svg>
+    );
+  }
+
+  // 5. 中国香港旗 (HK)
+  if (c === 'HK' || name.includes('香港')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 72 48" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="72" height="48" fill="#DE2910" />
+        <circle cx="36" cy="24" r="8" fill="#fff" />
+        <circle cx="36" cy="24" r="5" fill="#DE2910" />
+      </svg>
+    );
+  }
+
+  // 6. 中国台湾旗 (TW)
+  if (c === 'TW' || name.includes('台湾')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 72 48" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="72" height="48" fill="#FE0000" />
+        <rect width="36" height="24" fill="#000095" />
+        <circle cx="18" cy="12" r="7" fill="#fff" />
+        <circle cx="18" cy="12" r="5" fill="#000095" />
+      </svg>
+    );
+  }
+
+  // 7. 日本国旗 (JP)
+  if (c === 'JP' || name.includes('日本')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 72 48" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="72" height="48" fill="#fff" />
+        <circle cx="36" cy="24" r="11" fill="#BC002D" />
+      </svg>
+    );
+  }
+
+  // 8. 英国米字旗 (GB/UK)
+  if (c === 'GB' || c === 'UK' || name.includes('英国')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 72 36" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="72" height="36" fill="#012169" />
+        <path d="M0,0 L72,36 M72,0 L0,36" stroke="#fff" strokeWidth="6" />
+        <path d="M0,0 L72,36 M72,0 L0,36" stroke="#C8102E" strokeWidth="2" />
+        <path d="M36,0 V36 M0,18 H72" stroke="#fff" strokeWidth="10" />
+        <path d="M36,0 V36 M0,18 H72" stroke="#C8102E" strokeWidth="6" />
+      </svg>
+    );
+  }
+
+  // 9. 德国国旗 (DE)
+  if (c === 'DE' || name.includes('德国')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 72 45" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="72" height="15" fill="#000" />
+        <rect y="15" width="72" height="15" fill="#DD0000" />
+        <rect y="30" width="72" height="15" fill="#FFCE00" />
+      </svg>
+    );
+  }
+
+  // 10. 俄罗斯国旗 (RU)
+  if (c === 'RU' || name.includes('俄罗斯')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 72 45" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="72" height="15" fill="#fff" />
+        <rect y="15" width="72" height="15" fill="#0039A6" />
+        <rect y="30" width="72" height="15" fill="#D52B1E" />
+      </svg>
+    );
+  }
+
+  // 11. 新加坡国旗 (SG)
+  if (c === 'SG' || name.includes('新加坡')) {
+    return (
+      <svg width="22" height="15" viewBox="0 0 72 48" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+        <rect width="72" height="24" fill="#ED2939" />
+        <rect y="24" width="72" height="24" fill="#fff" />
+        <circle cx="18" cy="12" r="6" fill="#fff" />
+        <circle cx="20" cy="12" r="5" fill="#ED2939" />
+      </svg>
+    );
+  }
+
+  // 兜底通用国际旗帜 (其他海外)
+  return (
+    <svg width="22" height="15" viewBox="0 0 72 48" style={{ verticalAlign: 'middle', marginRight: 6, borderRadius: 2, boxShadow: '0 0 1px rgba(0,0,0,0.35)' }}>
+      <rect width="72" height="48" fill="#1890ff" />
+      <circle cx="36" cy="24" r="14" fill="none" stroke="#fff" strokeWidth="2.5" />
+      <ellipse cx="36" cy="24" rx="7" ry="14" fill="none" stroke="#fff" strokeWidth="2" />
+      <line x1="22" y1="24" x2="50" y2="24" stroke="#fff" strokeWidth="2" />
+    </svg>
+  );
+};
+
+// 浏览器图标
 const BrowserIcon: React.FC<{ name?: string }> = ({ name = '' }) => {
   const n = name.toLowerCase();
   if (n.includes('chrome')) {
@@ -77,27 +227,15 @@ const BrowserIcon: React.FC<{ name?: string }> = ({ name = '' }) => {
       </svg>
     );
   }
-  if (n.includes('wechat') || n.includes('micromessenger')) {
-    return (
-      <svg width="18" height="18" viewBox="0 0 32 32" style={{ verticalAlign: 'middle', marginRight: 6 }}>
-        <circle cx="12" cy="12" r="10" fill="#07C160" />
-        <circle cx="21" cy="20" r="8" fill="#09B056" />
-        <circle cx="9" cy="10" r="1.5" fill="#fff" />
-        <circle cx="15" cy="10" r="1.5" fill="#fff" />
-        <circle cx="19" cy="19" r="1.2" fill="#fff" />
-        <circle cx="24" cy="19" r="1.2" fill="#fff" />
-      </svg>
-    );
-  }
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" style={{ verticalAlign: 'middle', marginRight: 6 }}>
       <circle cx="12" cy="12" r="10" fill="none" stroke="#888" strokeWidth="2" />
       <ellipse cx="12" cy="12" rx="4" ry="10" fill="none" stroke="#888" strokeWidth="1.5" />
-      <line x1="2" y1="12" x2="22" y2="12" stroke="#888" strokeWidth="1.5" />
     </svg>
   );
 };
 
+// 操作系统图标
 const OsIcon: React.FC<{ name?: string }> = ({ name = '' }) => {
   const n = name.toLowerCase();
   if (n.includes('win')) {
@@ -112,35 +250,14 @@ const OsIcon: React.FC<{ name?: string }> = ({ name = '' }) => {
       <svg width="18" height="18" viewBox="0 0 32 32" style={{ verticalAlign: 'middle', marginRight: 6 }}>
         <path d="M9 13v10c0 .6.4 1 1 1h2v4a1.5 1.5 0 0 0 3 0v-4h2v4a1.5 1.5 0 0 0 3 0v-4h2c.6 0 1-.4 1-1V13H9z" fill="#78C257" />
         <path d="M10.5 11h11a5.5 5.5 0 0 0-11 0z" fill="#78C257" />
-        <line x1="12" y1="5" x2="13.5" y2="7.5" stroke="#78C257" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="20" y1="5" x2="18.5" y2="7.5" stroke="#78C257" strokeWidth="1.5" strokeLinecap="round" />
-        <circle cx="13" cy="9.5" r="1" fill="#fff" />
-        <circle cx="19" cy="9.5" r="1" fill="#fff" />
-        <rect x="6" y="13" width="2" height="7" rx="1" fill="#78C257" />
-        <rect x="24" y="13" width="2" height="7" rx="1" fill="#78C257" />
       </svg>
     );
   }
-  if (n.includes('mac') || n.includes('ios') || n.includes('apple')) {
+  if (n.includes('mac') || n.includes('ios')) {
     const isDark = n.includes('ios');
     return (
       <svg width="18" height="18" viewBox="0 0 170 170" style={{ verticalAlign: 'middle', marginRight: 6 }}>
-        <path
-          d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.67-7.81-11.96-14.34-7.5-11.39-13.3-24.62-17.4-39.69-4.1-15.07-6.15-28.77-6.15-41.11 0-14.35 3.42-26.47 10.26-36.35 6.84-9.88 15.63-14.93 26.36-15.15 4.36 0 9.28 1.15 14.75 3.44 5.48 2.29 9.39 3.51 11.75 3.65 2.12 0 6.15-1.33 12.08-3.98 5.94-2.65 11.25-3.86 15.93-3.65 11.83.64 21.32 4.96 28.46 12.96-10.45 6.34-15.54 15.08-15.28 26.23.27 8.92 3.66 16.34 10.18 22.28 6.52 5.94 14.19 9.3 23 10.08-2.12 6.52-4.77 13.04-7.96 19.57zM119.22 31.84c0-7.39 2.65-14.18 7.96-20.37 5.3-6.19 11.85-10.02 19.64-11.47.27 1.09.41 2.18.41 3.26 0 7.39-2.73 14.38-8.2 20.97-5.46 6.59-12.06 10.37-19.81 11.33v-3.72z"
-          fill={isDark ? '#000' : '#495057'}
-        />
-      </svg>
-    );
-  }
-  if (n.includes('linux')) {
-    return (
-      <svg width="18" height="18" viewBox="0 0 32 32" style={{ verticalAlign: 'middle', marginRight: 6 }}>
-        <ellipse cx="16" cy="18" rx="8" ry="10" fill="#333" />
-        <ellipse cx="16" cy="19" rx="5" ry="7" fill="#fff" />
-        <circle cx="16" cy="9" r="6" fill="#333" />
-        <circle cx="14" cy="8.5" r="1" fill="#fff" />
-        <circle cx="18" cy="8.5" r="1" fill="#fff" />
-        <polygon points="16,10 14,13 18,13" fill="#FFA500" />
+        <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.67-7.81-11.96-14.34-7.5-11.39-13.3-24.62-17.4-39.69-4.1-15.07-6.15-28.77-6.15-41.11 0-14.35 3.42-26.47 10.26-36.35 6.84-9.88 15.63-14.93 26.36-15.15 4.36 0 9.28 1.15 14.75 3.44 5.48 2.29 9.39 3.51 11.75 3.65 2.12 0 6.15-1.33 12.08-3.98 5.94-2.65 11.25-3.86 15.93-3.65 11.83.64 21.32 4.96 28.46 12.96-10.45 6.34-15.54 15.08-15.28 26.23.27 8.92 3.66 16.34 10.18 22.28 6.52 5.94 14.19 9.3 23 10.08-2.12 6.52-4.77 13.04-7.96 19.57zM119.22 31.84c0-7.39 2.65-14.18 7.96-20.37 5.3-6.19 11.85-10.02 19.64-11.47.27 1.09.41 2.18.41 3.26 0 7.39-2.73 14.38-8.2 20.97-5.46 6.59-12.06 10.37-19.81 11.33v-3.72z" fill={isDark ? '#000' : '#495057'} />
       </svg>
     );
   }
@@ -152,6 +269,7 @@ const OsIcon: React.FC<{ name?: string }> = ({ name = '' }) => {
   );
 };
 
+// 设备图标
 const DeviceIcon: React.FC<{ type?: string }> = ({ type = 'Desktop' }) => {
   const t = type.toLowerCase();
   if (t === 'mobile') {
@@ -168,7 +286,6 @@ const DeviceIcon: React.FC<{ type?: string }> = ({ type = 'Desktop' }) => {
       <svg width="18" height="18" viewBox="0 0 24 24" style={{ verticalAlign: 'middle', marginRight: 6 }}>
         <rect x="4" y="2" width="16" height="20" rx="2" fill="#13c2c2" />
         <rect x="6" y="4" width="12" height="14" rx="1" fill="#fff" />
-        <circle cx="12" cy="19.5" r="0.8" fill="#fff" />
       </svg>
     );
   }
@@ -266,21 +383,19 @@ export default function VisitorLogsPage() {
     return dayjs(timestamp * 1000).format('YYYY-MM-DD HH:mm:ss');
   };
 
-  // 100% 还原图一的表格列
   const columns: any[] = [
     {
       title: 'IP',
       dataIndex: 'ip',
       key: 'ip',
       width: 170,
-      render: (ip: string, record: any) => (
+      render: (ip: string) => (
         <span
           style={{
             color: '#2b8a3e',
             fontWeight: 500,
             cursor: 'pointer',
             fontSize: 14,
-            textDecoration: 'none'
           }}
           onClick={() => copyIp(ip)}
           title="点击复制 IP"
@@ -304,10 +419,10 @@ export default function VisitorLogsPage() {
     {
       title: '位置',
       key: 'location',
-      width: 150,
+      width: 160,
       render: (_: any, record: any) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-          <span style={{ fontSize: 16 }}>{record.flag || '🇨🇳'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', fontSize: 13 }}>
+          <FlagIcon code={record.country_code} country={record.country} />
           <span>{record.city || record.province || record.country || '未知'}</span>
         </div>
       )
@@ -362,7 +477,7 @@ export default function VisitorLogsPage() {
     {
       title: '操作',
       key: 'action',
-      width: 120,
+      width: 100,
       align: 'center',
       render: (_: any, record: any) => (
         <Space size={4}>
@@ -470,8 +585,8 @@ export default function VisitorLogsPage() {
                     <Tag color="blue">{item.visit_count || 1} 次访问</Tag>
                   </div>
 
-                  <div style={{ fontSize: 13, color: '#555', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>{item.flag || '🇨🇳'}</span>
+                  <div style={{ fontSize: 13, color: '#555', marginBottom: 4, display: 'flex', alignItems: 'center' }}>
+                    <FlagIcon code={item.country_code} country={item.country} />
                     <span>{item.city || item.province || item.country || '未知'}</span>
                   </div>
 
