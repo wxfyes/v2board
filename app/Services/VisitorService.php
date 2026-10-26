@@ -26,12 +26,12 @@ class VisitorService
             $candidatePaths = [
                 __DIR__ . '/../Utils/ip2region.xdb',
                 __DIR__ . '/../Utils/ip2region_v4.xdb',
-                base_path('app/Utils/ip2region.xdb'),
+                dirname(__DIR__) . '/Utils/ip2region.xdb',
             ];
 
             $xdbPath = null;
             foreach ($candidatePaths as $p) {
-                if (file_exists($p)) {
+                if ($p && file_exists($p)) {
                     $xdbPath = $p;
                     break;
                 }
@@ -55,20 +55,110 @@ class VisitorService
         }
     }
 
+    // 常见国家英文/简码到标准中文的映射
+    private static array $countryMap = [
+        'UNITED STATES' => '美国', 'USA' => '美国', 'US' => '美国',
+        'FRANCE' => '法国', 'FR' => '法国',
+        'UNITED KINGDOM' => '英国', 'UK' => '英国', 'GREAT BRITAIN' => '英国', 'ENGLAND' => '英国', 'GB' => '英国',
+        'JAPAN' => '日本', 'JP' => '日本',
+        'KOREA' => '韩国', 'SOUTH KOREA' => '韩国', 'REPUBLIC OF KOREA' => '韩国', 'KR' => '韩国',
+        'NORTH KOREA' => '朝鲜', 'KP' => '朝鲜',
+        'GERMANY' => '德国', 'DE' => '德国',
+        'RUSSIA' => '俄罗斯', 'RUSSIAN FEDERATION' => '俄罗斯', 'RU' => '俄罗斯',
+        'SINGAPORE' => '新加坡', 'SG' => '新加坡',
+        'CANADA' => '加拿大', 'CA' => '加拿大',
+        'AUSTRALIA' => '澳大利亚', 'AU' => '澳大利亚',
+        'NETHERLANDS' => '荷兰', 'NL' => '荷兰',
+        'NORWAY' => '挪威', 'NO' => '挪威',
+        'SWEDEN' => '瑞典', 'SE' => '瑞典',
+        'SWITZERLAND' => '瑞士', 'CH' => '瑞士',
+        'ITALY' => '意大利', 'IT' => '意大利',
+        'SPAIN' => '西班牙', 'ES' => '西班牙',
+        'BRAZIL' => '巴西', 'BR' => '巴西',
+        'INDIA' => '印度', 'IN' => '印度',
+        'VIETNAM' => '越南', 'VN' => '越南',
+        'THAILAND' => '泰国', 'TH' => '泰国',
+        'MALAYSIA' => '马来西亚', 'MY' => '马来西亚',
+        'INDONESIA' => '印尼', 'ID' => '印尼',
+        'PHILIPPINES' => '菲律宾', 'PH' => '菲律宾',
+        'IRELAND' => '爱尔兰', 'IE' => '爱尔兰',
+        'FINLAND' => '芬兰', 'FI' => '芬兰',
+        'POLAND' => '波兰', 'PL' => '波兰',
+        'TURKEY' => '土耳其', 'TR' => '土耳其',
+        'UKRAINE' => '乌克兰', 'UA' => '乌克兰',
+        'MEXICO' => '墨西哥', 'MX' => '墨西哥',
+        'HONG KONG' => '香港', 'HK' => '香港',
+        'MACAU' => '澳门', 'MO' => '澳门',
+        'TAIWAN' => '台湾', 'TW' => '台湾',
+        'CHINA' => '中国', 'CN' => '中国',
+    ];
+
+    // 常见国外主要城市与地区英文到中文映射
+    private static array $cityMap = [
+        'LOS ANGELES' => '洛杉矶',
+        'NEW YORK' => '纽约',
+        'NEW YORK CITY' => '纽约',
+        'SAN JOSE' => '圣何塞',
+        'SAN FRANCISCO' => '旧金山',
+        'SEATTLE' => '西雅图',
+        'CHICAGO' => '芝加哥',
+        'DALLAS' => '达拉斯',
+        'WASHINGTON' => '华盛顿',
+        'SILICON VALLEY' => '硅谷',
+        'VIRGINIA BEACH' => '弗吉尼亚海滩',
+        'VIRGINIA' => '弗吉尼亚',
+        'MOSES LAKE' => '摩西湖',
+        'CALIFORNIA' => '加利福尼亚',
+        'PARIS' => '巴黎',
+        'LONDON' => '伦敦',
+        'ENGLAND' => '英格兰',
+        'TOKYO' => '东京',
+        'OSAKA' => '大阪',
+        'SEOUL' => '首尔',
+        'OSLO' => '奥斯陆',
+        'FRANKFURT' => '法兰克福',
+        'FRANKFURT AM MAIN' => '法兰克福',
+        'BERLIN' => '柏林',
+        'AMSTERDAM' => '阿姆斯特丹',
+        'SYDNEY' => '悉尼',
+        'MELBOURNE' => '墨尔本',
+        'TORONTO' => '多伦多',
+        'VANCOUVER' => '温哥华',
+        'MOSCOW' => '莫斯科',
+        'SAINT PETERSBURG' => '圣彼得堡',
+        'SINGAPORE' => '新加坡',
+        'BANGKOK' => '曼谷',
+        'KUALA LUMPUR' => '吉隆坡',
+        'MANILA' => '马尼拉',
+        'HANOI' => '河内',
+        'HO CHI MINH CITY' => '胡志明市',
+        'TAIPEI' => '台北',
+        'HONG KONG' => '香港',
+        'MACAU' => '澳门',
+    ];
+
     /**
-     * 解析 IP 归属地与国家代码
+     * 解析 IP 归属地与国家代码（支持 IPv4/IPv6、中文规整化、省份+城市展示）
      */
     public static function parseIpLocation(string $ip): array
     {
         try {
             if (empty($ip) || $ip === '127.0.0.1' || !filter_var($ip, FILTER_VALIDATE_IP)) {
-                return ['country' => '局域网', 'country_code' => 'LAN', 'city' => '内网', 'province' => ''];
+                return ['country' => '局域网', 'country_code' => 'LAN', 'city' => '内网', 'province' => '', 'location' => '内网'];
             }
 
             if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
-                return ['country' => '局域网', 'country_code' => 'LAN', 'city' => '局域网', 'province' => ''];
+                return ['country' => '局域网', 'country_code' => 'LAN', 'city' => '局域网', 'province' => '', 'location' => '局域网'];
             }
 
+            $isV6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+
+            // 1. IPv6 优先复用系统自带的纯真 IPv6 数据库
+            if ($isV6) {
+                return self::parseIPv6Location($ip);
+            }
+
+            // 2. IPv4 使用离线 ip2region.xdb 解析
             $searcher = self::getSearcher();
             if ($searcher) {
                 $raw = $searcher->search($ip);
@@ -84,41 +174,208 @@ class VisitorService
                     $countryCode = '';
                     if (!empty($c4) && strlen($c4) <= 4) {
                         $countryCode = strtoupper($c4);
-                    } elseif ($c0 === '中国' || str_contains($c0, '中国')) {
-                        $countryCode = 'CN';
-                    } elseif (stripos($c0, 'United States') !== false || $c0 === 'USA' || $c0 === 'US') {
-                        $countryCode = 'US';
-                    } elseif (stripos($c0, 'Korea') !== false || $c0 === 'KR') {
-                        $countryCode = 'KR';
-                    } elseif (stripos($c0, 'North Korea') !== false || $c0 === 'KP') {
-                        $countryCode = 'KP';
-                    } elseif (stripos($c0, 'Japan') !== false || $c0 === 'JP') {
-                        $countryCode = 'JP';
-                    }
-
-                    // 规范化城市名称（对齐图一）
-                    $city = '';
-                    if ($countryCode === 'CN') {
-                        $city = $c2 ?: $c1;
-                        // 移除结尾的 "市"，保持与图一一致的 "上海"、"广州"、"佛山"、"石家庄"、"杭州" 等
-                        $city = preg_replace('/市$/u', '', $city);
                     } else {
-                        // 海外 IP：优先城市，若为 0 则显示州/省或 ISP/国家名
-                        $city = $c2 ?: ($c1 ?: ($c3 ?: $c0));
+                        $c0Upper = strtoupper($c0);
+                        if (isset(self::$countryMap[$c0Upper])) {
+                            // 查找对应的二字码
+                            foreach (self::$countryMap as $k => $v) {
+                                if (strlen($k) === 2 && self::$countryMap[$c0Upper] === $v) {
+                                    $countryCode = $k;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (empty($countryCode)) {
+                        $countryCode = ($c0 === '中国' || str_contains($c0, '中国')) ? 'CN' : 'GL';
                     }
 
+                    // A. 中国大陆及港澳台处理
+                    if ($countryCode === 'CN' || $c0 === '中国') {
+                        // 特别行政区处理
+                        if (str_contains($c1, '香港') || str_contains($c0, '香港')) {
+                            return ['country' => '中国香港', 'country_code' => 'HK', 'city' => '香港', 'province' => '香港', 'location' => '中国香港'];
+                        }
+                        if (str_contains($c1, '澳门') || str_contains($c0, '澳门')) {
+                            return ['country' => '中国澳门', 'country_code' => 'MO', 'city' => '澳门', 'province' => '澳门', 'location' => '中国澳门'];
+                        }
+                        if (str_contains($c1, '台湾') || str_contains($c0, '台湾')) {
+                            $twCity = self::cleanCityName($c2);
+                            $display = $twCity ? "台湾 $twCity" : '台湾';
+                            return ['country' => '中国台湾', 'country_code' => 'TW', 'city' => $display, 'province' => '台湾', 'location' => '中国台湾 ' . $twCity];
+                        }
+
+                        // 国内普通省份 + 城市（先省份后地名，如 "安徽 铜陵"、"福建 泉州"）
+                        $prov = self::cleanProvinceName($c1);
+                        $city = self::cleanCityName($c2);
+                        $display = self::formatChinaLocation($prov, $city);
+
+                        return [
+                            'country' => '中国',
+                            'country_code' => 'CN',
+                            'province' => $prov,
+                            'city' => $display,
+                            'location' => trim('中国 ' . $prov . ' ' . $city),
+                        ];
+                    }
+
+                    // B. 海外 IP（国家中文 + 城市中文，整齐规整）
+                    $cUpper = strtoupper($c0);
+                    $countryCn = self::$countryMap[$cUpper] ?? (self::$countryMap[$countryCode] ?? $c0);
+
+                    $cityRaw = $c2 ?: ($c1 ?: $c0);
+                    $cityUpper = strtoupper($cityRaw);
+                    $cityCn = self::$cityMap[$cityUpper] ?? $cityRaw;
+
+                    $display = trim($countryCn . ' ' . $cityCn);
                     return [
-                        'country' => $c0 ?: '未知',
-                        'country_code' => $countryCode ?: 'UN',
+                        'country' => $countryCn,
+                        'country_code' => $countryCode,
                         'province' => $c1,
-                        'city' => $city ?: '未知',
-                        'location' => trim(($c0 ?: '') . ' ' . ($c1 ?: '') . ' ' . ($city ?: '')),
+                        'city' => $display ?: $countryCn,
+                        'location' => $display ?: $countryCn,
                     ];
                 }
             }
         } catch (\Throwable $e) {}
 
         return ['country' => '未知', 'country_code' => 'UN', 'city' => '未知', 'province' => '', 'location' => '未知'];
+    }
+
+    /**
+     * 复用纯真数据库解析 IPv6
+     */
+    private static function parseIPv6Location(string $ip): array
+    {
+        try {
+            if (!class_exists('\App\Utils\IPv6WrySearcher')) {
+                $searcherFile = __DIR__ . '/../Utils/IPv6WrySearcher.php';
+                if (file_exists($searcherFile)) {
+                    require_once $searcherFile;
+                }
+            }
+
+            if (!class_exists('\App\Utils\IPv6WrySearcher')) {
+                return ['country' => '未知', 'country_code' => 'UN', 'city' => '未知', 'province' => '', 'location' => '未知'];
+            }
+
+            $rawText = \App\Utils\IPv6WrySearcher::search($ip);
+            if (empty($rawText)) {
+                return ['country' => '未知', 'country_code' => 'UN', 'city' => '未知', 'province' => '', 'location' => '未知'];
+            }
+
+            $clean = preg_replace('/[\t\s]+/', ' ', trim($rawText));
+            if (str_contains($clean, '局域网') || str_contains($clean, '本地') || str_contains($clean, '保留地址')) {
+                return ['country' => '局域网', 'country_code' => 'LAN', 'city' => '局域网', 'province' => '', 'location' => '局域网'];
+            }
+
+            // 1. 中国 IPv6（如 "中国 福建省 厦门市 集美区 中国移动公众宽带"）
+            if (str_starts_with($clean, '中国') || str_contains($clean, '省') || str_contains($clean, '自治区') || str_contains($clean, '特别行政区')) {
+                $parts = explode(' ', $clean);
+                $provRaw = $parts[1] ?? ($parts[0] ?? '');
+                $cityRaw = $parts[2] ?? '';
+
+                if (str_contains($clean, '香港')) {
+                    return ['country' => '中国香港', 'country_code' => 'HK', 'city' => '香港', 'province' => '香港', 'location' => '中国香港'];
+                }
+                if (str_contains($clean, '澳门')) {
+                    return ['country' => '中国澳门', 'country_code' => 'MO', 'city' => '澳门', 'province' => '澳门', 'location' => '中国澳门'];
+                }
+                if (str_contains($clean, '台湾')) {
+                    $twCity = self::cleanCityName($cityRaw);
+                    return ['country' => '中国台湾', 'country_code' => 'TW', 'city' => $twCity ? "台湾 $twCity" : '台湾', 'province' => '台湾', 'location' => '中国台湾'];
+                }
+
+                $prov = self::cleanProvinceName($provRaw);
+                $city = self::cleanCityName($cityRaw);
+                $display = self::formatChinaLocation($prov, $city);
+
+                return [
+                    'country' => '中国',
+                    'country_code' => 'CN',
+                    'province' => $prov,
+                    'city' => $display,
+                    'location' => trim('中国 ' . $prov . ' ' . $city),
+                ];
+            }
+
+            // 2. 海外 IPv6（如 "德国 Hessen州 Frankfurt Am Main Google Inc 服务器网段"）
+            $parts = explode(' ', $clean);
+            $cName = $parts[0] ?? '海外';
+            $pName = $parts[1] ?? '';
+            $cityName = $parts[2] ?? '';
+
+            $cUpper = strtoupper($cName);
+            $countryCode = 'GL';
+            $countryCn = self::$countryMap[$cUpper] ?? $cName;
+
+            foreach (self::$countryMap as $code => $cn) {
+                if ($cName === $cn || str_contains($cName, $cn)) {
+                    if (strlen($code) === 2) {
+                        $countryCode = $code;
+                        $countryCn = $cn;
+                        break;
+                    }
+                }
+            }
+
+            $cityCn = self::$cityMap[strtoupper($cityName)] ?? (self::$cityMap[strtoupper($pName)] ?? ($cityName ?: $pName));
+            $display = trim($countryCn . ' ' . $cityCn);
+
+            return [
+                'country' => $countryCn,
+                'country_code' => $countryCode,
+                'province' => $pName,
+                'city' => $display ?: $countryCn,
+                'location' => $clean,
+            ];
+        } catch (\Throwable $e) {
+            return ['country' => '未知', 'country_code' => 'UN', 'city' => '未知', 'province' => '', 'location' => '未知'];
+        }
+    }
+
+    /**
+     * 清洗中国省份名称（去除后缀保留纯地名，如 "安徽省" -> "安徽"）
+     */
+    private static function cleanProvinceName(string $prov): string
+    {
+        $prov = trim($prov);
+        return preg_replace('/(省|壮族自治区|维吾尔自治区|回族自治区|自治区|特别行政区)$/u', '', $prov);
+    }
+
+    /**
+     * 清洗中国城市名称（去除结尾"市"等后缀，如 "铜陵市" -> "铜陵"）
+     */
+    private static function cleanCityName(string $city): string
+    {
+        $city = trim($city);
+        if ($city === '0' || empty($city)) return '';
+        if ($city !== '市') {
+            $city = preg_replace('/市$/u', '', $city);
+        }
+        return $city;
+    }
+
+    /**
+     * 规范化中国地理显示（直辖市直接显示，其他显示 "省份 城市"）
+     */
+    private static function formatChinaLocation(string $prov, string $city): string
+    {
+        $directCities = ['北京', '上海', '天津', '重庆'];
+        foreach ($directCities as $dc) {
+            if ($prov === $dc || str_contains($prov, $dc)) {
+                return $dc;
+            }
+        }
+
+        if (!empty($prov) && !empty($city)) {
+            if ($prov === $city) {
+                return $prov;
+            }
+            return "$prov $city";
+        }
+
+        return $prov ?: ($city ?: '中国');
     }
 
     /**

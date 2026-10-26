@@ -462,6 +462,85 @@ const renderFlagIcon = (code = '', country = '') => {
     return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
       <rect width="72" height="24" fill="#ED2939"/>
       <rect y="24" width="72" height="24" fill="#fff"/>
+      <circle cx="18" cy="12" r="6" fill="#fff"/>
+      <circle cx="20" cy="12" r="5" fill="#ED2939"/>
+    </svg>`;
+  }
+
+  // 12. 法国国旗 (FR)
+  if (c === 'FR' || name.includes('法国') || name.includes('France')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="24" height="48" fill="#002654"/>
+      <rect x="24" width="24" height="48" fill="#fff"/>
+      <rect x="48" width="24" height="48" fill="#ED2939"/>
+    </svg>`;
+  }
+
+  // 13. 挪威国旗 (NO)
+  if (c === 'NO' || name.includes('挪威') || name.includes('Norway')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="48" fill="#BA0C2F"/>
+      <path d="M0,24 H72 M24,0 V48" stroke="#fff" stroke-width="12"/>
+      <path d="M0,24 H72 M24,0 V48" stroke="#00205B" stroke-width="6"/>
+    </svg>`;
+  }
+
+  // 14. 荷兰国旗 (NL)
+  if (c === 'NL' || name.includes('荷兰') || name.includes('Netherlands')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 45" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="15" fill="#AE1C28"/>
+      <rect y="15" width="72" height="15" fill="#fff"/>
+      <rect y="30" width="72" height="15" fill="#21468B"/>
+    </svg>`;
+  }
+
+  // 15. 加拿大国旗 (CA)
+  if (c === 'CA' || name.includes('加拿大') || name.includes('Canada')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 36" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="18" height="36" fill="#FF0000"/>
+      <rect x="18" width="36" height="36" fill="#fff"/>
+      <rect x="54" width="18" height="36" fill="#FF0000"/>
+      <polygon points="36,8 39,18 48,15 42,22 45,28 36,25 27,28 30,22 24,15 33,18" fill="#FF0000"/>
+    </svg>`;
+  }
+
+  // 16. 澳大利亚国旗 (AU)
+  if (c === 'AU' || name.includes('澳大利亚') || name.includes('Australia')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 36" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="36" fill="#012169"/>
+      <rect width="36" height="18" fill="#00247D"/>
+      <path d="M0,0 L36,18 M36,0 L0,18" stroke="#fff" stroke-width="3"/>
+      <path d="M18,0 V18 M0,9 H36" stroke="#fff" stroke-width="5"/>
+      <path d="M18,0 V18 M0,9 H36" stroke="#CF142B" stroke-width="3"/>
+      <circle cx="18" cy="27" r="3" fill="#fff"/>
+      <circle cx="54" cy="18" r="2" fill="#fff"/>
+    </svg>`;
+  }
+
+  // 17. 意大利国旗 (IT)
+  if (c === 'IT' || name.includes('意大利') || name.includes('Italy')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="24" height="48" fill="#009246"/>
+      <rect x="24" width="24" height="48" fill="#fff"/>
+      <rect x="48" width="24" height="48" fill="#CE2B37"/>
+    </svg>`;
+  }
+
+  // 18. 西班牙国旗 (ES)
+  if (c === 'ES' || name.includes('西班牙') || name.includes('Spain')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="12" fill="#AA151B"/>
+      <rect y="12" width="72" height="24" fill="#F1BF00"/>
+      <rect y="36" width="72" height="12" fill="#AA151B"/>
+    </svg>`;
+  }
+
+  // 19. 中国澳门特区旗 (MO)
+  if (c === 'MO' || name.includes('澳门')) {
+    return `<svg width="22" height="15" viewBox="0 0 72 48" style="vertical-align: middle; margin-right: 6px; border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.35);">
+      <rect width="72" height="48" fill="#007A5E"/>
+      <circle cx="36" cy="24" r="8" fill="#fff"/>
+      <circle cx="36" cy="24" r="5" fill="#007A5E"/>
     </svg>`;
   }
 
