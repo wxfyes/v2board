@@ -292,9 +292,26 @@ class SystemController extends Controller
 
         foreach ($res as $log) {
             $log->is_banned = isset($blacklistedIps[$log->ip]) ? 1 : 0;
-            if (empty($log->country_code) || str_contains((string)$log->city, 'CN') || empty($log->country) || $log->country === '未知') {
+            
+            // 智能静默纠偏与历史数据升级：
+            // 1. 未解析成功的 IPv6 或未知国家
+            // 2. 包含旧版英文城市名（如 Virginia Beach, Paris, Los Angeles）
+            // 3. 中国普通地名缺少省份前缀（如单纯"铜陵"、"泉州"）或带有"市"后缀
+            $needRefresh = false;
+            $cityStr = (string)$log->city;
+            if (empty($log->country_code) || $log->country_code === 'UN' || empty($log->country) || $log->country === '未知') {
+                $needRefresh = true;
+            } elseif (str_contains($cityStr, 'CN') || preg_match('/市$/u', $cityStr)) {
+                $needRefresh = true;
+            } elseif (preg_match('/[a-zA-Z]{3,}/', $cityStr)) {
+                $needRefresh = true;
+            } elseif ($log->country_code === 'CN' && !in_array($cityStr, ['北京', '上海', '天津', '重庆', '香港', '澳门', '台湾']) && !str_contains($cityStr, ' ')) {
+                $needRefresh = true;
+            }
+
+            if ($needRefresh) {
                 $geo = \App\Services\VisitorService::parseIpLocation($log->ip);
-                if ($geo['country_code'] !== 'UN') {
+                if ($geo['country_code'] !== 'UN' || $geo['city'] !== '未知') {
                     $log->country = $geo['country'];
                     $log->country_code = $geo['country_code'];
                     $log->city = $geo['city'];

@@ -45,8 +45,6 @@ class IPv6WrySearcher
             self::$db_path = $db_path;
         } elseif (self::$db_path === null) {
             $candidatePaths = [
-                function_exists('app_path') ? app_path('Utils/ipv6wry.db') : null,
-                function_exists('base_path') ? base_path('app/Utils/ipv6wry.db') : null,
                 __DIR__ . '/ipv6wry.db',
                 dirname(__DIR__) . '/Utils/ipv6wry.db',
             ];
