@@ -615,11 +615,12 @@ class UserController extends Controller
             $allowNewPeriod = 0;
         }
 
-        // 方案 B 阶梯准入门槛锁：
+        // 方案 B 阶梯准入门槛锁（5 道安全防线）：
         // 1. 严格排斥一次性套餐 (无限期套餐绝对禁止开启新周期，防无限套现)
-        // 2. 严格排斥月付套餐 (month_price)
-        // 3. 剩余有效时长必须 >= 60 天
+        // 2. 严格排斥月付套餐 (month_price，仅限长期预付费会员特权)
+        // 3. 剩余有效时长必须 >= 60 天 (确保至少保有一个完整月，防欠费变负数)
         // 4. 当月提前开启次数不能超过阶梯配额 (季付1次、半年付2次、年付3次)
+        // 5. 当期流量必须严格耗尽 (剩余 < 1% 或 < 500MB，与 newPeriod 执行拦截完全对齐)
         if ($allowNewPeriod) {
             $isQualified = false;
             $periodLimitMap = [
@@ -644,6 +645,39 @@ class UserController extends Controller
                     }
                 }
             }
+
+            // 准入门槛锁 5：当期流量必须真正耗尽（与 newPeriod 执行拦截 100% 绝对一致）
+            if ($isQualified) {
+                $u = isset($user->u) ? $user->u : ($user['u'] ?? null);
+                $d = isset($user->d) ? $user->d : ($user['d'] ?? null);
+                $transferEnable = isset($user->transfer_enable) ? $user->transfer_enable : ($user['transfer_enable'] ?? null);
+
+                // 若 user 集合中未包含 u/d 字段（如 info 接口），从 User 模型安全补充查询
+                if ($u === null || $d === null || $transferEnable === null) {
+                    $userTraffic = User::where('id', $userId)->select(['u', 'd', 'transfer_enable'])->first();
+                    if ($userTraffic) {
+                        $u = $userTraffic->u;
+                        $d = $userTraffic->d;
+                        $transferEnable = $userTraffic->transfer_enable;
+                    } else {
+                        $u = 0;
+                        $d = 0;
+                        $transferEnable = 0;
+                    }
+                }
+
+                $usedTraffic = (int)$u + (int)$d;
+                $remainingTraffic = (int)$transferEnable - $usedTraffic;
+
+                $isExhausted = ($usedTraffic >= (int)$transferEnable) 
+                    || ($remainingTraffic <= 524288000) 
+                    || ((int)$transferEnable > 0 && ($remainingTraffic / (int)$transferEnable) <= 0.01);
+
+                if (!$isExhausted) {
+                    $isQualified = false;
+                }
+            }
+
             $allowNewPeriod = $isQualified ? 1 : 0;
         }
         $user['allow_new_period'] = $allowNewPeriod;
