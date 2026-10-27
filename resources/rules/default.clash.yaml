@@ -7,13 +7,14 @@ allow-lan: true
 bind-address: "*"
 mode: rule
 log-level: info
+ipv6: true
 external-controller: 127.0.0.1:9090
 
 dns:
   enable: true
   cache-algorithm: arc
   listen: '0.0.0.0:1053'
-  ipv6: false
+  ipv6: true
   use-hosts: true
   use-system-hosts: true
   respect-rules: false
