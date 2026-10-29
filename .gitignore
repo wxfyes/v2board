@@ -36,3 +36,4 @@ workerman.log
 /storage/app/external_nodes.json
 /storage/app/*.json
 /storage/tianque_config.json
+/storage/traitor_list.json
