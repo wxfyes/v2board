@@ -22,24 +22,25 @@ class TraitorDefense
     {
         return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
             $traitorListPath = storage_path('traitor_list.json');
-            if (!file_exists($traitorListPath)) {
+
+            $traitorData = file_exists($traitorListPath) ? (json_decode(@file_get_contents($traitorListPath), true) ?: []) : null;
+            $emails = is_array($traitorData) ? array_values(array_unique(array_filter(array_map('strtolower', $traitorData['emails'] ?? [])))) : [];
+            $ips = is_array($traitorData) ? array_values(array_unique(array_filter($traitorData['ips'] ?? []))) : [];
+
+            // 若本地文件不存在，或仅包含初始示例占位数据，主动尝试从数据库持久化备份表自愈
+            if (!file_exists($traitorListPath) || $emails === ['example_traitor@gmail.com']) {
                 $dbData = self::getBackupFromDb('traitor_list');
-                if (!empty($dbData) && is_array($dbData)) {
+                if (!empty($dbData) && is_array($dbData) && (!empty($dbData['emails']) || !empty($dbData['ips']))) {
+                    $dbEmails = array_values(array_unique(array_filter(array_map('strtolower', $dbData['emails'] ?? []))));
+                    $dbIps = array_values(array_unique(array_filter($dbData['ips'] ?? [])));
                     @file_put_contents(
                         $traitorListPath,
-                        json_encode($dbData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+                        json_encode(['emails' => $dbEmails, 'ips' => $dbIps], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
                         LOCK_EX
                     );
-                    $emails = array_values(array_unique(array_filter(array_map('strtolower', $dbData['emails'] ?? []))));
-                    $ips = array_values(array_unique(array_filter($dbData['ips'] ?? [])));
-                    return ['emails' => $emails, 'ips' => $ips];
+                    return ['emails' => $dbEmails, 'ips' => $dbIps];
                 }
-                return ['emails' => [], 'ips' => []];
             }
-
-            $traitorData = json_decode(@file_get_contents($traitorListPath), true) ?: [];
-            $emails = array_values(array_unique(array_filter(array_map('strtolower', $traitorData['emails'] ?? []))));
-            $ips = array_values(array_unique(array_filter($traitorData['ips'] ?? [])));
 
             return [
                 'emails' => $emails,
