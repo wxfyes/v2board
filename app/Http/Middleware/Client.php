@@ -231,6 +231,9 @@ class Client
             default:
                 break;
         }
+        if (!is_string($token)) {
+            abort(403, 'token is error');
+        }
         $user = User::where('token', $token)->first();
         if (!$user) {
             // Token 不存在通常是因为用户重置了订阅，但旧设备还在后台自动拉取。
